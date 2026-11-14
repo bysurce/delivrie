@@ -127,12 +127,14 @@ async function teams(body) {
   body.innerHTML = `<div class="row-flex" style="margin-bottom:14px"><div class="input-wrap" style="max-width:320px;flex:1"><span class="lead">${icon("search", 13)}</span><input class="input" data-q placeholder="Search teams" style="padding-left:30px"></div><span class="grow"></span><span class="dim" data-total></span></div><div data-list></div>`;
   const list = body.querySelector("[data-list]");
   const load = async () => {
-    rows = await rpc("admin_teams", { p_search: q, p_limit: size, p_offset: page * size });
+    const [r, paused] = await Promise.all([rpc("admin_teams", { p_search: q, p_limit: size, p_offset: page * size }), rpc("admin_paused_teams").catch(() => [])]);
+    const pmap = new Map((paused || []).map((x) => [x.id, x]));
+    rows = r.map((t) => ({ ...t, paused: pmap.get(t.id) || null }));
     const total = rows[0]?.total || 0;
     body.querySelector("[data-total]").textContent = `${num(total)} teams`;
     list.innerHTML = rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Team</th><th>Plan</th><th class="r">Emails (30d)</th><th class="r">Members</th><th class="r">Domains</th><th class="r">Credits</th><th>Created</th><th></th></tr></thead><tbody>${rows.map((t) => `<tr>
         <td><div>${esc(t.name)}</div><div class="dim" style="font-size:12px">${esc(t.owner_email || "")}</div></td>
-        <td>${planBadge(t.plan)} ${t.plan_marketing && t.plan_marketing !== "free" ? badge("Mkt " + t.plan_marketing, "gray") : ""} ${t.billing_status === "past_due" ? badge("Past due", "red") : t.billing_status === "cancelling" ? badge("Cancelling", "orange") : ""}</td>
+        <td>${t.paused ? `<span title="${esc(t.paused.sending_paused_reason || "")}">${badge("Sending paused", "red")}</span> ` : ""}${planBadge(t.plan)} ${t.plan_marketing && t.plan_marketing !== "free" ? badge("Mkt " + t.plan_marketing, "gray") : ""} ${t.billing_status === "past_due" ? badge("Past due", "red") : t.billing_status === "cancelling" ? badge("Cancelling", "orange") : ""}</td>
         <td class="r">${num(t.emails_30d)}</td><td class="r">${num(t.members)}</td><td class="r">${num(t.domains)}</td><td class="r">${num(t.credits)}</td>
         <td class="muted">${fmtDate(t.created_at)}</td>
         <td class="act"><button class="ibtn" data-team="${t.id}" title="Manage">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No teams found" })}</div>`;
@@ -144,6 +146,14 @@ async function teams(body) {
     const { menu } = await import("../lib/ui.js");
     menu(b, [
       { header: t.name },
+      t.paused
+        ? { label: "Resume sending", icon: "play", onClick: async () => {
+            if (!(await confirmModal({ title: "Resume sending", desc: `<b>${esc(t.name)}</b> was paused: ${esc(t.paused.sending_paused_reason || "no reason recorded")}<br><br>Resume only once they've explained the cause and cleaned their list.`, confirm: "Resume sending", danger: false }))) return;
+            try { await rpc("admin_set_sending_paused", { p_team: t.id, p_paused: false }); toast("Sending resumed"); load(); } catch (e) { errToast(e); }
+          } }
+        : { label: "Pause sending", icon: "pause", onClick: () => formModal({ title: "Pause sending", desc: `Stop <b>${esc(t.name)}</b> from sending until you resume it. Their API calls get 403 sending_paused.`, fields: [{ name: "reason", label: "Reason (shown to the team)", placeholder: "High bounce rate from an imported list" }], submit: "Pause sending",
+            async onSubmit(v) { await rpc("admin_set_sending_paused", { p_team: t.id, p_paused: true, p_reason: v.reason }); toast("Sending paused"); load(); } }) },
+      { sep: true },
       ...["free", "starter", "pro", "scale", "enterprise"].filter((p) => p !== t.plan).map((p) => ({ label: `Set plan: ${p.replace(/^\w/, (c) => c.toUpperCase())}`, icon: "card", onClick: async () => {
         if (!(await confirmModal({ title: "Change plan", desc: `Move <b>${esc(t.name)}</b> to <b>${esc(p)}</b> without charging them? Use this for comps and support fixes.`, confirm: "Change plan", danger: false }))) return;
         try { await rpc("admin_set_plan", { p_team: t.id, p_plan: p }); toast("Plan updated"); load(); } catch (e) { errToast(e); }

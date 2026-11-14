@@ -218,6 +218,7 @@ async function sendEmails(c: Ctx, bodies: Any[], idem: string | null, batch = fa
     const prev = await previousSend(c, keys);
     if (prev) return prev;
   }
+  await assertNotPaused(c);
   await checkQuota(c, bodies.length);
   const rows = [];
   for (let i = 0; i < bodies.length; i++) rows.push(await prepareEmail(c, bodies[i], keys ? keys[i] : null));
@@ -287,6 +288,7 @@ async function recipientsFor(teamId: string, b: Any) {
   return { list, total, topicOptOut };
 }
 async function scheduleBroadcast(c: Ctx, id: string, when?: string | null) {
+  await assertNotPaused(c);
   const { data: b } = await db.from("broadcasts").select("*").eq("team_id", c.teamId).eq("id", id).maybeSingle();
   if (!b) throw notFound("Broadcast");
   if (!["draft", "scheduled"].includes(b.status)) throw bad(`This broadcast is already ${b.status}`);
@@ -357,7 +359,45 @@ async function runCron() {
       if (u && u.status !== d.status) await emit(d.team_id, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
     }
   }
+  // 7. reputation check, once an hour
+  if (new Date().getUTCMinutes() === 23) await reputationWatch().catch((e) => console.error("reputation watch failed", e));
   return { scheduled_released: due?.length || 0, broadcasts_started: bc?.length || 0 };
+}
+
+// ---------------------------------------------------------------- reputation
+// Pauses a team whose mail hurts our shared reputation: over the last 7 days, a bounce rate above 4% (at least
+// 100 emails) or a complaint rate above 0.08% (at least 1,000 emails). Test addresses and system emails don't count.
+// Team admins get an email saying why; a platform admin resumes the team from Admin → Teams.
+const REPUTATION = { bounce: 0.04, bounceMin: 100, complaint: 0.0008, complaintMin: 1000, days: 7 };
+async function reputationWatch() {
+  const { data: stats } = await db.rpc("reputation_stats", { p_days: REPUTATION.days });
+  const paused: string[] = [];
+  for (const r of (stats || []) as Any[]) {
+    const sent = Number(r.sent), b = Number(r.bounced) / sent, c = Number(r.complained) / sent;
+    let reason = "";
+    if (sent >= REPUTATION.bounceMin && b > REPUTATION.bounce) reason = `Bounce rate of ${(b * 100).toFixed(1)}% over the last ${REPUTATION.days} days (${Number(r.bounced)} of ${sent} emails). The limit is 4%.`;
+    else if (sent >= REPUTATION.complaintMin && c > REPUTATION.complaint) reason = `Spam complaint rate of ${(c * 100).toFixed(2)}% over the last ${REPUTATION.days} days (${Number(r.complained)} of ${sent} emails). The limit is 0.08%.`;
+    if (!reason) continue;
+    const { data: t } = await db.from("teams").update({ sending_paused_at: new Date().toISOString(), sending_paused_reason: reason }).eq("id", r.team_id).is("sending_paused_at", null).select("id,name").maybeSingle();
+    if (!t) continue; // already paused
+    paused.push(t.id);
+    await notifyPaused(t, reason).catch((e) => console.error("pause notice failed", e));
+  }
+  return { paused };
+}
+async function notifyPaused(t: Any, reason: string) {
+  if (!SYSTEM_FROM) return;
+  const { data: admins } = await db.from("team_members").select("user_id").eq("team_id", t.id).eq("role", "admin");
+  const to: string[] = [];
+  for (const m of admins || []) { const { data } = await db.auth.admin.getUserById(m.user_id); if (data?.user?.email) to.push(data.user.email); }
+  if (!to.length) return;
+  const text = `Sending is paused for ${t.name} on Delivrie.\n\n${reason}\n\nHigh bounce and complaint rates make mailbox providers block email for everyone, so we pause sending until it's fixed. Common causes are old or purchased lists, typos in sign-up forms, and emailing people who didn't ask for it. Your suppression list already blocks the addresses that bounced or complained.\n\nReply to this email, or write to support@delivrie.io, with what caused it and what you've changed, and we'll resume sending. Guide: ${APP_URL}/docs/deliverability`;
+  const html = text.split("\n\n").map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/(https:\/\/\S+)/g, '<a href="$1">$1</a>')}</p>`).join("");
+  await db.from("emails").insert({ team_id: t.id, from: SYSTEM_FROM, to, reply_to: ["support@delivrie.io"], subject: `Sending is paused for ${t.name}`, text, html, status: "queued", direction: "outbound", tags: [{ name: "system", value: "reputation" }] });
+}
+async function assertNotPaused(c: Ctx) {
+  const { data: t } = await db.from("teams").select("sending_paused_at,sending_paused_reason").eq("id", c.teamId).single();
+  if (t?.sending_paused_at) throw new HttpError(403, "sending_paused", `Sending is paused for this account. ${t.sending_paused_reason || ""} Contact support@delivrie.io to resume.`.replace(/\s+/g, " ").trim());
 }
 
 // ---------------------------------------------------------------- router

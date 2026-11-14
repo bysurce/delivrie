@@ -16,8 +16,14 @@ Deliverability is whether your email reaches the inbox rather than the spam fold
 
 | Metric | Keep it under | What happens above it |
 | --- | --- | --- |
-| Bounce rate | 4% | Providers start blocking you; Delivrie may pause sending to protect your domain |
-| Complaint rate | 0.08% (and never above 0.3%) | Gmail and Yahoo filter or reject your mail |
+| Bounce rate | 4% | Providers start blocking you, and Delivrie pauses your sending |
+| Complaint rate | 0.08% (and never above 0.3%) | Gmail and Yahoo filter or reject your mail, and Delivrie pauses your sending |
+
+### Automatic pause
+
+Delivrie checks every account once an hour. If, over the last 7 days, more than 4% of your emails bounced (once you've sent at least 100) or more than 0.08% were marked as spam (once you've sent at least 1,000), sending is paused for the whole account. Sends then fail with `403 sending_paused`, and your team admins get an email explaining why. Emails to the [test addresses](/docs/test-mode) don't count.
+
+To resume, find the cause (usually an old or imported list, or a sign-up form without validation), remove the bad addresses, and email support@delivrie.io with what you changed. This protects your domain's reputation as well as everyone else's.
 
 Watch both in [Metrics](https://delivrie.io/metrics) or with `GET /metrics`.
 

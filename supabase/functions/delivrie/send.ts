@@ -87,6 +87,16 @@ export async function deliver(emailId: string) {
   // claim the row (queued -> sending marker via attempts++) to avoid double sends
   const { data: e } = await db.from("emails").select("*").eq("id", emailId).single();
   if (!e || e.status !== "queued") return;
+  // A team paused for its bounce or complaint rate can't send (automations and queued mail included); our own
+  // notices to it, like the pause email, still go out.
+  if (!(e.tags || []).some((t: Any) => t?.name === "system")) {
+    const { data: tm } = await db.from("teams").select("sending_paused_at").eq("id", e.team_id).single();
+    if (tm?.sending_paused_at) {
+      await db.from("emails").update({ status: "failed", error: "Sending is paused for this account. Contact support@delivrie.io." }).eq("id", e.id);
+      await db.from("email_events").insert({ email_id: e.id, team_id: e.team_id, type: "failed", data: { reason: "sending_paused" } });
+      return;
+    }
+  }
   const { data: claimed } = await db.from("emails").update({ attempts: e.attempts + 1 }).eq("id", e.id).eq("attempts", e.attempts).eq("status", "queued").select("id");
   if (!claimed?.length) return;
 

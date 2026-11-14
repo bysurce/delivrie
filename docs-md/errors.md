@@ -22,6 +22,7 @@ Branch on `name` in code and show `message` to people: it's written to say exact
 | 401 | `invalid_api_key` | The key doesn't exist or was deleted | Check the key; create a new one in [API keys](https://delivrie.io/api-keys) |
 | 403 | `restricted_api_key` | A sending-only key called another endpoint, or sent from a domain it isn't allowed to use | Use a full access key, or send from the key's domain |
 | 403 | `plan_limit_reached` | You've reached your plan's domain or webhook limit | Remove one, or upgrade in [Billing](https://delivrie.io/billing) |
+| 403 | `sending_paused` | Sending is paused because your bounce or complaint rate went over the limit (see [Deliverability](/docs/deliverability)) | Fix the cause, then email support@delivrie.io to resume |
 | 403 | `insufficient_scope` | An MCP or OAuth connection wasn't granted this scope | Reconnect and approve the scope |
 | 404 | `not_found` | Nothing with that id in this team | Check the id, and that the key belongs to the right team |
 | 409 | `domain_exists` | The domain is already in this team | Use the existing domain |
