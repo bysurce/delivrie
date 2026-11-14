@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-export const SUPABASE_URL = "https://hnjejflinvaoxbduxeiu.supabase.co";
+// Supabase on our own domain (custom domain add-on), so Google/GitHub sign-in shows auth.delivrie.io.
+export const SUPABASE_URL = "https://auth.delivrie.io";
 const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuamVqZmxpbnZhb3hiZHV4ZWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MjMyOTMsImV4cCI6MjEwOTk5OTI5M30.f0HGnl7_UsEyUBKnyWVyxuC9q1l7nKum0XFokyoKM-8";
 export const API_BASE = `${location.origin}/api`;
-export const sb = createClient(SUPABASE_URL, ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" } });
+export const sb = createClient(SUPABASE_URL, ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "sb-hnjejflinvaoxbduxeiu-auth-token" } });
 
 export const state = { session: null, user: null, profile: null, teams: [], team: null, role: null, status: null };
 
