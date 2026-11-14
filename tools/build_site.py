@@ -122,9 +122,6 @@ def page(path, title, desc, body, extra_script="", jsonld=None, noindex=False, o
     open(out, "w").write(doc)
     return out
 
-def eyebrow(t):
-    return f'<span class="eyebrow"><i></i>{E(t)}</span>'
-
 def rich(t):
     # allow the small set of inline links used in the copy; everything else is plain text
     return t if "<a " in t else E(t).replace("“", "“")
@@ -171,11 +168,11 @@ def legal(doc):
 # ---------------------------------------------------------------- company
 def hero(eb, h1, lede, buttons, center=False):
     b = "".join(f'<a class="{c}" href="{h}">{E(t)}</a>' for t, h, c in buttons)
-    return f'<section class="s-hero{" center" if center else ""}"><div class="wrap reveal in">{eyebrow(eb)}<h1>{h1}</h1><p class="lede">{E(lede)}</p>{('<div class="btn-row">' + b + '</div>') if b else ""}</div></section>'
+    return f'<section class="s-hero{" center" if center else ""}"><div class="wrap reveal in"><h1>{h1}</h1><p class="lede">{E(lede)}</p>{('<div class="btn-row">' + b + '</div>') if b else ""}</div></section>'
 
 def head2(eb, h2, lede="", lede_html=""):
     lede_html = lede_html or (E(lede) if lede else "")
-    return f'<div class="section-head reveal"><div>{eyebrow(eb)}<h2>{h2}</h2></div><div class="grow"></div>{f"<p class=lede>{lede_html}</p>" if lede_html else ""}</div>'
+    return f'<div class="section-head reveal"><div><h2>{h2}</h2></div><div class="grow"></div>{f"<p class=lede>{lede_html}</p>" if lede_html else ""}</div>'
 
 def cards(items, cols=4):
     # An optional 4th item is a class: "only-ngn" or "only-usd" shows the card to visitors in Nigeria or elsewhere.
@@ -186,7 +183,7 @@ def about():
     body += """<section class="section"><div class="wrap"><div class="stats reveal-stagger">
       <div><b>4,000</b><span>free emails every month</span></div><div><b>$ and ₦</b><span>pricing in your currency</span></div><div><b>64</b><span>MCP tools for AI agents</span></div><div><b>1 call</b><span>to send an email</span></div></div></div></section>"""
     body += f"""<section class="section"><div class="wrap split-2">
-      <div class="reveal">{eyebrow("Our story")}<h2 class="h2">Why we built it</h2></div>
+      <div class="reveal"><h2 class="h2">Why we built it</h2></div>
       <div class="prose reveal"><p>Teams everywhere kept hitting the same wall: emails that never arrived, dashboards that hid the reason, and pricing in dollars that punished growth.</p>
       <p>So we built the email platform we wanted. A clean API, honest logs, templates and an MCP server for agents, priced in dollars, with Naira for teams in Nigeria.</p>
       <p>We are a small team based in Lagos, building for developers everywhere, and we answer support ourselves.</p></div></div></section>"""
@@ -203,14 +200,14 @@ def customers():
         ("users", "Marketing", "Broadcasts to segments with topics, a hosted preference page and one-click unsubscribe."),
         ("code", "SaaS", "Sign-up codes, password resets and invites from templates you version and publish."),
         ("globe", "Agencies", "Separate teams for each client, each with its own domains, keys and billing.")], 3) + "</div></section>"
-    body += """<section class="section"><div class="wrap"><div class="story-cta reveal"><div><span class="eyebrow"><i></i>Customer stories</span><h2 class="h2">Your story could be here</h2><p class="lede">We are featuring our first customers. If Delivrie made your email better, we would love to tell your story, with your approval on every word.</p></div><a class="b-primary" href="mailto:hello@delivrie.io?subject=Customer%20story">Share your story</a></div></div></section>"""
+    body += """<section class="section"><div class="wrap"><div class="story-cta reveal"><div><h2 class="h2">Your story could be here</h2><p class="lede">We are featuring our first customers. If Delivrie made your email better, we would love to tell your story, with your approval on every word.</p></div><a class="b-primary" href="mailto:hello@delivrie.io?subject=Customer%20story">Share your story</a></div></div></section>"""
     body += CTA
     return page("/customers", "Customers", "How teams use Delivrie to send receipts, OTPs, password resets, AI agent emails and newsletters from their own domain.", body)
 
 def careers():
     body = hero("Careers", "Help the internet<br> reach the inbox.", "We are a small, remote-friendly team building email infrastructure for developers and AI agents everywhere.", [("See open roles", "#roles", "b-primary")])
     body += f'<section class="section"><div class="wrap">{head2("How we work", "What working here is like")}' + cards([("globe", "Remote-friendly", "Based in Lagos, working with people wherever they do their best work."), ("info", "Written decisions", "Few meetings, clear docs and real focus time."), ("users", "Small team, real ownership", "You ship things customers use the same week.")], 3) + "</div></section>"
-    body += """<section class="section" id="roles"><div class="wrap"><div class="story-cta reveal"><div><span class="eyebrow"><i></i>Open roles</span><h2 class="h2">No open roles right now</h2><p class="lede">We are not hiring for specific roles at the moment. If you would love to build email infrastructure, email jobs@delivrie.io and tell us what you would build.</p></div><a class="b-secondary" href="mailto:jobs@delivrie.io">Email jobs@delivrie.io</a></div></div></section>"""
+    body += """<section class="section" id="roles"><div class="wrap"><div class="story-cta reveal"><div><h2 class="h2">No open roles right now</h2><p class="lede">We are not hiring for specific roles at the moment. If you would love to build email infrastructure, email jobs@delivrie.io and tell us what you would build.</p></div><a class="b-secondary" href="mailto:jobs@delivrie.io">Email jobs@delivrie.io</a></div></div></section>"""
     body += CTA
     return page("/careers", "Careers", "Join Delivrie and work on email infrastructure for developers and AI agents: APIs, deliverability and MCP.", body)
 
@@ -235,7 +232,7 @@ def brand():
 # ---------------------------------------------------------------- resources
 def changelog():
     items = "".join(f'<section class="cl-item reveal"><div class="cl-date">{E(d)}</div><div class="cl-body"><h2>{E(t)}</h2><div class="cl-tags">{"".join(f"<span>{E(x)}</span>" for x in tags)}</div><ul>{"".join(f"<li>{E(i)}</li>" for i in lis)}</ul></div></section>' for d, t, tags, lis in CHANGELOG)
-    body = f"""<section class="s-hero"><div class="wrap reveal in">{eyebrow("Changelog")}<h1>What’s new in Delivrie</h1><div class="btn-row"><a class="b-secondary" href="/changelog.xml">RSS feed</a><a class="b-ghost" href="/docs/changelog">In the docs</a></div></div></section>
+    body = f"""<section class="s-hero"><div class="wrap reveal in"><h1>What’s new in Delivrie</h1><div class="btn-row"><a class="b-secondary" href="/changelog.xml">RSS feed</a><a class="b-ghost" href="/docs/changelog">In the docs</a></div></div></section>
   <section class="section cl"><div class="wrap">{items}</div></section>"""
     page("/changelog", "Changelog", "Everything new in Delivrie: SMTP relay, MCP tools, dollar and Naira pricing, inbox, automations and API updates, newest first.", body)
     rss = "".join(f"<item><title>{E(t)}</title><link>https://delivrie.io/changelog</link><guid isPermaLink=\"false\">{E(d)}-{E(t)}</guid><description>{E(' '.join(lis))}</description></item>" for d, t, tags, lis in CHANGELOG)
@@ -246,7 +243,7 @@ def blog():
     first, *rest = POSTS
     feat = f'<a class="featured reveal" href="/blog/{first["slug"]}"><div class="art"><img src="/assets/mark.svg" alt=""></div><div><span class="cat">{E(first["cat"])}</span><h2>{E(first["title"])}</h2><p>{E(first["lede"])}</p><span class="by">Delivrie team · {E(first["date"])} · {first["mins"]} min</span></div></a>'
     grid = '<div class="grid3 posts reveal-stagger">' + "".join(f'<a class="post" href="/blog/{p["slug"]}" data-cat="{E(p["cat"])}"><span class="cat">{E(p["cat"])}</span><h3>{E(p["title"])}</h3><p>{E(p["lede"])}</p><span class="by">Delivrie team · {E(p["date"])}</span></a>' for p in rest) + "</div>"
-    body = f"""<section class="s-hero"><div class="wrap reveal in">{eyebrow("Blog")}<h1>Notes on email,<br> infrastructure and agents</h1><div class="cats">{"".join(f'<button class="{"on" if c == "All" else ""}" data-cat="{E(c)}">{E(c)}</button>' for c in cats)}</div></div></section>
+    body = f"""<section class="s-hero"><div class="wrap reveal in"><h1>Notes on email,<br> infrastructure and agents</h1><div class="cats">{"".join(f'<button class="{"on" if c == "All" else ""}" data-cat="{E(c)}">{E(c)}</button>' for c in cats)}</div></div></section>
   <section class="section blog"><div class="wrap">{feat}{grid}</div></section>
   {CTA}"""
     page("/blog", "Blog: email deliverability, DMARC and AI agents", "Guides and notes from the Delivrie team on email deliverability, DMARC, pricing and letting AI agents send email safely.", body)
@@ -273,7 +270,7 @@ def blog():
         page(f"/blog/{p['slug']}", p["title"], p["lede"], body, jsonld=[post_ld, crumbs(("Home", "/"), ("Blog", "/blog"), (p["title"], f"/blog/{p['slug']}"))], og_type="article")
 
 def status():
-    body = """<section class="s-hero st-hero"><div class="wrap st-wrap reveal in"><span class="eyebrow"><i></i>Status</span><h1>System status</h1>
+    body = """<section class="s-hero st-hero"><div class="wrap st-wrap reveal in"><h1>System status</h1>
     <p class="lede">Every part of Delivrie is checked automatically every five minutes, around the clock. This page updates itself.</p>
     <div class="st-banner" id="st-banner"><i></i><div><b>Checking systems…</b><span id="st-time" class="dim"></span></div></div>
     <div class="st-stats" id="st-stats"></div>
@@ -288,7 +285,7 @@ def contact_sales():
     feats = [("zap", "Volume pricing", "Discounts from 1M emails a month, billed in dollars or Naira."), ("shield", "Security review", "Our DPA, security answers and a call with the team."), ("globe", "Dedicated IPs", "Warm-up plans and help with deliverability."), ("users", "Migration help", "We help you move templates, contacts and suppressions.")]
     fl = "".join(f'<div class="cs-f"><span class="fic">{ICON[i]}</span><div><b>{E(t)}</b><span>{E(d)}</span></div></div>' for i, t, d in feats)
     body = f"""<section class="cs"><div class="wrap cs-grid">
-    <div class="reveal in">{eyebrow("Sales")}<h1>Talk to our team</h1><p class="lede">High volume, dedicated IPs or a custom contract? Tell us what you are sending and we will reply within one business day.</p>{fl}</div>
+    <div class="reveal in"><h1>Talk to our team</h1><p class="lede">High volume, dedicated IPs or a custom contract? Tell us what you are sending and we will reply within one business day.</p>{fl}</div>
     <form class="cs-form reveal in" id="sales-form" novalidate>
       <div class="two"><label>First name<input name="first_name" required maxlength="80" autocomplete="given-name"></label><label>Last name<input name="last_name" required maxlength="80" autocomplete="family-name"></label></div>
       <label>Work email<input name="email" type="email" required maxlength="254" autocomplete="email"></label>

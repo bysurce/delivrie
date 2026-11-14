@@ -247,23 +247,6 @@
   } else targets.forEach(seen);
   liveInbox();
 
-  // ---- Pricing teaser currency
-  var PRICES = { NGN: { free: '₦0', starter: '₦10,000', pro: '₦27,000', scale: '₦45,000', payg: '₦600' }, USD: { free: '$0', starter: '$10', pro: '$20', scale: '$45', payg: '$0.60' } };
-  var cur;
-  var cc = (document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/) || [])[1];
-  cur = cc ? (cc === 'NG' ? 'NGN' : 'USD') : (/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD');
-  function setCur(c, animate) {
-    cur = c;
-    $$('.cur-toggle button').forEach(function (b) { b.classList.toggle('on', b.dataset.cur === c); });
-    $$('[data-price]').forEach(function (b) {
-      if (!animate || calm) { b.textContent = PRICES[c][b.dataset.price]; return; }
-      b.classList.add('swap');
-      setTimeout(function () { b.textContent = PRICES[c][b.dataset.price]; b.classList.remove('swap'); }, 180);
-    });
-  }
-  $$('.cur-toggle button').forEach(function (b) { b.addEventListener('click', function () { setCur(b.dataset.cur, true); }); });
-  if ($('.cur-toggle')) setCur(cur, false);
-
   // ---- Status in the footer
   var sys = $('#sys');
   if (sys && window.fetch) fetch('/api/public/status').then(function (r) { return r.json(); }).then(function (s) {

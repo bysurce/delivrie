@@ -82,8 +82,6 @@ export const LIMITS: Record<string, { month: number; day: number; domains: numbe
   enterprise: { month: 0, day: 0, domains: 0, members: 0, webhooks: 0, retention_days: 30, contacts: 0, segments: 0, overage: null },
 };
 // Marketing add-on: contacts allowed per tier.
-export const MARKETING_LIMITS: Record<string, number> = { free: 1000, growth: 5000, pro: 10_000 };
-
 export function asArray(v: unknown): string[] {
   if (v == null || v === "") return [];
   return (Array.isArray(v) ? v : [v]).map((x) => String(x).trim()).filter(Boolean);

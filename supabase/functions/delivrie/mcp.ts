@@ -166,4 +166,3 @@ export async function handleMcp(req: Request, call: Call): Promise<Response> {
   }
 }
 
-export const TOOL_NAMES = TOOLS.map((t) => t.name);
