@@ -1,0 +1,114 @@
+# Tests the Python SDK on every change, and publishes it to PyPI when run by hand from main with "publish" ticked.
+# Publishing uses PyPI trusted publishing (no token): on pypi.org, add a publisher for project "delivrie",
+# owner codeddesigner, repository delivrie, workflow publish-sdk-python.yml, environment pypi.
+name: Python SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/python/**", ".github/workflows/publish-sdk-python.yml"]
+  pull_request:
+    paths: ["sdk/python/**"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the version in sdk/python/src/delivrie/_version.py to PyPI
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: sdk/python
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --upgrade pip build
+      - run: python -m build
+      - name: Test the built wheel
+        run: |
+          python -m venv /tmp/v && /tmp/v/bin/pip install dist/*.whl
+          cd tests && /tmp/v/bin/python -m unittest -v
+
+  live:
+    # A real send against the API, through the built package.
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    env:
+      DELIVRIE_API_KEY: ${{ secrets.DELIVRIE_TEST_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build && python -m build && pip install dist/*.whl
+      - name: Is the name taken on PyPI?
+        run: 'echo "pypi.org/pypi/delivrie: HTTP $(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/delivrie/json) (404 means the name is free)"'
+      - name: Send to delivered@test.delivrie.io
+        working-directory: /tmp
+        run: |
+          python - <<'EOF'
+          import os, uuid
+          from delivrie import Delivrie, DelivrieError
+          if not os.environ.get("DELIVRIE_API_KEY"):
+              print("DELIVRIE_TEST_KEY isn't set; skipping"); raise SystemExit(0)
+          c = Delivrie()
+          key = f"py-ci-{uuid.uuid4()}"
+          msg = dict(from_="Delivrie CI <onboarding@delivrie.io>", to="delivered@test.delivrie.io",
+                     subject="[CI] Python SDK send", html="<p>Python SDK live test</p>", idempotency_key=key)
+          a = c.emails.send(**msg)
+          b = c.emails.send(**msg)
+          assert a["id"] == b["id"], (a, b)
+          print("sent", a["id"], "and the retry returned the same email")
+          try:
+              c.emails.send(from_="ci@not-a-verified-domain.example", to="delivered@test.delivrie.io", subject="x", text="x")
+              raise SystemExit("expected a validation error")
+          except DelivrieError as e:
+              assert e.status_code == 422 and e.name == "validation_error", e
+              print("error shape ok:", e)
+          EOF
+
+  publish:
+    needs: [test, live]
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build && python -m build
+      - name: Check the version isn't on PyPI yet
+        id: check
+        run: |
+          v=$(python -c "import re;print(re.search(r'\"(.+)\"', open('src/delivrie/_version.py').read())[1])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/delivrie/$v/json")
+          echo "PyPI says $code for delivrie $v"
+          if [ "$code" = "200" ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.check.outputs.exists != 'true'
+        with:
+          packages-dir: sdk/python/dist
+      - name: Confirm
+        run: |
+          for i in $(seq 1 18); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/delivrie/${{ steps.check.outputs.version }}/json")
+            [ "$code" = "200" ] && { echo "delivrie ${{ steps.check.outputs.version }} is live on PyPI"; exit 0; }
+            sleep 10
+          done
+          exit 1

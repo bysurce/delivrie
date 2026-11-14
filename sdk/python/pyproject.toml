@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "delivrie"
+dynamic = ["version"]
+description = "Official Python SDK for Delivrie: send transactional email, broadcasts and automations, and verify webhooks."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "South Circle", email = "support@delivrie.io" }]
+keywords = ["email", "transactional email", "email api", "smtp", "webhooks", "delivrie", "resend alternative"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Communications :: Email",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://delivrie.io"
+Documentation = "https://delivrie.io/docs/python"
+Source = "https://github.com/codeddesigner/delivrie/tree/main/sdk/python"
+Changelog = "https://delivrie.io/changelog"
+
+[tool.setuptools.dynamic]
+version = { attr = "delivrie._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+delivrie = ["py.typed"]
