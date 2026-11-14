@@ -248,7 +248,7 @@
   liveInbox();
 
   // ---- Pricing teaser currency
-  var PRICES = { NGN: { free: '₦0', pro: '₦10,000', scale: '₦45,000', payg: '₦600' }, USD: { free: '$0', pro: '$10', scale: '$45', payg: '$0.60' } };
+  var PRICES = { NGN: { free: '₦0', starter: '₦10,000', pro: '₦27,000', scale: '₦45,000', payg: '₦600' }, USD: { free: '$0', starter: '$10', pro: '$20', scale: '$45', payg: '$0.60' } };
   var cur;
   try { cur = localStorage.getItem('dlv_currency'); } catch (e) {}
   if (!cur) cur = /Lagos|Africa\//.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD';

@@ -29,7 +29,8 @@ const APP_URL = (env("APP_URL") || "https://delivrie.io").replace(/\/$/, "");
 // Prices follow the pricing page. Amounts are in the smallest unit: cents for USD, kobo for NGN.
 type Price = Record<string, number>;
 export const PLANS: Record<string, { name: string; emails: number; monthly: Price; yearly: Price; overage: Price }> = {
-  pro: { name: "Pro", emails: 20_000, monthly: { USD: 10_00, NGN: 10_000_00 }, yearly: { USD: 100_00, NGN: 100_000_00 }, overage: { USD: 45, NGN: 450_00 } },
+  starter: { name: "Starter", emails: 20_000, monthly: { USD: 10_00, NGN: 10_000_00 }, yearly: { USD: 100_00, NGN: 100_000_00 }, overage: { USD: 45, NGN: 450_00 } },
+  pro: { name: "Pro", emails: 60_000, monthly: { USD: 20_00, NGN: 27_000_00 }, yearly: { USD: 200_00, NGN: 270_000_00 }, overage: { USD: 45, NGN: 450_00 } },
   scale: { name: "Scale", emails: 100_000, monthly: { USD: 45_00, NGN: 45_000_00 }, yearly: { USD: 450_00, NGN: 450_000_00 }, overage: { USD: 40, NGN: 400_00 } },
 };
 // Marketing add-on, priced by contacts. "free" (Starter, 1,000 contacts) needs no subscription.
@@ -57,6 +58,7 @@ const vatOf = (amount: number) => Math.round(amount * VAT_RATE / 100);
 // Plan limits, mirrored from the API's enforcement table.
 const PLAN_LIMITS: Record<string, { domains: number; members: number; retention_days: number; day: number }> = {
   free: { domains: 1, members: 1, retention_days: 1, day: 200 },
+  starter: { domains: 10, members: 5, retention_days: 3, day: 0 },
   pro: { domains: 10, members: 5, retention_days: 3, day: 0 },
   scale: { domains: 1000, members: 0, retention_days: 7, day: 0 },
 };

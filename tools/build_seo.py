@@ -30,14 +30,18 @@ ORG = {"@type": "Organization", "@id": f"{SITE}/#org", "name": "Delivrie", "lega
 
 def pricing_data():
     js = rd("pricing.js")
-    ngn = re.search(r"NGN: \{ sym: '₦', pro: (\d+), scale: (\d+)", js); usd = re.search(r"USD: \{ sym: '\$', pro: (\d+), scale: (\d+)", js)
+    def prices(cur):
+        line = re.search(r"%s: \{ sym: [^\n]*" % cur, js)[0]
+        return tuple(int(re.search(r"\b%s: (\d+)" % k, line)[1]) for k in ("starter", "pro", "scale"))
     faq = re.findall(r"\['([^']+\?)', '((?:[^'\\]|\\.)*)'\]", js[js.index("var FAQ"):js.index("function faq")])
-    return {"ngn": (int(ngn[1]), int(ngn[2])), "usd": (int(usd[1]), int(usd[2])), "faq": [(q, a.replace("\\'", "'")) for q, a in faq]}
+    return {"ngn": prices("NGN"), "usd": prices("USD"), "faq": [(q, a.replace("\\'", "'")) for q, a in faq]}
 
 def app_ld(pd):
     offers = [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "NGN", "description": "6,000 emails a month, 200 a day"}]
-    for cur, (pro, scale) in (("NGN", pd["ngn"]), ("USD", pd["usd"])):
-        offers += [{"@type": "Offer", "name": "Pro", "price": str(pro), "priceCurrency": cur, "description": "20,000 emails a month",
+    for cur, (starter, pro, scale) in (("NGN", pd["ngn"]), ("USD", pd["usd"])):
+        offers += [{"@type": "Offer", "name": "Starter", "price": str(starter), "priceCurrency": cur, "description": "20,000 emails a month",
+                    "priceSpecification": {"@type": "UnitPriceSpecification", "price": str(starter), "priceCurrency": cur, "unitCode": "MON"}},
+                   {"@type": "Offer", "name": "Pro", "price": str(pro), "priceCurrency": cur, "description": "60,000 emails a month",
                     "priceSpecification": {"@type": "UnitPriceSpecification", "price": str(pro), "priceCurrency": cur, "unitCode": "MON"}},
                    {"@type": "Offer", "name": "Scale", "price": str(scale), "priceCurrency": cur, "description": "100,000 emails a month",
                     "priceSpecification": {"@type": "UnitPriceSpecification", "price": str(scale), "priceCurrency": cur, "unitCode": "MON"}}]
@@ -68,14 +72,14 @@ def marketing():
     pd = pricing_data()
     home = rd("index.html")
     home = set_head(home, title="Delivrie | Better than Resend",
-                    desc="A cheaper Resend alternative: email API, SMTP relay and MCP server for transactional email, broadcasts and an inbox. 6,000 free emails a month, Pro from $10 (₦10,000).",
+                    desc="A cheaper Resend alternative: email API, SMTP relay and MCP server for transactional email, broadcasts and an inbox. 6,000 free emails a month, paid plans from $10 (₦10,000).",
                     extra_ld=ld(ORG, {"@type": "WebSite", "@id": f"{SITE}/#site", "url": SITE, "name": "Delivrie", "publisher": {"@id": f"{SITE}/#org"}}, app_ld(pd)))
     wr("index.html", home)
 
     faq = {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in pd["faq"]]}
     pr = rd("pricing.html")
-    pricing = set_head(pr, title="Pricing: free email API, Pro from $10 a month · Delivrie",
-                       desc=f"Delivrie pricing: 6,000 free emails a month, Pro ${pd['usd'][0]} (₦{pd['ngn'][0]:,}) and Scale ${pd['usd'][1]} (₦{pd['ngn'][1]:,}). Half the price of Resend, with API, SMTP and MCP on every plan.",
+    pricing = set_head(pr, title="Pricing: free email API, plans from $10 a month · Delivrie",
+                       desc=f"Delivrie pricing: 6,000 free emails a month, Starter ${pd['usd'][0]} (₦{pd['ngn'][0]:,}), Pro ${pd['usd'][1]} (₦{pd['ngn'][1]:,}) and Scale ${pd['usd'][2]} (₦{pd['ngn'][2]:,}). Half the price of Resend, with API, SMTP and MCP on every plan.",
                        canonical=f"{SITE}/pricing", extra_ld=ld(app_ld(pd), faq, crumbs(("Home", "/"), ("Pricing", "/pricing"))))
     wr("pricing.html", pricing)
     compare = set_head(pricing, title="Resend vs Brevo vs Delivrie: email API pricing compared (2026)",

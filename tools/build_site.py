@@ -223,7 +223,7 @@ def brand():
     sw = [("Delivrie Yellow", "#FAD600", "Primary accent and buttons", "#211F20"), ("Ink", "#211F20", "Backgrounds and text on yellow", "#F7F8F8"), ("Paper", "#F7F8F8", "Text on dark, light backgrounds", "#211F20"), ("Graphite", "#62666D", "Secondary text and icons", "#F7F8F8")]
     body += f'<section class="section"><div class="wrap">{head2("Colour", "Colour")}<div class="grid4 reveal-stagger">' + "".join(f'<button class="swatch" data-copy="{h}"><span class="chip" style="background:{h};color:{fg}">{h}</span><b>{E(n)}</b><span>{E(u)}</span></button>' for n, h, u, fg in sw) + "</div></div></section>"
     body += f"""<section class="section"><div class="wrap">{head2("Type", "Typography")}<div class="grid2 reveal-stagger">
-      <div class="type-card"><span class="big">Aa</span><b>SF Pro</b><span>Display, headings and UI. Inter is the fallback on the web.</span></div>
+      <div class="type-card"><span class="big">Aa</span><b>Calamantus</b><span>Display, headings and UI, from FH Type Foundry. Inter covers characters Calamantus doesn’t have.</span></div>
       <div class="type-card"><span class="big mono">{{ }}</span><b>Geist Mono</b><span>Code, data and labels</span></div></div></div></section>"""
     body += f"""<section class="section"><div class="wrap">{head2("Usage", "Do and don’t")}<div class="grid2 reveal-stagger">
       <div class="do"><h3>Do</h3><ul><li>Use the logo on Ink or Paper backgrounds</li><li>Keep clear space equal to the height of the mark</li><li>Write the name as Delivrie, capital D</li></ul></div>
@@ -328,11 +328,12 @@ ALTS = {
   "resend": {
     "name": "Resend", "slug": "resend-alternative",
     "title": "Resend alternative: half the price, same API · Delivrie",
-    "desc": "Looking for a cheaper Resend alternative? Delivrie sends with the same API request format at half the price: Pro $10 vs $20, 6,000 free emails vs 3,000, SMTP on ports 587 and 465, MCP and pricing in dollars or Naira.",
+    "desc": "Looking for a cheaper Resend alternative? Delivrie sends with the same API request format at half the price: Starter $10 vs Resend Pro $20, 6,000 free emails vs 3,000, SMTP on ports 587 and 465, MCP and pricing in dollars or Naira.",
     "h1": "The Resend alternative<br> at half the price.",
-    "lede": "Same request format as Resend’s /emails endpoint, so switching is a URL and key change. Pro is $10 instead of $20, the free plan sends twice as much, and extra emails cost half as much.",
+    "lede": "Same request format as Resend’s /emails endpoint, so switching is a URL and key change. Starter is $10 for the 20,000 emails Resend charges $20 for, the free plan sends twice as much, and extra emails cost half as much.",
     "rows": [("Free plan", "6,000 / month, 200 a day", "3,000 / month, 100 a day"),
-             ("20,000 emails a month", "$10 (Pro)", "$20 (Pro)"),
+             ("20,000 emails a month", "$10 (Starter)", "$20 (Pro)"),
+             ("60,000 emails a month", "$20 (Pro)", "$29 (Pro + 10,000 extra at $0.90 per 1,000)"),
              ("100,000 emails a month", "$45 (Scale)", "$65 (Pro + 50,000 extra at $0.90 per 1,000)"),
              ("Extra emails, per 1,000", "$0.40 to $0.45", "$0.90"),
              ("Pay in Naira", "Yes, through Paystack", "No, dollar card only"),
@@ -348,7 +349,7 @@ ALTS = {
     "before": 'curl https://api.resend.com/emails \\\n  -H "Authorization: Bearer re_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "after": 'curl https://delivrie.io/api/emails \\\n  -H "Authorization: Bearer dlv_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "steps": "Add and verify your domain in Delivrie, create an API key, then change the base URL and key in your code. Webhook event names and payloads differ, so update your webhook handler if you use one.",
-    "faq": [("Is Delivrie cheaper than Resend?", "Yes. Pro is $10 a month for 20,000 emails (Resend Pro is $20), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 6,000 a month instead of 3,000."),
+    "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 6,000 a month instead of 3,000."),
             ("Is Delivrie a good Resend alternative?", "If you send transactional email through an API or SMTP, yes: the request format matches Resend’s /emails endpoint, and Delivrie adds broadcasts, automations, a shared inbox and an MCP server for AI agents on every plan."),
             ("Can I switch from Resend without rewriting my code?", "For most REST integrations, yes. Change the base URL to https://delivrie.io/api and use a Delivrie API key. Verify your sending domain in Delivrie first, and update your webhook handler if you use one."),
             ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and lets you pay in Naira. Resend keeps email content longer (30 days) and renders React Email in its Node SDK. Pick the one that fits how you send."),
@@ -357,11 +358,11 @@ ALTS = {
   "brevo": {
     "name": "Brevo", "slug": "brevo-alternative",
     "title": "Brevo alternative for developers: cheaper email API · Delivrie",
-    "desc": "A Brevo alternative built for developers: a simple email API, SMTP and MCP, no “Sent with Brevo” footer, 6,000 free emails a month and Pro at $10 instead of $32. Pay in dollars or Naira.",
+    "desc": "A Brevo alternative built for developers: a simple email API, SMTP and MCP, no “Sent with Brevo” footer, 6,000 free emails a month and Starter at $10 instead of $32. Pay in dollars or Naira.",
     "h1": "The Brevo alternative<br> built for developers.",
     "lede": "Brevo is a marketing suite. Delivrie is an email API: transactional email, broadcasts and an inbox with a clean REST API, SMTP and an MCP server, no provider footer and a third of the price at 20,000 emails.",
     "rows": [("Free plan", "6,000 / month, 200 a day", "300 a day, with a “Sent with Brevo” footer"),
-             ("20,000 emails a month", "$10 (Pro)", "$32 (Starter)"),
+             ("20,000 emails a month", "$10 (Starter)", "$32 (Starter)"),
              ("100,000 emails a month", "$45 (Scale)", "$82 (Starter)"),
              ("Extra emails", "$0.40 to $0.45 per 1,000", "Move up a plan"),
              ("Provider branding", "None", "“Sent with Brevo” on Starter unless you pay $12 a month"),
@@ -377,7 +378,7 @@ ALTS = {
     "before": 'curl https://api.brevo.com/v3/smtp/email \\\n  -H "api-key: xkeysib-…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "sender": { "email": "hi@acme.com" },\n    "to": [{ "email": "ada@example.com" }],\n    "subject": "Welcome",\n    "htmlContent": "<p>Hi Ada</p>"\n  }\'',
     "after": 'curl https://delivrie.io/api/emails \\\n  -H "Authorization: Bearer dlv_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "hi@acme.com",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "steps": "Add and verify your domain in Delivrie, create an API key, then map sender to from, htmlContent to html and the to list to plain addresses. Import your contacts into Delivrie if you send broadcasts.",
-    "faq": [("Is Delivrie cheaper than Brevo?", "For email, yes: Pro is $10 a month for 20,000 emails (Brevo Starter is $32), Scale is $45 for 100,000 (Brevo Starter is $82), and there’s no paid add-on to remove a provider footer."),
+    "faq": [("Is Delivrie cheaper than Brevo?", "For email, yes: Starter is $10 a month for 20,000 emails (Brevo Starter is $32), Scale is $45 for 100,000 (Brevo Starter is $82), and there’s no paid add-on to remove a provider footer."),
             ("Is Delivrie a good Brevo alternative?", "If you mainly send transactional email and newsletters from your product, yes. If you rely on Brevo’s SMS, WhatsApp or CRM, Brevo still covers more."),
             ("Does Delivrie add a footer to my emails?", "No. Delivrie doesn’t add its own branding to your transactional emails on any plan."),
             ("Can I send newsletters with Delivrie?", "Yes. Broadcasts are free up to 1,000 contacts, with segments, topics and an unsubscribe page included.")],

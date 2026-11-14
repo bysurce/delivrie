@@ -5,8 +5,8 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var P = {
-    NGN: { sym: '₦', pro: 10000, scale: 45000, proY: 100000, scaleY: 450000, proOver: 450, scaleOver: 400, payg: 600, growth: 20000, mktPro: 40000, extraContacts: 3500, packs: [[5000, 8300, 'Minimum', 600], [25000, 41600, '', 600], [100000, 172400, 'Save 3%', 580], [500000, 925900, 'Save 10%', 540]] },
-    USD: { sym: '$', pro: 10, scale: 45, proY: 100, scaleY: 450, proOver: 0.45, scaleOver: 0.40, payg: 0.60, growth: 20, mktPro: 40, extraContacts: 3.5, packs: [[5, 8300, 'Minimum', 0.60], [25, 41600, '', 0.60], [100, 172400, 'Save 3%', 0.58], [500, 925900, 'Save 10%', 0.54]] }
+    NGN: { sym: '₦', starter: 10000, starterY: 100000, starterOver: 450, pro: 27000, scale: 45000, proY: 270000, scaleY: 450000, proOver: 450, scaleOver: 400, payg: 600, growth: 20000, mktPro: 40000, extraContacts: 3500, packs: [[5000, 8300, 'Minimum', 600], [25000, 41600, '', 600], [100000, 172400, 'Save 3%', 580], [500000, 925900, 'Save 10%', 540]] },
+    USD: { sym: '$', starter: 10, starterY: 100, starterOver: 0.45, pro: 20, scale: 45, proY: 200, scaleY: 450, proOver: 0.45, scaleOver: 0.40, payg: 0.60, growth: 20, mktPro: 40, extraContacts: 3.5, packs: [[5, 8300, 'Minimum', 0.60], [25, 41600, '', 0.60], [100, 172400, 'Save 3%', 0.58], [500, 925900, 'Save 10%', 0.54]] }
   };
   var cur, mode = 'monthly';
   try { cur = localStorage.getItem('dlv_currency'); } catch (e) {}
@@ -25,7 +25,8 @@
     var p = P[cur], y = mode === 'yearly';
     var cards = [
       { id: 'free', name: 'Free', tag: 'For side projects and testing.', price: m(0), sub: y ? 'Free forever' : '', cta: ['Start for free', '/signup', ''], head: 'Includes', feats: ['6,000 emails / month', '200 emails / day', '1 custom domain', '1-day data retention', 'API, SMTP & MCP server', 'Community support'] },
-      { id: 'pro', name: 'Pro', pop: true, tag: 'For products with real users.', price: y ? m(Math.round(p.proY / 12 * 100) / 100, true) : m(p.pro), sub: y ? m(p.proY) + ' billed yearly · save ' + m(p.pro * 12 - p.proY) : '', cta: ['Get Pro', '/signup?plan=pro' + (y ? '&interval=yearly' : ''), 'y'], head: 'Everything in Free, plus', feats: ['20,000 emails / month', 'No daily limit', '10 custom domains', '3-day data retention', m(p.proOver, true) + ' per extra 1,000 emails', 'Webhooks & batch sending', 'Email support'] },
+      { id: 'starter', name: 'Starter', tag: 'For products with real users.', price: y ? m(Math.round(p.starterY / 12 * 100) / 100, true) : m(p.starter), sub: y ? m(p.starterY) + ' billed yearly · save ' + m(p.starter * 12 - p.starterY) : '', cta: ['Get Starter', '/signup?plan=starter' + (y ? '&interval=yearly' : ''), ''], head: 'Everything in Free, plus', feats: ['20,000 emails / month', 'No daily limit', '10 custom domains', '3-day data retention', m(p.starterOver, true) + ' per extra 1,000 emails', 'Webhooks & batch sending', 'Email support'] },
+      { id: 'pro', name: 'Pro', pop: true, tag: 'For growing products.', price: y ? m(Math.round(p.proY / 12 * 100) / 100, true) : m(p.pro), sub: y ? m(p.proY) + ' billed yearly · save ' + m(p.pro * 12 - p.proY) : '', cta: ['Get Pro', '/signup?plan=pro' + (y ? '&interval=yearly' : ''), 'y'], head: 'Everything in Starter, plus', feats: ['60,000 emails / month', 'Three times the Starter allowance', m(p.proOver, true) + ' per extra 1,000 emails', 'Email support'] },
       { id: 'scale', name: 'Scale', tag: 'For teams sending at volume.', price: y ? m(Math.round(p.scaleY / 12 * 100) / 100, true) : m(p.scale), sub: y ? m(p.scaleY) + ' billed yearly · save ' + m(p.scale * 12 - p.scaleY) : '', cta: ['Get Scale', '/signup?plan=scale' + (y ? '&interval=yearly' : ''), ''], head: 'Everything in Pro, plus', feats: ['100,000 emails / month', 'No daily limit', '1,000 custom domains', '7-day data retention', m(p.scaleOver, true) + ' per extra 1,000 emails', 'Dedicated IP on request', 'Multiple team members', 'Priority support'] },
       { id: 'ent', name: 'Enterprise', tag: 'For high volume and compliance.', price: 'Custom', sub: y ? 'Annual contracts' : '', cta: ['Talk to sales', 'mailto:sales@delivrie.io?subject=Delivrie%20Enterprise', ''], head: 'Everything in Scale, plus', feats: ['Custom volume & pricing', 'Dedicated IPs included', 'Unlimited domains', 'Custom data retention', 'SSO / SAML & audit logs', 'Uptime SLA', 'Dedicated account manager'] }
     ];
@@ -62,11 +63,11 @@
     return [
       ['free', 'Free plan', price('6,000 / month', '200 a day'), price('3,000 / month', '100 a day'), price('300 / day', 'about 9,000 a month'),
         'Free plans are where you build and launch. Delivrie gives you twice Resend’s monthly allowance. Brevo’s 300 a day adds up to more over a month, but the daily cap stops a busy day, like a launch or a burst of password resets, at 300, and every email carries a “Sent with Brevo” footer.'],
-      ['v20', '20,000 emails / month', price(m(p.pro), 'Pro'), price(usd(pr.r20), 'Pro'), price(usd(pr.b20), 'Starter'),
+      ['v20', '20,000 emails / month', price(m(p.starter), 'Starter'), price(usd(pr.r20), 'Pro'), price(usd(pr.b20), 'Starter'),
         'A typical early product: sign-ups, receipts, password resets. Resend costs about twice as much and Brevo about three times. Brevo’s Starter is a marketing plan, so it also keeps the Brevo footer unless you pay ' + usd(pr.bBrand) + ' a month more.'],
       ['v100', '100,000 emails / month', price(m(p.scale), 'Scale'), price(usd(pr.r100), 'Pro + 50,000 extra'), price(usd(pr.b100), 'Starter'),
         'A product with steady traffic. Resend’s cheapest option here is Pro (50,000 included) plus 50,000 extra emails at ' + usd(pr.rOver) + ' per 1,000. Brevo moves you up a Starter tier. Delivrie Scale includes all 100,000.'],
-      ['over', 'Extra emails, per 1,000', m(p.scaleOver, true) + ' – ' + m(p.proOver, true), usd(pr.rOver), 'Upgrade the plan',
+      ['over', 'Extra emails, per 1,000', m(p.scaleOver, true) + ' – ' + m(p.starterOver, true), usd(pr.rOver), 'Upgrade the plan',
         'What a busy month costs. Delivrie keeps sending past your allowance and bills the extra at month end. Resend charges about twice as much per 1,000. Brevo has no per-email overage: you move to a bigger plan.'],
       ['naira', 'Pay in Naira', Y + ' Paystack', N + ' Dollar card', N + ' Foreign currency',
         'Resend and Brevo bill in foreign currency, so you need a dollar card. Nigerian banks cap international card spending and add charges, and renewals can fail when the cap is reached. Delivrie bills in Naira through Paystack with local cards, and your price doesn’t move with the exchange rate.'],
@@ -112,7 +113,7 @@
 
   var FAQ = [
     ['What counts as an email?', 'Each recipient is one email. One message to a To, a CC and a BCC address counts as three.'],
-    ['What happens if I go over my plan?', 'On Pro and Scale we keep sending and bill the extra per 1,000 at the end of the month. On Free, sending pauses until the next day or month.'],
+    ['What happens if I go over my plan?', 'On Starter, Pro and Scale we keep sending and bill the extra per 1,000 at the end of the month. On Free, sending pauses until the next day or month.'],
     ['Can I pay in dollars?', 'Yes. Choose Naira or US dollars at checkout. Payments go through Paystack.'],
     ['How do yearly plans work?', 'You pay for ten months and get twelve, billed upfront.'],
     ['Can I change plans anytime?', 'Yes. Upgrades start right away. If you downgrade, you keep your plan until the end of the period you paid for.']

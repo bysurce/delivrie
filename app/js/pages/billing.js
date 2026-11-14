@@ -170,7 +170,7 @@ function overviewPaid(B) {
 
 function overviewFree(B) {
   const s = B.s, cur = s.currency, u = s.usage, P = s.period;
-  const pro = s.plans.find((p) => p.id === "pro");
+  const pro = s.plans.find((p) => p.id === "starter") || s.plans.find((p) => p.id === "pro"); // the first paid plan
   const dayFull = u.day_limit && u.today >= u.day_limit, monthFull = u.month >= u.included;
   const now = new Date(), midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   const mins = Math.max(0, Math.round((midnight - now) / 6e4));
@@ -178,8 +178,8 @@ function overviewFree(B) {
   const dPct = u.day_limit ? Math.min(1, u.today / u.day_limit) : 0, mPct = u.included ? Math.min(1, u.month / u.included) : 0;
   const nextMonth = new Date(new Date(P.end).getTime() + 1);
   B.body.innerHTML = `${payBanner(s)}
-    ${dayFull || monthFull ? banner("err", dayFull && !monthFull ? `Daily limit reached · ${num(u.today)} of ${num(u.day_limit)} emails sent today` : `Monthly limit reached · ${num(u.month)} of ${num(u.included)} emails`, dayFull && !monthFull ? `Sending is paused until midnight UTC (resets in ${resetIn}). Upgrade or switch to pay as you go to keep sending.` : `Sending is paused until ${shortDate(nextMonth)}. Upgrade or switch to pay as you go to keep sending.`, s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="pro">Upgrade to Pro</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "")
-      : mPct >= 0.8 ? banner("warn", `You’ve used ${Math.floor(mPct * 100)}% of this month’s free emails`, "When you hit the limit, sending pauses. Upgrade or buy credits to keep going.", s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="pro">Upgrade to Pro</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "") : ""}
+    ${dayFull || monthFull ? banner("err", dayFull && !monthFull ? `Daily limit reached · ${num(u.today)} of ${num(u.day_limit)} emails sent today` : `Monthly limit reached · ${num(u.month)} of ${num(u.included)} emails`, dayFull && !monthFull ? `Sending is paused until midnight UTC (resets in ${resetIn}). Upgrade or switch to pay as you go to keep sending.` : `Sending is paused until ${shortDate(nextMonth)}. Upgrade or switch to pay as you go to keep sending.`, s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="${pro?.id || "starter"}">Upgrade to ${esc(pro?.name || "Starter")}</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "")
+      : mPct >= 0.8 ? banner("warn", `You’ve used ${Math.floor(mPct * 100)}% of this month’s free emails`, "When you hit the limit, sending pauses. Upgrade or buy credits to keep going.", s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="${pro?.id || "starter"}">Upgrade to ${esc(pro?.name || "Starter")}</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "") : ""}
     <div class="bgrid"><div class="bcol">
       <div class="card bcard"><div class="row-flex" style="gap:8px"><h3 class="pc-name">Free</h3><span class="badge yellow">Current plan</span><span class="grow"></span><a class="btn btn-secondary btn-sm" href="/pricing" target="_blank" data-native>Compare plans</a></div>
         <p class="dim sm">${num(u.included)} emails / month · ${num(u.day_limit)} / day · 1 domain · customer since ${fullDate(s.customer_since)} (${since(s.customer_since)})</p></div>
@@ -187,7 +187,7 @@ function overviewFree(B) {
       <div class="card bcard"><div class="row-flex"><h3>This month</h3><span class="grow"></span><span class="${monthFull ? "err-t" : ""}">${num(u.month)} / ${num(u.included)}</span></div><div class="meter fat ${monthFull ? "err" : ""}"><i style="width:${mPct * 100}%"></i></div><p class="dim sm">Resets ${shortDate(nextMonth)} · ${P.days - P.day + 1} days left</p></div>
     </div>
     <div class="bcol bside">
-      ${pro ? `<div class="card bcard rec"><div class="row-flex"><h3>Pro</h3><span class="grow"></span><span class="badge yellow">Recommended</span></div><div class="price">${money(pro.monthly[cur], cur)} / month</div><p class="dim sm">${num(pro.emails)} emails, no daily limit, 10 domains</p>${s.admin ? `<button class="btn btn-primary btn-block" data-upgrade="pro" ${s.payments_ready ? "" : "disabled"}>Upgrade to Pro</button>` : ""}</div>` : ""}
+      ${pro ? `<div class="card bcard rec"><div class="row-flex"><h3>${esc(pro.name)}</h3><span class="grow"></span><span class="badge yellow">Recommended</span></div><div class="price">${money(pro.monthly[cur], cur)} / month</div><p class="dim sm">${num(pro.emails)} emails, no daily limit, 10 domains</p>${s.admin ? `<button class="btn btn-primary btn-block" data-upgrade="${pro.id}" ${s.payments_ready ? "" : "disabled"}>Upgrade to ${esc(pro.name)}</button>` : ""}</div>` : ""}
       <div class="card bcard"><h3>Pay as you go</h3><div class="price">${rateLine(s).replace(" / ", " / ")} emails</div><p class="dim sm">No monthly fee, credits never expire. Used after the free allowance.</p>${s.admin ? `<button class="btn btn-secondary btn-block" data-topup ${s.payments_ready ? "" : "disabled"}>Buy credits</button>` : ""}</div>
     </div></div>`;
 }
@@ -196,7 +196,7 @@ function overviewPayg(B) {
   const s = B.s, cur = s.currency, u = s.usage, P = s.period;
   const rate = s.credit_rate[cur];
   const low = s.credit_value < s.auto_topup.threshold;
-  const pro = s.plans.find((p) => p.id === "pro");
+  const pro = s.plans.find((p) => p.id === "starter") || s.plans.find((p) => p.id === "pro"); // the first paid plan
   const firstCredit = s.invoices.filter((i) => i.kind === "credits" && i.status === "success").map((i) => i.paid_at).sort()[0];
   const avg = P.day ? Math.round(u.month / P.day) : 0;
   const paidEmails = Math.max(0, u.month - u.included); // beyond the free allowance
@@ -206,13 +206,13 @@ function overviewPayg(B) {
   const monthProj = P.projected, paygCost = Math.max(0, monthProj - u.included) * rate;
   const breakEven = pro ? Math.round(pro.monthly[cur] / rate + u.included) : 0;
   const rec = pro && paygCost > pro.monthly[cur]
-    ? `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, Pro would cost ${money(pro.monthly[cur], cur)} instead of about ${money(paygCost, cur)} on credits. Switch once you pass ~${num(Math.round(breakEven / 100) * 100)}.`
-    : `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, credits cost about ${money(paygCost, cur)}. Pro (${money(pro?.monthly[cur] || 0, cur)}) pays off once you pass ~${num(Math.round(breakEven / 100) * 100)}. Stay on pay as you go until then.`;
+    ? `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, ${pro.name} would cost ${money(pro.monthly[cur], cur)} instead of about ${money(paygCost, cur)} on credits. Switch once you pass ~${num(Math.round(breakEven / 100) * 100)}.`
+    : `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, credits cost about ${money(paygCost, cur)}. ${pro?.name || "Starter"} (${money(pro?.monthly[cur] || 0, cur)}) pays off once you pass ~${num(Math.round(breakEven / 100) * 100)}. Stay on pay as you go until then.`;
   const monthName = new Date().toLocaleDateString(undefined, { month: "long" });
   B.body.innerHTML = `${payBanner(s)}
     ${low ? banner("warn", s.credits ? `Credits are running low · ${money(s.credit_value, cur)} left` : "You're out of credits", s.credits ? `That covers about ${num(s.credits)} more emails past the free allowance. Sending past it stops at ${money(0, cur)} unless auto top-up is on.` : `Sending past the free allowance (${num(u.included)} a month, ${num(u.day_limit)} a day) is paused until you top up.`, s.admin ? `<button class="btn btn-primary btn-sm" data-topup>Top up</button>${s.auto_topup.enabled ? "" : `<button class="btn btn-secondary btn-sm" data-auto-on>Turn on auto top-up</button>`}` : "") : ""}
     <div class="bgrid"><div class="bcol">
-      <div class="card bcard"><div class="row-flex" style="gap:8px"><h3 class="pc-name">Pay as you go</h3><span class="badge yellow">Current plan</span><span class="grow"></span>${s.admin && pro ? `<button class="btn btn-secondary btn-sm" data-upgrade="pro">Switch to Pro · ${money(pro.monthly[cur], cur)}/mo</button>` : ""}</div>
+      <div class="card bcard"><div class="row-flex" style="gap:8px"><h3 class="pc-name">Pay as you go</h3><span class="badge yellow">Current plan</span><span class="grow"></span>${s.admin && pro ? `<button class="btn btn-secondary btn-sm" data-upgrade="${pro?.id || "starter"}">Switch to ${esc(pro.name)} · ${money(pro.monthly[cur], cur)}/mo</button>` : ""}</div>
         <p class="dim sm">${rateLine(s)} emails · no monthly fee · ${num(u.included)} free emails a month first${firstCredit ? ` · on this plan since ${fullDate(firstCredit)} (${since(firstCredit)})` : ""}</p></div>
       <div class="card bcard"><h3>${monthName} so far</h3>
         <div class="kpis"><div><span class="k">Emails sent</span><b>${num(u.month)}</b></div><div><span class="k">Credits used</span><b>${money(usedValue, cur)}</b></div><div><span class="k">Avg per day</span><b>${num(avg)}</b></div><div><span class="k">Credits last</span><b>${lastDays == null ? "—" : `~${num(lastDays)} day${lastDays === 1 ? "" : "s"}`}</b></div></div>
@@ -229,10 +229,10 @@ function creditsTab(B) {
   const hist = s.invoices.filter((i) => i.kind === "credits" || (i.kind === "overage" && /credits/.test(i.description || "")));
   const tiles = s.packs.map((k, i) => `<button class="pack" data-pack="${i}" ${s.admin && s.payments_ready ? "" : "disabled"}><b>${money(k.price[cur], cur)}</b><span class="dim">${num(k.emails)} emails</span>${k.note && k.note !== "Minimum" ? `<span class="badge green">${esc(k.note)}</span>` : ""}</button>`).join("");
   B.body.innerHTML = `${payBanner(s)}<div class="bgrid"><div class="bcol">
-      <div class="card bcard"><h3>Buy credits</h3><p class="dim sm">Credits never expire. On Pro and Scale they pay for overage first; on pay as you go they pay for every email past the free allowance.</p><div class="packs">${tiles}<button class="pack" data-pack="custom" ${s.admin && s.payments_ready ? "" : "disabled"}><b>Custom</b><span class="dim">Min ${money(s.min_topup[cur], cur)}</span></button></div></div>
+      <div class="card bcard"><h3>Buy credits</h3><p class="dim sm">Credits never expire. On paid plans they pay for overage first; on pay as you go they pay for every email past the free allowance.</p><div class="packs">${tiles}<button class="pack" data-pack="custom" ${s.admin && s.payments_ready ? "" : "disabled"}><b>Custom</b><span class="dim">Min ${money(s.min_topup[cur], cur)}</span></button></div></div>
       <div class="card bcard"><h3>Top-up history</h3>${hist.length ? `<div class="table-wrap flat"><table class="t"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Status</th></tr></thead><tbody>${hist.map((i) => `<tr><td class="muted">${fullDate(i.paid_at)}</td><td>${esc(i.description || "Credit top-up")}</td><td class="r num">${i.kind === "overage" ? "−" : ""}${money(i.amount, i.currency, true)}</td><td>${statusBadge(i)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty-mini"><b>No top-ups yet</b><span class="dim">Credits you buy show up here.</span></div>`}</div>
     </div><div class="bcol bside">${creditsCard(s)}
-      <div class="card bcard"><h3>How credits work</h3><ul class="howto"><li>One credit sends one email. Value shown at ${rateLine(s)}.</li><li>Free plan: used after the ${num(6000)} free emails a month and 200 a day.</li><li>Pro and Scale: at month end, credits pay overage before your card.</li><li>Auto top-up buys a pack when credits drop below your threshold.</li></ul></div></div></div>`;
+      <div class="card bcard"><h3>How credits work</h3><ul class="howto"><li>One credit sends one email. Value shown at ${rateLine(s)}.</li><li>Free plan: used after the ${num(6000)} free emails a month and 200 a day.</li><li>Starter, Pro and Scale: at month end, credits pay overage before your card.</li><li>Auto top-up buys a pack when credits drop below your threshold.</li></ul></div></div></div>`;
 }
 
 // ------------------------------------------------------------ Invoices
@@ -365,7 +365,7 @@ function topUp(B, preset) {
   let auto = false;
   const shown = [0, 1, 2];
   if (typeof pick === "number" && !shown.includes(pick)) shown.push(pick);
-  return modal({ title: "Top up credits", size: "md", body: `<p class="desc" style="margin-top:-4px">Credits never expire. ${s.plan === "free" ? "On pay as you go they pay for every email past the free allowance; on Pro they cover overage first." : `On ${esc(cap1(s.plan))} they cover overage first; on pay as you go they pay for every email.`}</p><div data-tb></div>`,
+  return modal({ title: "Top up credits", size: "md", body: `<p class="desc" style="margin-top:-4px">Credits never expire. ${s.plan === "free" ? "On pay as you go they pay for every email past the free allowance; on paid plans they cover overage first." : `On ${esc(cap1(s.plan))} they cover overage first; on pay as you go they pay for every email.`}</p><div data-tb></div>`,
     foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go>Pay</button>`,
     onMount(m, close) {
       const tb = m.querySelector("[data-tb]"), go = m.querySelector("[data-go]");

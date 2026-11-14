@@ -12,7 +12,7 @@ begin
    where t.id = e.team_id
      and e.status not in ('queued', 'scheduled')
      and (e.html is not null or e.text is not null or e.attachments <> '[]'::jsonb)
-     and e.created_at < now() - make_interval(days => case t.plan_transactional when 'pro' then 3 when 'scale' then 7 when 'enterprise' then 30 else 1 end);
+     and e.created_at < now() - make_interval(days => case t.plan_transactional when 'starter' then 3 when 'pro' then 3 when 'scale' then 7 when 'enterprise' then 30 else 1 end);
   delete from public.request_logs where created_at < now() - interval '30 days';
 end $$;
 revoke execute on function public.purge_expired_content() from public, anon, authenticated;

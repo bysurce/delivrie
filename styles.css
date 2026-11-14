@@ -1175,3 +1175,10 @@ a.b-primary[href="/signup"]:hover { background: #ffe033; }
 @media (max-width: 640px) {
   .cmp.vs th.us .brand-h.wm img, .cmp.vs .brand-h.wm img { height: 13px; }
 }
+/* Five plans: Free, Starter, Pro, Scale, Enterprise */
+.plans4 { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1280px) { .plans4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 860px) { .plans4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .plans4 { grid-template-columns: 1fr; } }
+.plans4 .plan .pp { flex-wrap: nowrap; white-space: nowrap; }
+@media (min-width: 1281px) { .plans4 .plan .pp b { font-size: 34px; letter-spacing: -1px; } }

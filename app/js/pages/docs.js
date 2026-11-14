@@ -100,6 +100,7 @@ const TOOLS = [
   ["create_api_key","Create an API key","manage"],
 ];
 const CHANGELOG = [
+  { date: "Nov 14, 2026", title: "New Starter plan and a bigger Pro", items: ["Starter is $10 (₦10,000) a month for 20,000 emails, the plan Pro used to be.", "Pro now includes 60,000 emails a month for $20 (₦27,000). Existing Pro subscriptions move to the new Pro, with the new price from their next renewal."] },
   { date: "Nov 13, 2026", title: "SMTP relay on ports 587 and 465", items: ["Send from WordPress, Laravel, Django, Ghost, Supabase Auth and anything else that speaks SMTP: host smtp.delivrie.io, username delivrie, an API key as the password.", "Port 587 with STARTTLS and port 465 with SSL/TLS, plus 2587 and 2465 for hosts that block the usual ports.", "SMTP mail gets the same limits, logs, webhooks and suppressions as the API. Tag messages with an X-Delivrie-Tags header."] },
   { date: "Nov 13, 2026", title: "Support chat", items: ["Chat with the Delivrie team from any page in the dashboard. Replies arrive in the chat and by email."] },
   { date: "Nov 12, 2026", title: "New pricing, credits and billing", items: ["Pro now includes 20,000 emails a month and Scale 100,000, with yearly plans at ten months' price.", "Paid plans keep sending past their allowance and pay overage per 1,000 at month end. Set a spending cap in Billing.", "Pay-as-you-go credits: top up from ₦5,000 or $5, credits never expire.", "Marketing add-on priced by contacts, and billing address and tax ID on invoices."] },

@@ -3,7 +3,7 @@ import { state } from "./sb.js";
 
 const KEY = "dlv_next";
 const TTL = 2 * 3600e3;
-const PLANS = ["pro", "scale"];
+const PLANS = ["starter", "pro", "scale"];
 
 const safe = (p) => typeof p === "string" && p.startsWith("/") && !p.startsWith("//") && !p.startsWith("/\\") && !/^\/(login|signup|verify|confirm)\b/.test(p) ? p : null;
 
