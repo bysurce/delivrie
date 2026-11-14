@@ -330,7 +330,7 @@ ALTS = {
     "title": "Resend alternative: half the price, same API · Delivrie",
     "desc": "Looking for a cheaper Resend alternative? Delivrie sends with the same API request format at half the price: Starter $10 vs Resend Pro $20, 4,000 free emails vs 3,000, SMTP on ports 587 and 465, MCP and pricing in dollars or Naira.",
     "h1": "The Resend alternative<br> at half the price.",
-    "lede": "Same request format as Resend’s /emails endpoint, so switching is a URL and key change. Starter is $10 for the 20,000 emails Resend charges $20 for, the free plan sends twice as much, and extra emails cost half as much.",
+    "lede": "Same request format as Resend’s /emails endpoint, so switching is a URL and key change. Starter is $10 for the 20,000 emails Resend charges $20 for, the free plan sends a third more, and extra emails cost half as much.",
     "rows": [("Free plan", "4,000 / month, 133 a day", "3,000 / month, 100 a day"),
              ("20,000 emails a month", "$10 (Starter)", "$20 (Pro)"),
              ("60,000 emails a month", "$20 (Pro)", "$29 (Pro + 10,000 extra at $0.90 per 1,000)"),
@@ -345,14 +345,27 @@ ALTS = {
             ("code", "Same API shape", "POST /emails with from, to, subject, html, text, cc, bcc, reply_to, headers, attachments, tags, template and an Idempotency-Key header. The response is { id }."),
             ("mail", "A bigger free plan", "4,000 emails a month, enough to launch a real product before you pay anything."),
             ("globe", "Dollars or Naira", "Pay by card in US dollars, or in Naira through Paystack with local cards and no exchange-rate surprises.")],
-    "fair": "Resend also renders React Email components in its Node SDK; with Delivrie you send the rendered HTML.",
+    "better": {
+      "us": [("Naira or dollars, your choice", "Fixed Naira prices through Paystack on the card you already have, or US dollars by card. No dollar card, no exchange-rate surprises."),
+             ("Up to half the price", "20,000 emails for $10 instead of $20, 60,000 for $20 instead of about $29, and extra emails at $0.45 per 1,000 instead of $0.90."),
+             ("More free email", "4,000 emails a month on the free plan, a third more than Resend’s 3,000."),
+             ("Switch without rewriting", "Keep the official Resend SDK and change one environment variable. We test it against our live API every day."),
+             ("Everything on every plan", "Broadcasts, automations, a shared inbox for replies and an SMTP relay on ports 587 and 465, with 30 days of email history."),
+             ("Built for AI coding", "An MCP server with 64 tools for Claude, Cursor and Codex, and docs your assistant can read as llms.txt and Markdown.")],
+      "them": [("Sending regions on four continents", "Resend sends from the US, Ireland, Brazil and Japan. Delivrie sends from Ireland today."),
+               ("Official SDKs in more languages", "Python, Ruby, PHP, Go, Rust, Java, .NET and Elixir. Delivrie has an official Node.js SDK and copy-paste guides for the rest."),
+               ("React Email from the same team", "Resend makes React Email, so its templates and SDK are designed together. React Email still works with Delivrie: render to HTML and send."),
+               ("A longer track record", "Resend has been running at large scale for longer, which matters if your procurement team asks.")],
+      "pick_us": "You pay in Naira, want more email for less, or build with AI tools and want an MCP server and docs your assistant can read.",
+      "pick_them": "You need to send from the US, Brazil or Japan, or want an official SDK in a language other than JavaScript.",
+    },
     "before": 'curl https://api.resend.com/emails \\\n  -H "Authorization: Bearer re_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "after": 'curl https://delivrie.io/api/emails \\\n  -H "Authorization: Bearer dlv_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
-    "steps": "Add and verify your domain in Delivrie, create an API key, then change the base URL and key in your code. Webhook event names and payloads differ, so update your webhook handler if you use one.",
+    "steps": "Add and verify your domain in Delivrie, create an API key, then change the base URL and key, or keep the Resend SDK and set RESEND_BASE_URL=https://delivrie.io/api. Webhook events and payloads are the same; only the signature headers are named webhook-* instead of svix-*.",
     "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 4,000 a month instead of 3,000."),
             ("Is Delivrie a good Resend alternative?", "If you send transactional email through an API or SMTP, yes: the request format matches Resend’s /emails endpoint, and Delivrie adds broadcasts, automations, a shared inbox and an MCP server for AI agents on every plan."),
-            ("Can I switch from Resend without rewriting my code?", "For most REST integrations, yes. Change the base URL to https://delivrie.io/api and use a Delivrie API key. Verify your sending domain in Delivrie first, and update your webhook handler if you use one."),
-            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and lets you pay in Naira. Resend keeps email content longer (30 days) and renders React Email in its Node SDK. Pick the one that fits how you send."),
+            ("Can I switch from Resend without rewriting my code?", "Yes. Keep the official Resend SDK and set RESEND_BASE_URL=https://delivrie.io/api with a Delivrie API key, or change the base URL in your own HTTP calls. We run the Resend SDK against Delivrie’s live API every day to make sure it keeps working. Verify your sending domain in Delivrie first."),
+            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan, lets you pay in Naira and includes an MCP server and AI-readable docs. Resend sends from more regions and has official SDKs for more languages. Pick the one that fits how you send."),
             ("Does Delivrie work for teams in the US?", "Yes. Prices are in US dollars, you can pay by card, and the API, SMTP relay and MCP server work from anywhere.")],
   },
   "brevo": {
@@ -374,7 +387,19 @@ ALTS = {
             ("shield", "Your brand only", "No provider footer on any plan, so emails look like they come from you."),
             ("code", "Built for code", "One POST /emails call, signed webhooks, templates, test addresses and an MCP server for AI agents."),
             ("mail", "No daily cap on paid plans", "Send a launch or a burst of password resets without hitting a 300-a-day limit.")],
-    "fair": "Brevo is a full marketing suite with SMS, WhatsApp, a CRM and landing pages. If you need those in one place, Brevo covers more. Delivrie focuses on email for products and developers.",
+    "better": {
+      "us": [("Built for developers", "One POST /emails call, signed webhooks, test addresses, an official Node.js SDK and guides for every major framework."),
+             ("A third of the price", "20,000 emails for $10 instead of $32, and 100,000 for $45 instead of $82."),
+             ("Your brand only", "No “Sent with Brevo” footer on any plan, and no add-on to pay for removing it."),
+             ("Naira or dollars", "Fixed Naira prices through Paystack, or US dollars by card."),
+             ("No daily cap on paid plans", "A launch or a burst of password resets goes out in full."),
+             ("Built for AI coding", "An MCP server with 64 tools, and docs your assistant can read as llms.txt and Markdown.")],
+      "them": [("SMS and WhatsApp", "Send text and WhatsApp messages from the same account as your email."),
+               ("A built-in CRM", "Deals, pipelines and contact history for a sales team."),
+               ("A full marketing suite", "Landing pages, signup forms and a drag-and-drop campaign builder for marketers who don’t write code.")],
+      "pick_us": "Your product sends email from code, you want clean pricing without a provider footer, or you pay in Naira.",
+      "pick_them": "Your marketing team needs SMS, WhatsApp and a CRM in one place more than an email API.",
+    },
     "before": 'curl https://api.brevo.com/v3/smtp/email \\\n  -H "api-key: xkeysib-…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "sender": { "email": "hi@acme.com" },\n    "to": [{ "email": "ada@example.com" }],\n    "subject": "Welcome",\n    "htmlContent": "<p>Hi Ada</p>"\n  }\'',
     "after": 'curl https://delivrie.io/api/emails \\\n  -H "Authorization: Bearer dlv_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "hi@acme.com",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "steps": "Add and verify your domain in Delivrie, create an API key, then map sender to from, htmlContent to html and the to list to plain addresses. Import your contacts into Delivrie if you send broadcasts.",
@@ -393,7 +418,12 @@ def alternative(key):
     body = hero(f"{n} alternative", a["h1"], a["lede"], [("Start free", "/signup", "b-primary"), ("Compare all three", "/compare", "b-secondary")], center=True)
     body += f"""<section class="section"><div class="wrap">{head2("Side by side", f"Delivrie vs {E(n)}", "Prices in US dollars, checked 13 November 2026. Naira prices are on the pricing page.")}
       <div class="cmp-wrap reveal"><table class="cmp alt"><thead><tr><th></th><th class="us"><img src="/assets/logo.svg" alt="Delivrie" height="18"></th><th><img src="/assets/compare/{key}.png" alt="{E(n)}" height="17"></th></tr></thead><tbody>{rows}</tbody></table></div></div></section>"""
-    body += f'<section class="section"><div class="wrap">{head2("Why switch", f"Why teams move from {E(n)} to Delivrie")}{why}<p class="fair reveal"><b>Where {E(n)} is still a good fit.</b> {E(a["fair"])}</p></div></section>'
+    body += f'<section class="section"><div class="wrap">{head2("Why switch", f"Why teams move from {E(n)} to Delivrie")}{why}</div></section>'
+    b = a["better"]
+    col = lambda title, items, us: f'<div class="bcard{" us" if us else ""}"><h3>{title}</h3><ul>' + "".join(f"<li><b>{E(t)}</b><span>{E(d)}</span></li>" for t, d in items) + "</ul></div>"
+    body += f"""<section class="section"><div class="wrap">{head2("Honest comparison", "Where each one is the better call", f"Delivrie isn’t the right choice for everyone. Here’s where {E(n)} wins too.")}
+      <div class="better reveal-stagger">{col('Choose <img src="/assets/logo.svg" alt="Delivrie" height="18"> for', b["us"], True)}{col(f"Choose {E(n)} for", b["them"], False)}</div>
+      <div class="pick reveal"><p><b>Pick Delivrie when</b> {E(b["pick_us"][0].lower() + b["pick_us"][1:])}</p><p><b>Pick {E(n)} when</b> {E(b["pick_them"][0].lower() + b["pick_them"][1:])}</p></div></div></section>"""
     body += f"""<section class="section"><div class="wrap">{head2("Switch", "Switch in a few minutes", a["steps"])}
       <div class="grid2 reveal-stagger"><div><div class="code-h">Before · {E(n)}</div><pre class="post-code"><code>{E(a["before"])}</code></pre></div><div><div class="code-h">After · Delivrie</div><pre class="post-code"><code>{E(a["after"])}</code></pre></div></div></div></section>"""
     body += f'<section class="section"><div class="wrap narrow">{head2("FAQ", f"Delivrie vs {E(n)}: common questions")}<div class="faq-list reveal">{faq}</div></div></section>' + CTA

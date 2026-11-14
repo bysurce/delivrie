@@ -1182,3 +1182,21 @@ a.b-primary[href="/signup"]:hover { background: #ffe033; }
 @media (max-width: 640px) { .plans4 { grid-template-columns: 1fr; } }
 .plans4 .plan .pp { flex-wrap: nowrap; white-space: nowrap; }
 @media (min-width: 1281px) { .plans4 .plan .pp b { font-size: 34px; letter-spacing: -1px; } }
+
+/* "Where each one is the better call" on the alternative pages */
+.better { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; align-items: start; }
+.bcard { border: 1px solid var(--border-app); border-radius: 16px; background: var(--bg); padding: 28px 30px 10px; }
+.bcard.us { background: var(--warm); border-color: rgba(250, 214, 0, .55); box-shadow: 0 1px 0 rgba(250, 214, 0, .25) inset; }
+.bcard h3 { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 500; letter-spacing: -0.01em; padding-bottom: 18px; margin: 0; border-bottom: 1px solid var(--border-app); }
+.bcard h3 img { display: inline-block; transform: translateY(1px); }
+.bcard ul { list-style: none; margin: 0; padding: 0; }
+.bcard li { display: flex; flex-direction: column; gap: 4px; padding: 16px 0; border-bottom: 1px solid var(--border-app); }
+.bcard li:last-child { border-bottom: 0; }
+.bcard li b { font-weight: 500; font-size: 15px; color: var(--fg); padding-left: 22px; position: relative; }
+.bcard li b::before { content: ""; position: absolute; left: 0; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--fg-3); opacity: .45; }
+.bcard.us li b::before { opacity: 1; background: #fad600 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6.2 5.1 8.2 9 4' fill='none' stroke='%231f1d1e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+.bcard li span { color: var(--fg-2); font-size: 14.5px; line-height: 1.6; padding-left: 22px; }
+.pick { display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin-top: 14px; }
+.pick p { margin: 0; padding: 16px 20px; border-radius: 12px; background: var(--bg-2); color: var(--fg-2); font-size: 14.5px; line-height: 1.6; }
+.pick b { color: var(--fg); font-weight: 500; }
+@media (max-width: 860px) { .better, .pick { grid-template-columns: 1fr; } .bcard { padding: 22px 20px 6px; } }
