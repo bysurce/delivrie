@@ -1,0 +1,61 @@
+# Tests the Node SDK on every change, and publishes it to npm when you push a tag like sdk-node-v0.1.0.
+# Publishing needs one repository secret: NPM_TOKEN (npmjs.com → Access Tokens → Granular, publish rights for "delivrie").
+name: Node SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/node/**", ".github/workflows/publish-sdk-node.yml"]
+    tags: ["sdk-node-v*"]
+  pull_request:
+    paths: ["sdk/node/**"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 20, 22]
+    defaults:
+      run:
+        working-directory: sdk/node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install -g typescript@6.0.3
+      - run: npm run build
+      - run: npm test
+
+  publish:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/sdk-node-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance: links the package to this repo and commit
+    defaults:
+      run:
+        working-directory: sdk/node
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Check token and version
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add the NPM_TOKEN repository secret to publish."; exit 1; fi
+          tag="${GITHUB_REF_NAME#sdk-node-v}"
+          pkg="$(node -p 'require("./package.json").version')"
+          src="$(grep -oE 'VERSION = "[^"]+"' src/client.ts | cut -d'"' -f2)"
+          if [ "$tag" != "$pkg" ] || [ "$pkg" != "$src" ]; then
+            echo "::error::Tag $tag, package.json $pkg and VERSION in src/client.ts $src must match."; exit 1
+          fi
+      - run: npm install -g typescript@6.0.3
+      - run: npm run build
+      - run: npm publish --access public --provenance

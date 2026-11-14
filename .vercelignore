@@ -3,6 +3,7 @@ supabase/
 smtp/
 tools/
 integrations/
+sdk/
 .github/
 server.json
 README.md

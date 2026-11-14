@@ -1,0 +1,30 @@
+{
+  "name": "delivrie",
+  "version": "0.1.0",
+  "description": "Official Node.js and TypeScript SDK for the Delivrie email API: send transactional email, manage domains, contacts, broadcasts and templates, and verify webhooks.",
+  "keywords": ["delivrie", "email", "email-api", "transactional-email", "smtp", "resend-alternative", "webhooks", "nigeria", "naira"],
+  "homepage": "https://delivrie.io/docs/sdks",
+  "repository": { "type": "git", "url": "git+https://github.com/codeddesigner/delivrie.git", "directory": "sdk/node" },
+  "bugs": { "url": "https://delivrie.io/support" },
+  "license": "MIT",
+  "author": "South Circle <support@delivrie.io>",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
+      "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "sideEffects": false,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.*",
+    "prepublishOnly": "npm run build && npm test"
+  }
+}
