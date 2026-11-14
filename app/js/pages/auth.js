@@ -1,4 +1,4 @@
-import { sb, state, loadTeams, setTeam, api } from "../lib/sb.js";
+import { sb, state, loadTeams, setTeam, api, authClient } from "../lib/sb.js";
 import { esc, icon, toast, errToast, confirmModal, $ } from "../lib/ui.js";
 import { MARK, brandIcon } from "../lib/icons.js";
 import { nextAfterAuth, takeNext } from "../lib/intent.js";
@@ -15,7 +15,7 @@ const pwField = (name, label, ph = "••••••••", hint = "") => `<d
 function bindEye(card) { card.querySelectorAll("[data-eye]").forEach((b) => b.addEventListener("click", () => { const i = b.parentElement.querySelector("input"); i.type = i.type === "password" ? "text" : "password"; b.innerHTML = icon(i.type === "password" ? "eye" : "eye-off", 14); })); }
 async function oauth(provider) {
   localStorage.setItem("dlv_last_method", provider);
-  const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/confirm` } });
+  const { error } = await authClient(provider).auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/confirm` } });
   if (error) errToast(new Error(error.message.includes("not enabled") ? `${provider === "github" ? "GitHub" : "Google"} sign-in isn't enabled yet. Use email and password.` : error.message));
 }
 function sso(last) {
