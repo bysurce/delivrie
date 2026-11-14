@@ -43,6 +43,7 @@ test("works without a global crypto (Node 18)", async () => {
     const ev = await verifyWebhook({ payload: body, secret, headers: { "webhook-id": "evt_4", "webhook-timestamp": String(ts), "webhook-signature": sign("evt_4", ts, body) } });
     assert.equal(ev.type, "email.delivered");
   } finally {
-    Object.defineProperty(globalThis, "crypto", desc);
+    if (desc) Object.defineProperty(globalThis, "crypto", desc);
+    else delete globalThis.crypto;
   }
 });
