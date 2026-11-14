@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "../../vendor/supabase-js.js"; // self-hosted @supabase/supabase-js 2.49.1 (see .github/workflows/vendor-supabase.yml)
 
 // Supabase on our own domain (custom domain add-on), so Google/GitHub sign-in shows auth.delivrie.io.
 export const SUPABASE_URL = "https://auth.delivrie.io";
