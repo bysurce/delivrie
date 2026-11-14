@@ -173,11 +173,13 @@ def hero(eb, h1, lede, buttons, center=False):
     b = "".join(f'<a class="{c}" href="{h}">{E(t)}</a>' for t, h, c in buttons)
     return f'<section class="s-hero{" center" if center else ""}"><div class="wrap reveal in">{eyebrow(eb)}<h1>{h1}</h1><p class="lede">{E(lede)}</p>{('<div class="btn-row">' + b + '</div>') if b else ""}</div></section>'
 
-def head2(eb, h2, lede=""):
-    return f'<div class="section-head reveal"><div>{eyebrow(eb)}<h2>{h2}</h2></div><div class="grow"></div>{f"<p class=lede>{E(lede)}</p>" if lede else ""}</div>'
+def head2(eb, h2, lede="", lede_html=""):
+    lede_html = lede_html or (E(lede) if lede else "")
+    return f'<div class="section-head reveal"><div>{eyebrow(eb)}<h2>{h2}</h2></div><div class="grow"></div>{f"<p class=lede>{lede_html}</p>" if lede_html else ""}</div>'
 
 def cards(items, cols=4):
-    return f'<div class="grid{cols} reveal-stagger">' + "".join(f'<article class="fcard"><span class="fic">{ICON.get(i, ICON["spark"])}</span><h3>{E(t)}</h3><p>{E(d)}</p></article>' for i, t, d in items) + "</div>"
+    # An optional 4th item is a class: "only-ngn" or "only-usd" shows the card to visitors in Nigeria or elsewhere.
+    return f'<div class="grid{cols} reveal-stagger">' + "".join(f'<article class="fcard {it[3] if len(it) > 3 else ""}"><span class="fic">{ICON.get(it[0], ICON["spark"])}</span><h3>{E(it[1])}</h3><p>{E(it[2])}</p></article>' for it in items) + "</div>"
 
 def about():
     body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built by South Circle, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
@@ -336,7 +338,7 @@ ALTS = {
              ("60,000 emails a month", "$20 (Pro)", "$29 (Pro + 10,000 extra at $0.90 per 1,000)"),
              ("100,000 emails a month", "$45 (Scale)", "$65 (Pro + 50,000 extra at $0.90 per 1,000)"),
              ("Extra emails, per 1,000", "$0.40 to $0.45", "$0.90"),
-             ("Pay in Naira", "Yes, through Paystack", "No, dollar card only"),
+             ("Pay in Naira", "Yes, through Paystack", "No, dollar card only", "only-ngn"),
              ("SMTP relay", "Yes, ports 587 and 465", "Yes"),
              ("MCP server for AI agents", "Yes, 64 tools with OAuth", "Yes"),
              ("Shared inbox for replies", "Yes", "Yes"),
@@ -344,9 +346,10 @@ ALTS = {
     "why": [("zap", "Half the price", "$10 a month for 20,000 emails instead of $20, and $0.45 per extra 1,000 instead of $0.90. At 100,000 emails a month you pay $45 instead of $65."),
             ("code", "Same API shape", "POST /emails with from, to, subject, html, text, cc, bcc, reply_to, headers, attachments, tags, template and an Idempotency-Key header. The response is { id }."),
             ("mail", "A bigger free plan", "4,000 emails a month, enough to launch a real product before you pay anything."),
-            ("globe", "Dollars or Naira", "Pay by card in US dollars, or in Naira through Paystack with local cards and no exchange-rate surprises.")],
+            ("globe", "Pay in Naira", "Fixed Naira prices through Paystack with local cards, bank transfer or USSD, and no exchange-rate surprises.", "only-ngn"),
+            ("shield", "No commitment", "Simple monthly prices in US dollars with no minimum term. Upgrade, downgrade or cancel any time.", "only-usd")],
     "better": {
-      "us": [("Naira or dollars, your choice", "Fixed Naira prices through Paystack on the card you already have, or US dollars by card. No dollar card, no exchange-rate surprises."),
+      "us": [("Pay in Naira", "Fixed Naira prices through Paystack on the card you already have. No dollar card, no exchange-rate surprises.", "only-ngn"),
              ("Up to half the price", "20,000 emails for $10 instead of $20, 60,000 for $20 instead of about $29, and extra emails at $0.45 per 1,000 instead of $0.90."),
              ("More free email", "4,000 emails a month on the free plan, a third more than Resend’s 3,000."),
              ("Switch without rewriting", "Keep the official Resend SDK and change one environment variable, or use ours, which sends React Email components the same way. We test the switch against our live API every day."),
@@ -356,6 +359,7 @@ ALTS = {
                ("Official SDKs in more languages", "Python, Ruby, PHP, Go, Rust, Java, .NET and Elixir. Delivrie has an official Node.js SDK and copy-paste guides for the rest."),
                ("A longer track record", "Resend has been running at large scale for longer, which matters if your procurement team asks.")],
       "pick_us": "You want more email for less, or build with AI tools and want an MCP server and docs your assistant can read.",
+      "pick_us_ngn": "You pay in Naira, want more email for less, or build with AI tools and want an MCP server and docs your assistant can read.",
       "pick_them": "You need to send from the US, Brazil or Japan, or want an official SDK in a language other than JavaScript.",
     },
     "before": 'curl https://api.resend.com/emails \\\n  -H "Authorization: Bearer re_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
@@ -364,7 +368,7 @@ ALTS = {
     "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 4,000 a month instead of 3,000."),
             ("Is Delivrie a good Resend alternative?", "If you send transactional email through an API or SMTP, yes: the request format matches Resend’s /emails endpoint, and Delivrie adds broadcasts, automations, a shared inbox and an MCP server for AI agents on every plan."),
             ("Can I switch from Resend without rewriting my code?", "Yes. Keep the official Resend SDK and set RESEND_BASE_URL=https://delivrie.io/api with a Delivrie API key, or change the base URL in your own HTTP calls. We run the Resend SDK against Delivrie’s live API every day to make sure it keeps working. Verify your sending domain in Delivrie first."),
-            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and includes an MCP server and AI-readable docs. You can pay in dollars, or in Naira if you’re in Nigeria. Resend sends from more regions and has official SDKs for more languages. Pick the one that fits how you send."),
+            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and includes an MCP server and AI-readable docs. Resend sends from more regions and has official SDKs for more languages. Pick the one that fits how you send."),
             ("Does Delivrie work for teams in the US?", "Yes. Prices are in US dollars, you can pay by card, and the API, SMTP relay and MCP server work from anywhere.")],
   },
   "brevo": {
@@ -378,7 +382,7 @@ ALTS = {
              ("100,000 emails a month", "$45 (Scale)", "$82 (Starter)"),
              ("Extra emails", "$0.40 to $0.45 per 1,000", "Move up a plan"),
              ("Provider branding", "None", "“Sent with Brevo” on Starter unless you pay $12 a month"),
-             ("Pay in Naira", "Yes, through Paystack", "No"),
+             ("Pay in Naira", "Yes, through Paystack", "No", "only-ngn"),
              ("SMTP relay", "Yes, ports 587 and 465", "Yes"),
              ("MCP server for AI agents", "Yes, 64 tools with OAuth", "Yes"),
              ("SMS, WhatsApp and CRM", "No", "Yes")],
@@ -390,13 +394,14 @@ ALTS = {
       "us": [("Built for developers", "One POST /emails call, signed webhooks, test addresses, an official Node.js SDK and guides for every major framework."),
              ("A third of the price", "20,000 emails for $10 instead of $32, and 100,000 for $45 instead of $82."),
              ("Your brand only", "No “Sent with Brevo” footer on any plan, and no add-on to pay for removing it."),
-             ("Naira or dollars", "Fixed Naira prices through Paystack, or US dollars by card."),
+             ("Pay in Naira", "Fixed Naira prices through Paystack with local cards. No dollar card needed.", "only-ngn"),
              ("No daily cap on paid plans", "A launch or a burst of password resets goes out in full."),
              ("Built for AI coding", "An MCP server with 64 tools, and docs your assistant can read as llms.txt and Markdown.")],
       "them": [("SMS and WhatsApp", "Send text and WhatsApp messages from the same account as your email."),
                ("A built-in CRM", "Deals, pipelines and contact history for a sales team."),
                ("A full marketing suite", "Landing pages, signup forms and a drag-and-drop campaign builder for marketers who don’t write code.")],
-      "pick_us": "Your product sends email from code, you want clean pricing without a provider footer, or you want to pay in Naira.",
+      "pick_us": "Your product sends email from code, or you want clean pricing without a provider footer.",
+      "pick_us_ngn": "Your product sends email from code, you want clean pricing without a provider footer, or you want to pay in Naira.",
       "pick_them": "Your marketing team needs SMS, WhatsApp and a CRM in one place more than an email API.",
     },
     "before": 'curl https://api.brevo.com/v3/smtp/email \\\n  -H "api-key: xkeysib-…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "sender": { "email": "hi@acme.com" },\n    "to": [{ "email": "ada@example.com" }],\n    "subject": "Welcome",\n    "htmlContent": "<p>Hi Ada</p>"\n  }\'',
@@ -411,18 +416,18 @@ ALTS = {
 
 def alternative(key):
     a = ALTS[key]; n = a["name"]
-    rows = "".join(f'<tr><th scope="row">{E(r)}</th><td class="us">{E(d)}</td><td>{E(o)}</td></tr>' for r, d, o in a["rows"])
+    rows = "".join(f'<tr class="{x[3] if len(x) > 3 else ""}"><th scope="row">{E(x[0])}</th><td class="us">{E(x[1])}</td><td>{E(x[2])}</td></tr>' for x in a["rows"])
     why = cards(a["why"], 4)
     faq = "".join(f'<details class="faq-i"><summary>{E(q)}</summary><p>{E(x)}</p></details>' for q, x in a["faq"])
     body = hero(f"{n} alternative", a["h1"], a["lede"], [("Start free", "/signup", "b-primary"), ("Compare all three", "/compare", "b-secondary")], center=True)
-    body += f"""<section class="section"><div class="wrap">{head2("Side by side", f"Delivrie vs {E(n)}", "Prices in US dollars, checked 13 November 2026. Naira prices are on the pricing page.")}
+    body += f"""<section class="section"><div class="wrap">{head2("Side by side", f"Delivrie vs {E(n)}", lede_html='Prices in US dollars, checked 13 November 2026.<span class="only-ngn"> Naira prices are on the <a href="/pricing">pricing page</a>.</span>')}
       <div class="cmp-wrap reveal"><table class="cmp alt"><thead><tr><th></th><th class="us"><img src="/assets/logo.svg" alt="Delivrie" height="18"></th><th><img src="/assets/compare/{key}.png" alt="{E(n)}" height="17"></th></tr></thead><tbody>{rows}</tbody></table></div></div></section>"""
     body += f'<section class="section"><div class="wrap">{head2("Why switch", f"Why teams move from {E(n)} to Delivrie")}{why}</div></section>'
     b = a["better"]
-    col = lambda title, items, us: f'<div class="bcard{" us" if us else ""}"><h3>{title}</h3><ul>' + "".join(f"<li><b>{E(t)}</b><span>{E(d)}</span></li>" for t, d in items) + "</ul></div>"
+    col = lambda title, items, us: f'<div class="bcard{" us" if us else ""}"><h3>{title}</h3><ul>' + "".join(f'<li class="{x[2] if len(x) > 2 else ""}"><b>{E(x[0])}</b><span>{E(x[1])}</span></li>' for x in items) + "</ul></div>"
     body += f"""<section class="section"><div class="wrap">{head2("Honest comparison", "Where each one is the better call", f"Delivrie isn’t the right choice for everyone. Here’s where {E(n)} wins too.")}
       <div class="better reveal-stagger">{col('Choose <img src="/assets/logo.svg" alt="Delivrie" height="18"> for', b["us"], True)}{col(f"Choose {E(n)} for", b["them"], False)}</div>
-      <div class="pick reveal"><p><b>Pick Delivrie when</b> {E(b["pick_us"][0].lower() + b["pick_us"][1:])}</p><p><b>Pick {E(n)} when</b> {E(b["pick_them"][0].lower() + b["pick_them"][1:])}</p></div></div></section>"""
+      <div class="pick reveal">{"".join(f'<p class="{c}"><b>Pick Delivrie when</b> {E(t[0].lower() + t[1:])}</p>' for t, c in ((b["pick_us"], "only-usd" if b.get("pick_us_ngn") else ""), (b.get("pick_us_ngn"), "only-ngn")) if t)}<p><b>Pick {E(n)} when</b> {E(b["pick_them"][0].lower() + b["pick_them"][1:])}</p></div></div></section>"""
     body += f"""<section class="section"><div class="wrap">{head2("Switch", "Switch in a few minutes", a["steps"])}
       <div class="grid2 reveal-stagger"><div><div class="code-h">Before · {E(n)}</div><pre class="post-code"><code>{E(a["before"])}</code></pre></div><div><div class="code-h">After · Delivrie</div><pre class="post-code"><code>{E(a["after"])}</code></pre></div></div></div></section>"""
     body += f'<section class="section"><div class="wrap narrow">{head2("FAQ", f"Delivrie vs {E(n)}: common questions")}<div class="faq-list reveal">{faq}</div></div></section>' + CTA
