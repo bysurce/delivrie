@@ -14,7 +14,13 @@ except Exception:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOOT = ('<script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";'
-        'document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>')
+        'document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}'
+        # Signed in already (a Supabase session is stored on this origin): the nav offers Dashboard instead of
+        # Log in / Get started. Hidden before first paint; the button is relabelled as soon as the page is parsed.
+        'try{var a=JSON.parse(localStorage.getItem("sb-hnjejflinvaoxbduxeiu-auth-token")||"null");if(a&&(a.refresh_token||a.currentSession)){'
+        'document.documentElement.dataset.auth="in";document.addEventListener("DOMContentLoaded",function(){'
+        'document.querySelectorAll(".btn-signup,.mm-btn.pri").forEach(function(b){b.href="/emails";b.textContent="Dashboard"})})}}catch(e){}'
+        '</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}</style>')
 ICONS = {
     "system": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
     "light": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
@@ -72,7 +78,7 @@ def files():
     return out
 
 def apply(s):
-    s = re.sub(r'\s*<script data-theme-boot>.*?</script>', "", s, flags=re.S)
+    s = re.sub(r'\s*<script data-theme-boot>.*?</script>(<style>html\[data-auth=in\].*?</style>)?', "", s, flags=re.S)
     s = re.sub(r'\s*<script>try\{var t=localStorage\.getItem\("dlv_theme"\).*?</script>', "", s, flags=re.S)  # older app.html boot
     s = re.sub(r'<meta name="theme-color" content="[^"]*">', '<meta name="theme-color" content="#ffffff">', s)
     s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  ' + BOOT, 1)
