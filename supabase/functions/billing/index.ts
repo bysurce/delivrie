@@ -4,8 +4,6 @@
 // Routes (served at https://delivrie.io/api/billing/* via a Vercel rewrite):
 //   GET  /summary    plan, prices, subscription and invoices for the current team
 //   POST /checkout   { plan, currency, interval, kind? } -> Paystack checkout URL (kind "marketing" for the add-on)
-//   POST /coupon     { code, kind, plan?, interval?, currency, pack? | amount? } -> what the coupon takes off (preview)
-//   POST /checkout and /topup also take { coupon }; without one, a discount assigned to the team applies itself.
 //   POST /topup      { pack | amount, currency, method: card|bank_transfer|ussd|checkout, auto? } -> credits
 //                    (saved card is charged directly; otherwise a Paystack checkout URL). /credits is an alias.
 //   POST /settings   { auto_topup?: { enabled, pack, threshold }, alerts?: { p80, p100, credits_low } }
@@ -20,7 +18,6 @@
 //
 // Secrets: PAYSTACK_SECRET_KEY (sk_test_… or sk_live_…), APP_URL, SYSTEM_FROM (alert emails), VAT_RATE (optional percent).
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-import { bestAuto, type Coupon, couponLabel, couponProblem, discounted, nextPeriod, normCode } from "./coupons.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -104,16 +101,14 @@ async function setSetting(key: string, value: string) {
 }
 
 // One Paystack plan per (kind, plan, interval, currency, price). Changing a price creates a new Paystack plan.
-// A "forever" coupon passes its percentage: the subscription then renews at the discounted price.
-async function planCode(kind: string, plan: string, interval: string, currency: string, percentOff = 0) {
+async function planCode(kind: string, plan: string, interval: string, currency: string) {
   const p = catalog(kind)[plan];
-  const full = p[interval as "monthly" | "yearly"][currency];
-  const amount = percentOff ? discounted(full, percentOff, true) : full;
+  const amount = p[interval as "monthly" | "yearly"][currency];
   const key = `paystack_plan:${PSK.startsWith("sk_live") ? "live" : "test"}:${kind}:${plan}:${interval}:${currency}:${amount}`;
   const existing = await setting(key);
   if (existing) return existing;
   const d = await ps("POST", "/plan", {
-    name: `Delivrie ${p.name} ${interval === "yearly" ? "yearly" : "monthly"} (${currency})${percentOff ? ` ${percentOff}% off` : ""}`,
+    name: `Delivrie ${p.name} ${interval === "yearly" ? "yearly" : "monthly"} (${currency})`,
     interval: interval === "yearly" ? "annually" : "monthly",
     amount,
     currency,
@@ -132,27 +127,6 @@ async function planFromCode(code?: string | null): Promise<{ kind: string; plan:
   const [kind, plan, interval, currency] = parts;
   return { kind, plan, interval, currency };
 }
-
-// ---------------------------------------------------------------- coupons
-async function teamCouponIds(teamId: string) {
-  const { data } = await db.from("coupon_redemptions").select("coupon_id").eq("team_id", teamId);
-  return new Set<string>((data || []).map((r: Any) => r.coupon_id as string));
-}
-// The coupon for this payment: the typed code (must be valid, or this throws), else the team's best assigned discount.
-async function resolveCoupon(teamId: string, code: unknown, use: { kind: "transactional" | "marketing" | "credits"; plan?: string; interval?: string }): Promise<Coupon | null> {
-  const typed = normCode(code);
-  const used = await teamCouponIds(teamId);
-  if (typed) {
-    const { data } = await db.from("coupons").select("*").eq("code", typed).maybeSingle();
-    const problem = couponProblem(data as Coupon | null, { ...use, teamId, usedByTeam: !!data && used.has((data as Coupon).id) });
-    if (problem) throw new HttpError(400, problem);
-    return data as Coupon;
-  }
-  const { data } = await db.from("coupons").select("*").eq("team_id", teamId).eq("auto_apply", true).eq("active", true);
-  return bestAuto((data || []) as Coupon[], used, { ...use, teamId });
-}
-const couponMeta = (c: Coupon | null, before: number, after: number) =>
-  c ? { coupon_id: c.id, coupon_code: c.code, percent_off: c.percent_off, coupon_duration: c.duration, amount_before: before, amount_after: after } : {};
 
 // ---------------------------------------------------------------- auth
 async function auth(req: Request) {
@@ -218,35 +192,6 @@ async function findSub(customerId: number | undefined, code: string | null) {
   } catch (e) { console.error("subscription lookup failed", e); return null; }
 }
 
-// Count a coupon once per payment. Returns false when this payment was already counted (a repeated webhook or /verify).
-async function redeem(meta: Any, teamId: string, tx: Any, kind: string, plan: string | null) {
-  if (!meta.coupon_id || tx.status !== "success") return false;
-  const { data, error } = await db.rpc("redeem_coupon", {
-    p_coupon: meta.coupon_id, p_team: teamId, p_reference: tx.reference, p_kind: kind, p_plan: plan, p_currency: tx.currency || meta.currency,
-    p_before: Number(meta.amount_before || 0), p_after: Number(meta.amount_after || tx.amount || 0),
-  });
-  if (error) { console.error("coupon redemption failed", error); return true; }
-  if (data) return true;
-  const { data: same } = await db.from("coupon_redemptions").select("id").eq("reference", tx.reference).maybeSingle();
-  return !same; // false only when this exact payment was already counted
-}
-
-// A first-payment-only coupon is paid as a one-off charge; this starts the full-price subscription from the next period.
-async function startFullPriceSub(tx: Any, kind: string, plan: string, interval: string, currency: string) {
-  const fullCode = await planCode(kind, plan, interval, currency);
-  const start = nextPeriod(new Date(tx.paid_at || tx.paidAt || Date.now()), interval);
-  const a = tx.authorization || {};
-  try {
-    if (!a.reusable || !a.authorization_code) throw new Error("card can't be charged again");
-    const s = await ps("POST", "/subscription", { customer: tx.customer?.customer_code || tx.customer?.email, plan: fullCode, authorization: a.authorization_code, start_date: start.toISOString() });
-    return { plan_code: fullCode, subscription_code: s.subscription_code, email_token: s.email_token, next_payment_date: s.next_payment_date || start.toISOString() };
-  } catch (e) {
-    // The paid period still counts; the plan simply ends then unless they subscribe again.
-    console.error("full-price subscription after coupon failed", e);
-    return { plan_code: fullCode, next_payment_date: start.toISOString(), status: "cancelling", cancel_at: start.toISOString() };
-  }
-}
-
 async function applyCharge(tx: Any) {
   const code = tx.plan_object?.plan_code || tx.plan?.plan_code || (typeof tx.plan === "string" && tx.plan ? tx.plan : null);
   const meta = parseMeta(tx.metadata);
@@ -259,9 +204,8 @@ async function applyCharge(tx: Any) {
 
   if (kind === "credits") {
     const emails = Number(meta.emails || 0);
-    const done = await recordInvoice(teamId, tx, "credits", null, `${meta.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails${meta.coupon_code ? ` · ${meta.coupon_code} (${meta.percent_off}% off)` : ""}`);
+    const done = await recordInvoice(teamId, tx, "credits", null, `${meta.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails`);
     if (tx.status === "success" && !done && emails > 0) {
-      await redeem(meta, teamId, tx, "credits", null);
       await db.rpc("add_credits", { p_team: teamId, p_n: emails });
       await saveBilling(teamId, { ...cardPatch(tx, old), provider: old.provider || "paystack", currency: old.currency || tx.currency });
     }
@@ -276,24 +220,14 @@ async function applyCharge(tx: Any) {
   const interval = meta.interval || fromCode?.interval || "monthly";
   const currency = tx.currency || meta.currency || fromCode?.currency;
   if (!plan || !catalog(kind)[plan]) return null;
-  const label = `${catalog(kind)[plan].name} · ${interval}${meta.coupon_code ? ` · ${meta.coupon_code} (${meta.percent_off}% off)` : ""}`;
+  const label = `${catalog(kind)[plan].name} · ${interval}`;
   await recordInvoice(teamId, tx, kind, plan, label);
   if (tx.status !== "success") return teamId;
-  const fresh = await redeem(meta, teamId, tx, kind, plan);
-  const discount = meta.coupon_id ? { coupon_id: meta.coupon_id, code: meta.coupon_code, percent_off: Number(meta.percent_off), duration: meta.coupon_duration } : null;
-  let sub: Any = null, extra: Any = {};
-  if (meta.coupon_once && !code) {
-    // One-off discounted charge: only the first handler of this payment creates the follow-on subscription.
-    if (!fresh) return teamId;
-    extra = await startFullPriceSub(tx, kind, plan, interval, currency);
-    sub = extra.subscription_code ? extra : null;
-  } else {
-    sub = await findSub(tx.customer?.id, code);
-  }
+  const sub = await findSub(tx.customer?.id, code);
 
   if (kind === "marketing") {
     const m = old.marketing || {};
-    const patch = { plan, interval, currency, plan_code: code, status: "active", cancel_at: null, ...(sub ? { subscription_code: sub.subscription_code, email_token: sub.email_token, next_payment_date: sub.next_payment_date } : {}), ...extra, discount: discount?.duration === "forever" ? discount : (code && m.plan_code === code ? m.discount ?? null : null) };
+    const patch = { plan, interval, currency, plan_code: code, status: "active", cancel_at: null, ...(sub ? { subscription_code: sub.subscription_code, email_token: sub.email_token, next_payment_date: sub.next_payment_date } : {}) };
     if (m.subscription_code && sub && m.subscription_code !== sub.subscription_code && m.email_token) {
       await ps("POST", "/subscription/disable", { code: m.subscription_code, token: m.email_token }).catch((e) => console.error("old marketing subscription disable failed", e));
     }
@@ -307,9 +241,6 @@ async function applyCharge(tx: Any) {
     last_payment_at: tx.paid_at || new Date().toISOString(),
     plan_since: before.plan_transactional === plan && old.plan_since ? old.plan_since : (tx.paid_at || new Date().toISOString()),
     ...(sub ? { subscription_code: sub.subscription_code, email_token: sub.email_token, next_payment_date: sub.next_payment_date } : {}),
-    ...extra,
-    // Renewals of a "forever" coupon stay discounted; anything else renews at full price.
-    discount: discount?.duration === "forever" ? discount : (code && old.plan_code === code ? old.discount ?? null : null),
   };
   // Switching plans: stop the previous subscription so the customer isn't charged twice.
   if (old.subscription_code && patch.subscription_code && old.subscription_code !== patch.subscription_code && old.email_token) {
@@ -359,7 +290,6 @@ async function summary(teamId: string, admin: boolean) {
   const sub = b.provider === "paystack" && b.plan && b.plan !== "free" ? {
     plan: b.plan, interval: b.interval || "monthly", currency: b.currency, status: b.status, card: b.card || null,
     next_payment_date: b.next_payment_date || null, cancel_at: b.cancel_at || null, can_manage: !!b.subscription_code,
-    discount: b.discount?.percent_off ? { code: b.discount.code, percent_off: b.discount.percent_off } : null,
   } : null;
   // Next invoice estimate: renewal (if it falls before the month ends) plus projected overage, less credits.
   const daysIn = Math.round((to.getTime() - from.getTime()) / 864e5), dayN = Math.min(daysIn, Math.floor((now.getTime() - from.getTime()) / 864e5) + 1);
@@ -367,13 +297,7 @@ async function summary(teamId: string, admin: boolean) {
   const projOver = overageCost(plan, projected, cur);
   const p = PLANS[plan];
   const subCur = sub?.currency === "USD" ? "USD" : "NGN";
-  const fullRenewal = p && sub && sub.status === "active" ? p[(sub.interval === "yearly" ? "yearly" : "monthly") as "monthly"][subCur] : 0;
-  const renewal = fullRenewal && sub?.discount ? discounted(fullRenewal, sub.discount.percent_off, true) : fullRenewal;
-  // Discounts assigned to this team that apply themselves at checkout.
-  const usedCoupons = admin ? await teamCouponIds(teamId) : new Set<string>();
-  const { data: assigned } = admin ? await db.from("coupons").select("*").eq("team_id", teamId).eq("auto_apply", true).eq("active", true) : { data: [] };
-  const discounts = ((assigned || []) as Coupon[]).filter((c) => !usedCoupons.has(c.id) && !(c.expires_at && new Date(c.expires_at) <= now) && !(c.max_redemptions != null && c.redemptions >= c.max_redemptions))
-    .map((c) => ({ code: c.code, label: couponLabel(c), percent_off: c.percent_off, applies_to: c.applies_to, duration: c.duration, plans: c.plans, intervals: c.intervals, expires_at: c.expires_at, description: c.description }));
+  const renewal = p && sub && sub.status === "active" ? p[(sub.interval === "yearly" ? "yearly" : "monthly") as "monthly"][subCur] : 0;
   const creditsApplied = Math.min(value, projOver.cost);
   const vat = vatOf(projOver.cost - creditsApplied);
   return {
@@ -413,18 +337,17 @@ async function summary(teamId: string, admin: boolean) {
     marketing_subscription: b.marketing?.plan ? { ...b.marketing, email_token: undefined, subscription_code: undefined, can_manage: !!b.marketing.subscription_code } : null,
     details: b.details || {},
     invoices: invoices || [],
-    discounts,
   };
 }
 
 // Charge the saved card for credits (used by auto top-up and "Pay with card" in the top-up dialog).
-async function chargeCredits(teamId: string, emails: number, amount: number, currency: string, auto: boolean, coupon: Coupon | null = null, fullAmount = amount) {
+async function chargeCredits(teamId: string, emails: number, amount: number, currency: string, auto: boolean) {
   const t = await team(teamId);
   const b = t.billing || {};
   if (!b.authorization_code || !b.email) throw new HttpError(400, "There's no saved card. Pay with checkout instead.");
   const vat = vatOf(amount);
   const reference = `top_${auto ? "auto_" : ""}${teamId.slice(0, 8)}_${Date.now().toString(36)}`;
-  const metadata = { team_id: teamId, kind: "credits", emails, currency, vat, auto, ...couponMeta(coupon, fullAmount, amount) };
+  const metadata = { team_id: teamId, kind: "credits", emails, currency, vat, auto };
   const tx = await ps("POST", "/transaction/charge_authorization", { email: b.email, amount: amount + vat, currency, authorization_code: b.authorization_code, reference, metadata });
   await applyCharge({ ...tx, reference, currency, amount: amount + vat, metadata });
   return tx.status as string;
@@ -545,37 +468,6 @@ async function overageRun() {
   return { month: tag, charged: results };
 }
 
-// What a checkout or top-up costs, with any coupon applied. Throws with a customer-facing message when the choice is invalid.
-async function quote(teamId: string, body: Any) {
-  const currency = String(body.currency || "").toUpperCase();
-  if (!CURRENCIES.includes(currency)) throw new HttpError(400, "Choose USD or NGN.");
-  if (body.kind === "credits") {
-    let amount: number, emails: number;
-    if (body.pack != null && body.pack !== "custom") {
-      const pack = PACKS[Number(body.pack)];
-      if (!pack) throw new HttpError(400, "Choose a credit pack.");
-      amount = pack.price[currency]; emails = pack.emails;
-    } else {
-      amount = Math.round(Number(body.amount) * 100);
-      if (!isFinite(amount) || amount < MIN_TOPUP[currency]) throw new HttpError(400, `The minimum top-up is ${currency === "NGN" ? "₦5,000" : "$5"}.`);
-      if (amount > MAX_TOPUP[currency]) throw new HttpError(400, "That's above the largest top-up. Talk to sales for bigger volumes.");
-      emails = emailsFor(amount, currency);
-    }
-    const coupon = await resolveCoupon(teamId, body.coupon, { kind: "credits" });
-    const after = coupon ? discounted(amount, coupon.percent_off) : amount;
-    return { kind: "credits" as const, currency, emails, full: amount, after, coupon, plan: "", interval: "", p: null as Any };
-  }
-  const kind = body.kind === "marketing" ? "marketing" as const : "transactional" as const;
-  const plan = String(body.plan || "");
-  const interval = INTERVALS.includes(body.interval) ? body.interval as string : "monthly";
-  const p = catalog(kind)[plan];
-  if (!p) throw new HttpError(400, kind === "marketing" ? "Choose Growth or Pro marketing." : "Choose Pro or Scale.");
-  const full = p[interval as "monthly" | "yearly"][currency];
-  const coupon = await resolveCoupon(teamId, body.coupon, { kind, plan, interval });
-  const after = coupon ? discounted(full, coupon.percent_off, true) : full;
-  return { kind, currency, emails: 0, full, after, coupon, plan, interval, p };
-}
-
 async function handle(req: Request, path: string): Promise<Response> {
   if (path === "/webhook" && req.method === "POST") return webhook(req);
   if (path === "/cron/overage" && req.method === "POST") {
@@ -602,38 +494,26 @@ async function handle(req: Request, path: string): Promise<Response> {
 
   if (path === "/summary" && req.method === "GET") return json(await summary(a.teamId, a.admin));
 
-  // Preview a coupon (or the team's assigned discount when no code is given) before paying.
-  if (path === "/coupon" && req.method === "POST") {
-    requireAdmin(a);
-    const q = await quote(a.teamId, body);
-    if (!q.coupon) return json({ coupon: null, amount_before: q.full, amount_after: q.full, currency: q.currency });
-    const c = q.coupon;
-    return json({
-      coupon: { code: c.code, percent_off: c.percent_off, duration: c.duration, label: couponLabel(c), description: c.description || null, assigned: !normCode(body.coupon) },
-      amount_before: q.full, amount_after: q.after, vat: q.kind === "credits" ? vatOf(q.after) : 0, currency: q.currency,
-      renews_at: q.kind === "credits" ? null : c.duration === "forever" ? q.after : q.full,
-    });
-  }
-
   if (path === "/checkout" && req.method === "POST") {
     requireAdmin(a);
-    const q = await quote(a.teamId, { ...body, kind: body.kind === "marketing" ? "marketing" : "transactional" });
-    const { kind, plan, currency, interval, p, coupon } = q;
+    const kind = body.kind === "marketing" ? "marketing" : "transactional";
+    const plan = String(body.plan || ""), currency = String(body.currency || "").toUpperCase();
+    const interval = INTERVALS.includes(body.interval) ? body.interval : "monthly";
+    const p = catalog(kind)[plan];
+    if (!p) throw new HttpError(400, kind === "marketing" ? "Choose Growth or Pro marketing." : "Choose Pro or Scale.");
+    if (!CURRENCIES.includes(currency)) throw new HttpError(400, "Choose USD or NGN.");
     const t = await team(a.teamId);
     const cur = kind === "marketing" ? (t.billing?.marketing || {}) : (t.billing || {});
     const current = kind === "marketing" ? t.plan_marketing : t.plan_transactional;
     if (current === plan && cur.status === "active" && cur.currency === currency && (cur.interval || "monthly") === interval) throw new HttpError(400, `You're already on ${p.name}.`);
-    // No coupon or "every payment": subscribe to a Paystack plan at that price. "First payment only": a one-off charge
-    // at the discounted price (card only, so the card can be saved), then applyCharge starts the full-price plan.
-    const once = coupon?.duration === "once";
-    const code = once ? null : await planCode(kind, plan, interval, currency, coupon?.percent_off || 0);
+    const code = await planCode(kind, plan, interval, currency);
     const init = await ps("POST", "/transaction/initialize", {
       email: t.billing?.details?.email || a.user.email,
-      amount: q.after,
+      amount: p[interval as "monthly" | "yearly"][currency],
       currency,
-      ...(code ? { plan: code } : { channels: ["card"] }),
+      plan: code,
       callback_url: `${APP_URL}/billing`,
-      metadata: { team_id: a.teamId, kind, plan, interval, currency, user_id: a.user.id, cancel_action: `${APP_URL}/billing?canceled=1`, ...couponMeta(coupon, q.full, q.after), ...(once ? { coupon_once: true } : {}) },
+      metadata: { team_id: a.teamId, kind, plan, interval, currency, user_id: a.user.id, cancel_action: `${APP_URL}/billing?canceled=1` },
     });
     return json({ url: init.authorization_url, reference: init.reference });
   }
@@ -641,9 +521,19 @@ async function handle(req: Request, path: string): Promise<Response> {
   // Top up credits: a pack or a custom amount; saved card, or Paystack checkout (card, bank transfer, USSD).
   if ((path === "/topup" || path === "/credits") && req.method === "POST") {
     requireAdmin(a);
-    const q = await quote(a.teamId, { ...body, kind: "credits" });
-    const { currency, emails, coupon } = q;
-    const amount = q.after; // emails stay at the full-price amount; the coupon lowers what's paid
+    const currency = String(body.currency || "").toUpperCase();
+    if (!CURRENCIES.includes(currency)) throw new HttpError(400, "Choose USD or NGN.");
+    let amount: number, emails: number;
+    if (body.pack != null && body.pack !== "custom") {
+      const pack = PACKS[Number(body.pack)];
+      if (!pack) throw new HttpError(400, "Choose a credit pack.");
+      amount = pack.price[currency]; emails = pack.emails;
+    } else {
+      amount = Math.round(Number(body.amount) * 100);
+      if (!isFinite(amount) || amount < MIN_TOPUP[currency]) throw new HttpError(400, `The minimum top-up is ${currency === "NGN" ? "₦5,000" : "$5"}.`);
+      if (amount > MAX_TOPUP[currency]) throw new HttpError(400, "That's above the largest top-up. Talk to sales for bigger volumes.");
+      emails = emailsFor(amount, currency);
+    }
     const t = await team(a.teamId);
     if (body.auto && typeof body.auto === "object") {
       const pack = Number(body.auto.pack ?? body.pack ?? 1);
@@ -651,7 +541,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     }
     const method = ["card", "bank_transfer", "ussd"].includes(body.method) ? body.method : "checkout";
     if (method === "card" && t.billing?.authorization_code) {
-      const status = await chargeCredits(a.teamId, emails, amount, currency, false, coupon, q.full);
+      const status = await chargeCredits(a.teamId, emails, amount, currency, false);
       if (status !== "success") throw new HttpError(402, "Your card was declined. Try checkout instead.");
       return json({ status, emails, ...(await summary(a.teamId, a.admin)) });
     }
@@ -661,7 +551,7 @@ async function handle(req: Request, path: string): Promise<Response> {
       currency,
       ...(method === "bank_transfer" || method === "ussd" ? { channels: [method] } : {}),
       callback_url: `${APP_URL}/billing`,
-      metadata: { team_id: a.teamId, kind: "credits", emails, currency, vat: vatOf(amount), user_id: a.user.id, cancel_action: `${APP_URL}/billing?canceled=1`, ...couponMeta(coupon, q.full, amount) },
+      metadata: { team_id: a.teamId, kind: "credits", emails, currency, vat: vatOf(amount), user_id: a.user.id, cancel_action: `${APP_URL}/billing?canceled=1` },
     });
     return json({ url: init.authorization_url, reference: init.reference });
   }

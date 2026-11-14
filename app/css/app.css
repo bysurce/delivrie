@@ -1232,25 +1232,3 @@ body:has(.overlay) .sc { display: none; } /* the support chat button would cover
   .tg-top .seg-tabs { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; }
   .tg-top .seg-tab { flex: none; }
 }
-
-/* Coupons (billing dialogs) */
-.bbanner.ok { border-color: rgba(63, 166, 114, .35); background: rgba(63, 166, 114, .1); color: var(--green-2); }
-.cp-wrap { margin-top: 12px; }
-.cp-wrap[hidden] { display: none; }
-.cp-wrap .link.sm { font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
-.cp-form { display: flex; gap: 8px; max-width: 360px; }
-.cp-form .input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .02em; }
-.cp-form .input::placeholder { text-transform: none; letter-spacing: 0; }
-.cp-err { margin: 6px 0 0; font-size: 12px; color: #f16a6e; }
-.cp-ok { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; border: 1px dashed rgba(63, 166, 114, .45); background: rgba(63, 166, 114, .08); font-size: 13px; margin-bottom: 6px; }
-.cp-ok > .ico { color: var(--green-2); flex: none; }
-.cp-ok .grow { min-width: 0; }
-.cp-ok .pos { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cp-note { margin: 8px 0 0; font-size: 12.5px; color: var(--fg-2); }
-.cp-note:empty { display: none; }
-.cp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-@media (max-width: 560px) { .cp-grid { grid-template-columns: 1fr; } }
-.cp-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
-.cp-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
-[data-plan-only][hidden] { display: none; }
-.cp-checks + .hint { margin-bottom: 4px; } [data-plan-only] .field { margin-bottom: 12px; }
