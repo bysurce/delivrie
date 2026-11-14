@@ -16,9 +16,29 @@ on:
         description: Publish the version in sdk/node/package.json to npm
         type: boolean
         default: false
+      inspect:
+        description: Only show the package's npm status and staged versions
+        type: boolean
+        default: false
 
 jobs:
+  inspect:
+    if: github.event_name == 'workflow_dispatch' && inputs.inspect
+    runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npx -y npm@latest --version
+      - run: npx -y npm@latest whoami || true
+      - run: npx -y npm@latest view delivrie versions dist-tags maintainers --json || true
+      - run: npx -y npm@latest stage list delivrie || true
+
   test:
+    if: github.event_name != 'workflow_dispatch' || !inputs.inspect
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
