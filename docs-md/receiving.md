@@ -73,7 +73,7 @@ Set `reply_to` to a receiving address when you send, and customer replies come b
 
 ## How long received mail is kept
 
-Received email and Inbox replies are kept for 7 days on Free, 14 on Starter and 30 on Pro and Scale. After that the message body and attachments are deleted; the sender, subject and thread stay. Save anything you need longer from the `email.received` webhook.
+Received email and Inbox replies are kept for 30 days on every plan. After that the message body and attachments are deleted; the sender, subject and thread stay. Save anything you need longer from the `email.received` webhook.
 
 ## Spam and security checks
 

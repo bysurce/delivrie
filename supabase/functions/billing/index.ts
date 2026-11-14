@@ -57,10 +57,10 @@ const VAT_RATE = Math.max(0, Number(env("VAT_RATE") || 0)) || 0;
 const vatOf = (amount: number) => Math.round(amount * VAT_RATE / 100);
 // Plan limits, mirrored from the API's enforcement table.
 const PLAN_LIMITS: Record<string, { domains: number; members: number; retention_days: number; day: number }> = {
-  free: { domains: 1, members: 1, retention_days: 1, day: 200 },
-  starter: { domains: 10, members: 5, retention_days: 3, day: 0 },
-  pro: { domains: 10, members: 5, retention_days: 3, day: 0 },
-  scale: { domains: 1000, members: 0, retention_days: 7, day: 0 },
+  free: { domains: 1, members: 1, retention_days: 30, day: 200 },
+  starter: { domains: 10, members: 5, retention_days: 30, day: 0 },
+  pro: { domains: 10, members: 5, retention_days: 30, day: 0 },
+  scale: { domains: 1000, members: 0, retention_days: 30, day: 0 },
 };
 const MARKETING_CONTACTS: Record<string, number> = { free: 1_000, growth: 5_000, pro: 10_000 };
 const CURRENCIES = ["USD", "NGN"];
