@@ -40,7 +40,7 @@ CTA = """<section class="cta">
     <div class="wrap reveal">
       <img class="cta-mark" src="/assets/mark.svg" width="72" height="51" alt="">
       <h2>Email for builders.<br> Ready when you are.</h2>
-      <p>6,000 free emails every month. No card required.</p>
+      <p>4,000 free emails every month. No card required.</p>
       <div class="btn-row"><a class="b-primary" href="/signup">Start for free</a><a class="b-secondary" href="/contact-sales">Talk to sales</a></div>
     </div>
   </section>"""
@@ -182,7 +182,7 @@ def cards(items, cols=4):
 def about():
     body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built in Lagos by South Circle, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
     body += """<section class="section"><div class="wrap"><div class="stats reveal-stagger">
-      <div><b>6,000</b><span>free emails every month</span></div><div><b>₦ and $</b><span>pricing in your currency</span></div><div><b>64</b><span>MCP tools for AI agents</span></div><div><b>1 call</b><span>to send an email</span></div></div></div></section>"""
+      <div><b>4,000</b><span>free emails every month</span></div><div><b>₦ and $</b><span>pricing in your currency</span></div><div><b>64</b><span>MCP tools for AI agents</span></div><div><b>1 call</b><span>to send an email</span></div></div></div></section>"""
     body += f"""<section class="section"><div class="wrap split-2">
       <div class="reveal">{eyebrow("Our story")}<h2 class="h2">Why we built it</h2></div>
       <div class="prose reveal"><p>Teams across Africa kept hitting the same wall: emails that never arrived, dashboards that hid the reason, and pricing in dollars that punished growth.</p>
@@ -328,10 +328,10 @@ ALTS = {
   "resend": {
     "name": "Resend", "slug": "resend-alternative",
     "title": "Resend alternative: half the price, same API · Delivrie",
-    "desc": "Looking for a cheaper Resend alternative? Delivrie sends with the same API request format at half the price: Starter $10 vs Resend Pro $20, 6,000 free emails vs 3,000, SMTP on ports 587 and 465, MCP and pricing in dollars or Naira.",
+    "desc": "Looking for a cheaper Resend alternative? Delivrie sends with the same API request format at half the price: Starter $10 vs Resend Pro $20, 4,000 free emails vs 3,000, SMTP on ports 587 and 465, MCP and pricing in dollars or Naira.",
     "h1": "The Resend alternative<br> at half the price.",
     "lede": "Same request format as Resend’s /emails endpoint, so switching is a URL and key change. Starter is $10 for the 20,000 emails Resend charges $20 for, the free plan sends twice as much, and extra emails cost half as much.",
-    "rows": [("Free plan", "6,000 / month, 200 a day", "3,000 / month, 100 a day"),
+    "rows": [("Free plan", "4,000 / month, 133 a day", "3,000 / month, 100 a day"),
              ("20,000 emails a month", "$10 (Starter)", "$20 (Pro)"),
              ("60,000 emails a month", "$20 (Pro)", "$29 (Pro + 10,000 extra at $0.90 per 1,000)"),
              ("100,000 emails a month", "$45 (Scale)", "$65 (Pro + 50,000 extra at $0.90 per 1,000)"),
@@ -343,13 +343,13 @@ ALTS = {
              ("Email content kept", "30 days", "30 days")],
     "why": [("zap", "Half the price", "$10 a month for 20,000 emails instead of $20, and $0.45 per extra 1,000 instead of $0.90. At 100,000 emails a month you pay $45 instead of $65."),
             ("code", "Same API shape", "POST /emails with from, to, subject, html, text, cc, bcc, reply_to, headers, attachments, tags, template and an Idempotency-Key header. The response is { id }."),
-            ("mail", "A bigger free plan", "6,000 emails a month and 200 a day, enough to launch a real product before you pay anything."),
+            ("mail", "A bigger free plan", "4,000 emails a month, enough to launch a real product before you pay anything."),
             ("globe", "Dollars or Naira", "Pay by card in US dollars, or in Naira through Paystack with local cards and no exchange-rate surprises.")],
     "fair": "Resend also renders React Email components in its Node SDK; with Delivrie you send the rendered HTML.",
     "before": 'curl https://api.resend.com/emails \\\n  -H "Authorization: Bearer re_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "after": 'curl https://delivrie.io/api/emails \\\n  -H "Authorization: Bearer dlv_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
     "steps": "Add and verify your domain in Delivrie, create an API key, then change the base URL and key in your code. Webhook event names and payloads differ, so update your webhook handler if you use one.",
-    "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 6,000 a month instead of 3,000."),
+    "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 4,000 a month instead of 3,000."),
             ("Is Delivrie a good Resend alternative?", "If you send transactional email through an API or SMTP, yes: the request format matches Resend’s /emails endpoint, and Delivrie adds broadcasts, automations, a shared inbox and an MCP server for AI agents on every plan."),
             ("Can I switch from Resend without rewriting my code?", "For most REST integrations, yes. Change the base URL to https://delivrie.io/api and use a Delivrie API key. Verify your sending domain in Delivrie first, and update your webhook handler if you use one."),
             ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and lets you pay in Naira. Resend keeps email content longer (30 days) and renders React Email in its Node SDK. Pick the one that fits how you send."),
@@ -358,10 +358,10 @@ ALTS = {
   "brevo": {
     "name": "Brevo", "slug": "brevo-alternative",
     "title": "Brevo alternative for developers: cheaper email API · Delivrie",
-    "desc": "A Brevo alternative built for developers: a simple email API, SMTP and MCP, no “Sent with Brevo” footer, 6,000 free emails a month and Starter at $10 instead of $32. Pay in dollars or Naira.",
+    "desc": "A Brevo alternative built for developers: a simple email API, SMTP and MCP, no “Sent with Brevo” footer, 4,000 free emails a month and Starter at $10 instead of $32. Pay in dollars or Naira.",
     "h1": "The Brevo alternative<br> built for developers.",
     "lede": "Brevo is a marketing suite. Delivrie is an email API: transactional email, broadcasts and an inbox with a clean REST API, SMTP and an MCP server, no provider footer and a third of the price at 20,000 emails.",
-    "rows": [("Free plan", "6,000 / month, 200 a day", "300 a day, with a “Sent with Brevo” footer"),
+    "rows": [("Free plan", "4,000 / month, 133 a day", "300 a day, with a “Sent with Brevo” footer"),
              ("20,000 emails a month", "$10 (Starter)", "$32 (Starter)"),
              ("100,000 emails a month", "$45 (Scale)", "$82 (Starter)"),
              ("Extra emails", "$0.40 to $0.45 per 1,000", "Move up a plan"),

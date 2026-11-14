@@ -75,7 +75,7 @@ export function waitUntil(p: Promise<unknown>) {
 
 // Plan limits from the pricing page. 0 = no limit. Paid plans keep sending past `month` and pay overage.
 export const LIMITS: Record<string, { month: number; day: number; domains: number; members: number; webhooks: number; retention_days: number; contacts: number; segments: number; overage: Record<string, number> | null }> = {
-  free: { month: 6000, day: 200, domains: 1, members: 1, webhooks: 1, retention_days: 30, contacts: 1000, segments: 3, overage: null },
+  free: { month: 4000, day: 133, domains: 1, members: 1, webhooks: 1, retention_days: 30, contacts: 1000, segments: 3, overage: null },
   starter: { month: 20_000, day: 0, domains: 10, members: 5, webhooks: 10, retention_days: 30, contacts: 0, segments: 0, overage: { USD: 45, NGN: 450_00 } },
   pro: { month: 60_000, day: 0, domains: 10, members: 5, webhooks: 10, retention_days: 30, contacts: 0, segments: 0, overage: { USD: 45, NGN: 450_00 } },
   scale: { month: 100_000, day: 0, domains: 1000, members: 0, webhooks: 0, retention_days: 30, contacts: 0, segments: 0, overage: { USD: 40, NGN: 400_00 } },

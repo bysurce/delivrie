@@ -69,6 +69,6 @@ curl -X POST 'https://delivrie.io/api/emails' \
 | 401 | `invalid_api_key` | The key doesn't exist or was deleted. |
 | 403 | `restricted_api_key` | This sending key is limited to a different domain. |
 | 422 | `validation_error` | A required field is missing or malformed, or the from domain isn't verified on this team. The message says which. |
-| 429 | `daily_quota_exceeded` | Free plan limit of 200 emails a day reached. |
+| 429 | `daily_quota_exceeded` | Free plan limit of 133 emails a day reached. |
 | 429 | `monthly_quota_exceeded` | Free plan monthly limit reached and no credits left. |
 | 429 | `spending_cap_reached` | This send would take overage past your spending cap. |

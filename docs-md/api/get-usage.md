@@ -26,9 +26,9 @@ curl -X GET 'https://delivrie.io/api/usage' \
   "object": "usage",
   "plan": "free",
   "emails_this_month": 1840,
-  "monthly_allowance": 6000,
+  "monthly_allowance": 4000,
   "emails_today": 37,
-  "daily_limit": 200,
+  "daily_limit": 133,
   "credits_emails": 0,
   "overage_after_allowance": false
 }

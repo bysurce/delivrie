@@ -99,7 +99,7 @@ This takes about five minutes. You'll send a test email right away, then set up 
 
 ## 1. Create an account
 
-Sign up at [delivrie.io/signup](https://delivrie.io/signup). The Free plan includes 6,000 emails a month (up to 200 a day), so you don't need a card.
+Sign up at [delivrie.io/signup](https://delivrie.io/signup). The Free plan includes 4,000 emails a month (up to 133 a day), so you don't need a card.
 
 ## 2. Create an API key
 
@@ -486,8 +486,8 @@ Email allowances, daily limits, domains, webhooks, data retention and team seats
 
 | | Free | Starter | Pro | Scale |
 | --- | --- | --- | --- | --- |
-| Emails a month | 6,000 | 20,000 | 60,000 | 100,000 |
-| Daily limit | 200 | None | None | None |
+| Emails a month | 4,000 | 20,000 | 60,000 | 100,000 |
+| Daily limit | 133 | None | None | None |
 | Over the allowance | Sending pauses (or uses credits) | Keeps sending, billed per 1,000 | Keeps sending, billed per 1,000 | Keeps sending, billed per 1,000 |
 | Domains | 1 | 10 | 10 | 1,000 |
 | Webhook endpoints | 1 | 10 | 10 | Unlimited |
@@ -508,9 +508,9 @@ Check where you are with `GET /usage` or in [Billing](https://delivrie.io/billin
   "object": "usage",
   "plan": "free",
   "emails_this_month": 1840,
-  "monthly_allowance": 6000,
+  "monthly_allowance": 4000,
   "emails_today": 37,
-  "daily_limit": 200,
+  "daily_limit": 133,
   "credits_emails": 0,
   "overage_after_allowance": false
 }
@@ -518,7 +518,7 @@ Check where you are with `GET /usage` or in [Billing](https://delivrie.io/billin
 
 ## When you reach a limit
 
-**Free plan.** At 200 emails in a day or 6,000 in a month, sends fail with `429 daily_quota_exceeded` or `429 monthly_quota_exceeded`. If you've bought pay-as-you-go credits, Delivrie uses them instead and keeps sending. One credit is one email, and credits never expire. Daily limits reset at midnight UTC; monthly limits on the 1st (UTC).
+**Free plan.** At 133 emails in a day or 4,000 in a month, sends fail with `429 daily_quota_exceeded` or `429 monthly_quota_exceeded`. If you've bought pay-as-you-go credits, Delivrie uses them instead and keeps sending. One credit is one email, and credits never expire. Daily limits reset at midnight UTC; monthly limits on the 1st (UTC).
 
 **Paid plans.** Sending never stops at the allowance. Emails over it are billed per 1,000 at the end of the month. To put a ceiling on that, set a spending cap in [Billing](https://delivrie.io/billing); a send that would go past it fails with `429 spending_cap_reached`.
 
@@ -2143,8 +2143,8 @@ Branch on `name` in code and show `message` to people: it's written to say exact
 | 409 | `domain_exists` | The domain is already in this team | Use the existing domain |
 | 409 | `domain_in_use` | Another team owns the domain | Claim it from the Domains page if it's yours |
 | 422 | `validation_error` | A field is missing or invalid, or the `from` domain isn't verified | Read `message`; it names the field |
-| 429 | `daily_quota_exceeded` | Free plan: 200 emails today | Wait until midnight UTC, buy credits or upgrade |
-| 429 | `monthly_quota_exceeded` | Free plan: 6,000 emails this month | Buy credits or upgrade |
+| 429 | `daily_quota_exceeded` | Free plan: 133 emails today | Wait until midnight UTC, buy credits or upgrade |
+| 429 | `monthly_quota_exceeded` | Free plan: 4,000 emails this month | Buy credits or upgrade |
 | 429 | `spending_cap_reached` | This send would take overage past your spending cap | Raise or remove the cap in [Billing](https://delivrie.io/billing) |
 | 500 | `application_error` | Something failed on our side | Retry with the same idempotency key |
 | 503 | `sending_not_configured` | Sending is temporarily unavailable | Retry later; check [status](https://delivrie.io/status) |
@@ -3310,7 +3310,7 @@ curl -X POST 'https://delivrie.io/api/emails' \
 | 401 | `invalid_api_key` | The key doesn't exist or was deleted. |
 | 403 | `restricted_api_key` | This sending key is limited to a different domain. |
 | 422 | `validation_error` | A required field is missing or malformed, or the from domain isn't verified on this team. The message says which. |
-| 429 | `daily_quota_exceeded` | Free plan limit of 200 emails a day reached. |
+| 429 | `daily_quota_exceeded` | Free plan limit of 133 emails a day reached. |
 | 429 | `monthly_quota_exceeded` | Free plan monthly limit reached and no credits left. |
 | 429 | `spending_cap_reached` | This send would take overage past your spending cap. |
 
@@ -6369,9 +6369,9 @@ curl -X GET 'https://delivrie.io/api/usage' \
   "object": "usage",
   "plan": "free",
   "emails_this_month": 1840,
-  "monthly_allowance": 6000,
+  "monthly_allowance": 4000,
   "emails_today": 37,
-  "daily_limit": 200,
+  "daily_limit": 133,
   "credits_emails": 0,
   "overage_after_allowance": false
 }

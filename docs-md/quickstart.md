@@ -6,7 +6,7 @@ This takes about five minutes. You'll send a test email right away, then set up 
 
 ## 1. Create an account
 
-Sign up at [delivrie.io/signup](https://delivrie.io/signup). The Free plan includes 6,000 emails a month (up to 200 a day), so you don't need a card.
+Sign up at [delivrie.io/signup](https://delivrie.io/signup). The Free plan includes 4,000 emails a month (up to 133 a day), so you don't need a card.
 
 ## 2. Create an API key
 

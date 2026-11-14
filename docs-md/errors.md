@@ -27,8 +27,8 @@ Branch on `name` in code and show `message` to people: it's written to say exact
 | 409 | `domain_exists` | The domain is already in this team | Use the existing domain |
 | 409 | `domain_in_use` | Another team owns the domain | Claim it from the Domains page if it's yours |
 | 422 | `validation_error` | A field is missing or invalid, or the `from` domain isn't verified | Read `message`; it names the field |
-| 429 | `daily_quota_exceeded` | Free plan: 200 emails today | Wait until midnight UTC, buy credits or upgrade |
-| 429 | `monthly_quota_exceeded` | Free plan: 6,000 emails this month | Buy credits or upgrade |
+| 429 | `daily_quota_exceeded` | Free plan: 133 emails today | Wait until midnight UTC, buy credits or upgrade |
+| 429 | `monthly_quota_exceeded` | Free plan: 4,000 emails this month | Buy credits or upgrade |
 | 429 | `spending_cap_reached` | This send would take overage past your spending cap | Raise or remove the cap in [Billing](https://delivrie.io/billing) |
 | 500 | `application_error` | Something failed on our side | Retry with the same idempotency key |
 | 503 | `sending_not_configured` | Sending is temporarily unavailable | Retry later; check [status](https://delivrie.io/status) |
