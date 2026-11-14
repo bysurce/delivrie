@@ -48,9 +48,10 @@ export default async function billingPage(ctx) {
   if (ctx.query.canceled) { toast("Checkout canceled. You haven't been charged.", "info"); history.replaceState(null, "", location.pathname); }
   if (!s) s = await api("GET", "/billing/summary");
 
+  s = withLocalCurrency(s);
   const B = { s, ctx, body, tab };
   B.draw = () => { ({ overview, credits: creditsTab, invoices: invoicesTab, "payment-methods": methodsTab }[tab])(B); };
-  B.refresh = async (next) => { B.s = s = next || await api("GET", "/billing/summary"); B.draw(); };
+  B.refresh = async (next) => { B.s = s = withLocalCurrency(next || await api("GET", "/billing/summary")); B.draw(); };
   bindActions(B);
   B.draw();
 
@@ -407,6 +408,19 @@ function topUp(B, preset) {
     } });
 }
 
+// One currency per team: whatever it already pays in, or else Naira for visitors in Nigeria and US dollars
+// everywhere else (the dlv_cc country cookie set by middleware.js, or the browser's time zone without it).
+function withLocalCurrency(s) {
+  if (!s) return s;
+  const paid = (s.subscription && s.subscription.status !== "canceled" && s.plan !== "free" && s.subscription.currency)
+    || (s.marketing_subscription?.status === "active" && s.marketing_subscription.currency)
+    || (s.invoices || []).find((i) => i.status === "success" && i.currency)?.currency;
+  const cc = (document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/) || [])[1];
+  const local = cc ? (cc === "NG" ? "NGN" : "USD") : (/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || "") ? "NGN" : "USD");
+  const cur = paid || local;
+  return { ...s, currency: cur, currencies: [cur] };
+}
+
 // Change plan (Figma 9.8): choose plan → Paystack checkout
 function changePlan(B, kind, startMode, preselect) {
   const s = B.s;
@@ -433,7 +447,7 @@ function changePlan(B, kind, startMode, preselect) {
             + s.plans.map((p) => row(p.id, p.name, `${num(p.emails)} emails/month · ${money(p.overage[cur], cur, true)} per extra 1k${yr ? ` · ${money(p.yearly[cur], cur)} billed yearly` : ""}`, money(yr ? Math.round(p.yearly[cur] / 12) : p.monthly[cur], cur, yr) + "<em>/mo</em>", isCurrent(p.id))).join("")
             + `<a class="pick" href="/contact-sales" target="_blank" data-native><span class="radio" style="visibility:hidden"></span><span class="grow"><b>Enterprise</b><span class="dim">Custom volume, SSO, SLA</span></span><span class="pr">Talk to sales</span></a>`;
         }
-        mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span>${segmented(s.currencies.map((c) => [c, c === "USD" ? "$ USD" : "₦ NGN"]), currency, "data-c")}</div>
+        mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span>${s.currencies.length > 1 ? segmented(s.currencies.map((c) => [c, c === "USD" ? "$ USD" : "₦ NGN"]), currency, "data-c") : ""}</div>
           ${lockedCur && lockedCur !== currency ? `<p class="hint" style="margin:0 0 10px">Your current plan is billed in ${esc(lockedCur)}. Paying in ${esc(currency)} starts a new subscription and stops the old one.</p>` : ""}
           <div class="picks stagger">${list}</div>${kind === "marketing" ? "" : `<p class="dim sm" style="margin:12px 0 0">Need emails without a monthly fee? <button class="link" data-payg>Buy pay-as-you-go credits</button></p>`}`;
         go.textContent = !pick ? "Continue" : pick === "free" ? (kind === "marketing" ? "Move to Starter" : "Downgrade to Free") : `Continue with ${planName(pick, kind)}${kind === "transactional" ? ` · ${mode}` : ""}`;

@@ -34,7 +34,14 @@ def pricing_data():
         line = re.search(r"%s: \{ sym: [^\n]*" % cur, js)[0]
         return tuple(int(re.search(r"\b%s: (\d+)" % k, line)[1]) for k in ("starter", "pro", "scale"))
     faq = re.findall(r"\['([^']+\?)', '((?:[^'\\]|\\.)*)'\]", js[js.index("var FAQ"):js.index("function faq")])
-    return {"ngn": prices("NGN"), "usd": prices("USD"), "faq": [(q, a.replace("\\'", "'")) for q, a in faq]}
+    # The pricing page answers "How do I pay?" for the visitor's currency; search engines get one answer covering both.
+    out, seen = [], set()
+    for q, a in faq:
+        if q in seen: continue
+        seen.add(q)
+        if q == "How do I pay?": a = "By card in US dollars through Paystack. Teams in Nigeria pay in Naira by card, bank transfer or USSD."
+        out.append((q, a.replace("\\'", "'")))
+    return {"ngn": prices("NGN"), "usd": prices("USD"), "faq": out}
 
 def app_ld(pd):
     offers = [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "4,000 emails a month, 133 a day"}]

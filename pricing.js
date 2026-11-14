@@ -9,8 +9,10 @@
     USD: { sym: '$', starter: 10, starterY: 100, starterOver: 0.45, pro: 20, scale: 45, proY: 200, scaleY: 450, proOver: 0.45, scaleOver: 0.40, payg: 0.60, growth: 20, mktPro: 40, extraContacts: 3.5, packs: [[5, 8300, 'Minimum', 0.60], [25, 41600, '', 0.60], [100, 172400, 'Save 3%', 0.58], [500, 925900, 'Save 10%', 0.54]] }
   };
   var cur, mode = 'monthly';
-  try { cur = localStorage.getItem('dlv_currency'); } catch (e) {}
-  if (!cur) cur = /Lagos|Africa\//.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD';
+  // Naira for visitors in Nigeria, US dollars everywhere else. The country comes from the dlv_cc cookie set by
+  // middleware.js; without it (local previews) we fall back to the browser's time zone.
+  var cc = (document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/) || [])[1];
+  cur = cc ? (cc === 'NG' ? 'NGN' : 'USD') : (/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD');
   if (/yearly/.test(location.hash)) mode = 'yearly'; else if (/payg|credits/.test(location.hash)) mode = 'payg';
   var view = /^\/(compare|vs\/)/.test(location.pathname) || /compare|vs/.test(location.hash) ? 'compare' : 'plans';
 
@@ -89,7 +91,7 @@
     var c = { fx: +site.fx || CMP_DEFAULT.fx, date: site.date || CMP_DEFAULT.date, prices: {} };
     Object.keys(CMP_DEFAULT.prices).forEach(function (k) { var v = site.prices && site.prices[k]; c.prices[k] = v === 0 || +v ? +v : CMP_DEFAULT.prices[k]; });
     var over = site.rows || {};
-    var rows = compareRows(c).filter(function (r) { return !(over[r[0]] && over[r[0]].hidden); }).map(function (r) {
+    var rows = compareRows(c).filter(function (r) { return !(over[r[0]] && over[r[0]].hidden) && (r[0] !== 'naira' || cur === 'NGN'); }).map(function (r) {
       var o = over[r[0]] || {};
       return [r[0], o.label ? escH(o.label) : r[1], o.delivrie ? escH(o.delivrie) : r[2], o.resend ? escH(o.resend) : r[3], o.brevo ? escH(o.brevo) : r[4], o.explain ? escH(o.explain) : r[5]];
     });
@@ -114,7 +116,8 @@
   var FAQ = [
     ['What counts as an email?', 'Each recipient is one email. One message to a To, a CC and a BCC address counts as three.'],
     ['What happens if I go over my plan?', 'On Starter, Pro and Scale we keep sending and bill the extra per 1,000 at the end of the month. On Free, sending pauses until the next day or month.'],
-    ['Can I pay in dollars?', 'Yes. Choose US dollars or Naira at checkout. Payments go through Paystack.'],
+    cur === 'NGN' ? ['How do I pay?', 'In Naira, by card, bank transfer or USSD through Paystack. Your price is fixed in Naira, so it doesn’t move with the exchange rate.']
+      : ['How do I pay?', 'By card in US dollars, through Paystack. Prices exclude any taxes that apply where you are.'],
     ['How do yearly plans work?', 'You pay for ten months and get twelve, billed upfront.'],
     ['Can I change plans anytime?', 'Yes. Upgrades start right away. If you downgrade, you keep your plan until the end of the period you paid for.']
   ];
@@ -124,7 +127,6 @@
 
   function render(animate) {
     $$('[data-mode]').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
-    $$('[data-cur]').forEach(function (b) { b.classList.toggle('on', b.dataset.cur === cur); });
     $$('[data-view]').forEach(function (b) { b.classList.toggle('on', b.dataset.view === view); b.setAttribute('aria-selected', b.dataset.view === view); });
     $('#v-plans').hidden = view !== 'plans';
     $('#v-compare').hidden = view !== 'compare';
@@ -134,7 +136,6 @@
   }
   $$('[data-view]').forEach(function (b) { b.addEventListener('click', function () { view = b.dataset.view; try { history.replaceState(null, '', (view === 'compare' ? '/compare' : '/pricing') + location.search); } catch (e) {} document.title = view === 'compare' ? 'Resend vs Brevo vs Delivrie: email API pricing compared (2026)' : 'Pricing: free email API, Pro from $10 a month · Delivrie'; render(true); }); });
   $$('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { mode = b.dataset.mode; render(true); }); });
-  $$('[data-cur]').forEach(function (b) { b.addEventListener('click', function () { cur = b.dataset.cur; try { localStorage.setItem('dlv_currency', cur); } catch (e) {} render(true); }); });
   document.addEventListener('click', function (e) {
     var b = e.target.closest('.explain'); if (!b) return;
     var row = document.getElementById(b.getAttribute('aria-controls')), open = b.getAttribute('aria-expanded') !== 'true';

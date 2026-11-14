@@ -250,10 +250,10 @@
   // ---- Pricing teaser currency
   var PRICES = { NGN: { free: '₦0', starter: '₦10,000', pro: '₦27,000', scale: '₦45,000', payg: '₦600' }, USD: { free: '$0', starter: '$10', pro: '$20', scale: '$45', payg: '$0.60' } };
   var cur;
-  try { cur = localStorage.getItem('dlv_currency'); } catch (e) {}
-  if (!cur) cur = /Lagos|Africa\//.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD';
+  var cc = (document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/) || [])[1];
+  cur = cc ? (cc === 'NG' ? 'NGN' : 'USD') : (/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD');
   function setCur(c, animate) {
-    cur = c; try { localStorage.setItem('dlv_currency', c); } catch (e) {}
+    cur = c;
     $$('.cur-toggle button').forEach(function (b) { b.classList.toggle('on', b.dataset.cur === c); });
     $$('[data-price]').forEach(function (b) {
       if (!animate || calm) { b.textContent = PRICES[c][b.dataset.price]; return; }

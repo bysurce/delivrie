@@ -272,7 +272,7 @@ async function summary(teamId: string, admin: boolean) {
   const now = new Date();
   const from = monthStart(now), to = monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const cur = b.currency === "USD" ? "USD" : b.currency === "NGN" ? "NGN" : (b.details?.country && b.details.country !== "Nigeria" ? "USD" : "NGN");
+  const cur = b.currency === "USD" ? "USD" : b.currency === "NGN" ? "NGN" : (b.details?.country === "Nigeria" ? "NGN" : "USD");
   const [used, today, daily, contactsQ, domainsQ, membersQ] = await Promise.all([
     usage(teamId, from),
     usage(teamId, dayStart),
