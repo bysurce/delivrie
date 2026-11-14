@@ -241,7 +241,7 @@ const SITE_TABS = [["pages", "Pages"], ["banner", "Announcement bar"], ["compare
 
 async function website(body, ctx) {
   const sub = new URLSearchParams(location.search).get("s") || "pages";
-  const raw = await rpc("admin_site_get");
+  const raw = (await rpc("admin_site_get")) || {};
   const cfg = { pages: raw.pages?.value || {}, banner: raw.banner?.value || {}, compare: raw.compare?.value || {}, edits: raw.edits?.value || {} };
   const save = async (key, value, msg = "Saved. Live within a minute.") => { await rpc("admin_site_set", { p_key: key, p_value: value }); cfg[key] = value; toast(msg); };
   body.innerHTML = `<div class="seg-tabs">${SITE_TABS.map(([k, l]) => `<a class="seg-tab ${k === sub ? "on" : ""}" href="/admin/website?s=${k}" style="display:inline-flex;align-items:center">${l}</a>`).join("")}</div><div data-site></div>`;

@@ -147,7 +147,9 @@ export function registerExtra(route: Route, d: Deps) {
       const id = ids[i], next = ids[i + 1] || null;
       if (s.type === "send" || s.template_id) {
         if (!s.template_id) throw bad(`Step ${i + 1}: a send step needs a template_id`);
-        const { data: t } = await db.from("templates").select("id").eq("team_id", c.teamId).or(`id.eq.${/^[0-9a-f-]{36}$/i.test(s.template_id) ? s.template_id : "00000000-0000-0000-0000-000000000000"},alias.eq.${s.template_id}`).maybeSingle();
+        // An id or an alias, matched with .eq() so the value never becomes part of a filter string.
+        const tid = String(s.template_id);
+        const { data: t } = await db.from("templates").select("id").eq("team_id", c.teamId).eq(/^[0-9a-f-]{36}$/i.test(tid) ? "id" : "alias", tid).maybeSingle();
         if (!t) throw bad(`Step ${i + 1}: template ${s.template_id} not found`);
         steps[id] = { id, type: "send", template_id: t.id, from: s.from || undefined, subject: s.subject || undefined, next };
       } else if (s.type === "wait") {

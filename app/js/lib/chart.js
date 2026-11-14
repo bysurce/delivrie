@@ -15,7 +15,8 @@ export function lineChart(host, { labels, series, height = 220, fmt = num, area 
   const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => { const v = nice * f; return `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" stroke="${gridC}" /><text x="${P.l - 8}" y="${y(v) + 4}" fill="${txtC}" font-size="10.5" text-anchor="end">${short(v)}</text>`; }).join("");
   const step = Math.max(1, Math.ceil(n / 7));
   const xl = labels.map((l, i) => (i % step === 0 || i === n - 1) ? `<text x="${x(i)}" y="${H - 6}" fill="${txtC}" font-size="10.5" text-anchor="${i === n - 1 && n > 1 ? "end" : i === 0 && n > 1 ? "start" : "middle"}">${esc(l)}</text>` : "").join("");
-  const paths = series.map((s, si) => {
+  // No data points: draw the empty grid only (an empty path "M" is invalid SVG).
+  const paths = !n ? "" : series.map((s, si) => {
     const pts = s.values.map((v, i) => `${x(i)},${y(v)}`);
     const line = `M${pts.join("L")}`;
     const fill = area && si === 0 ? `<path d="${line}L${x(n - 1)},${y(0)}L${x(0)},${y(0)}Z" fill="url(#g${si})" class="chart-area" />` : "";
@@ -24,6 +25,7 @@ export function lineChart(host, { labels, series, height = 220, fmt = num, area 
   host.style.position = "relative";
   host.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;height:${H}px">${grid}${xl}${paths}<line data-cursor x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" stroke="${gridC}" stroke-dasharray="3 3" visibility="hidden"/>${series.map((s, i) => `<circle data-dot="${i}" r="3.5" fill="${s.color}" stroke="${dotC}" stroke-width="2" visibility="hidden"/>`).join("")}</svg><div class="chart-tip hidden"></div>`;
   const svg = host.querySelector("svg"), tip = host.querySelector(".chart-tip"), cur = host.querySelector("[data-cursor]");
+  if (!n) return;
   svg.addEventListener("mousemove", (e) => {
     const r = svg.getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W;
     const i = Math.max(0, Math.min(n - 1, Math.round(((px - P.l) / (W - P.l - P.r)) * (n - 1))));
