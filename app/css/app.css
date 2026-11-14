@@ -232,7 +232,7 @@ table.t { width: 100%; border-collapse: collapse; table-layout: auto; }
 .modal-head .ibtn { margin-left: auto; margin-right: -6px; }
 .modal-body { padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
 .modal-body .desc { color: var(--fg-2); }
-.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); background: #111213; border-radius: 0 0 12px 12px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg-2); border-radius: 0 0 12px 12px; }
 .drawer-overlay { position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.35); animation: fade .12s; }
 .drawer { position: fixed; top: 8px; right: 8px; bottom: 8px; width: min(440px, calc(100vw - 16px)); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; z-index: 46; display: flex; flex-direction: column; box-shadow: -20px 0 50px rgba(0,0,0,.4); animation: slide .16s ease-out; }
 .drawer.wide { width: min(560px, calc(100vw - 16px)); }
@@ -1181,7 +1181,7 @@ table.t.onb-recs { table-layout: fixed; width: 100%; }
 
 /* Template gallery (Create template) */
 .modal.tpl-gallery { max-width: 1080px; width: calc(100vw - 32px); }
-.modal.tpl-gallery .modal-body { max-height: calc(100vh - 190px); overflow: auto; }
+.modal.tpl-gallery .modal-body { overflow: auto; }
 .tg-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .tg-note { font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
 .tg-note a { color: var(--fg); text-decoration: underline; }
@@ -1207,3 +1207,28 @@ table.t.onb-recs { table-layout: fixed; width: 100%; }
 .rows-edit { display: grid; grid-template-columns: 1fr 1fr 82px 24px; gap: 5px; margin-bottom: 6px; align-items: center; }
 .rows-edit .input, .rows-edit .select-btn { height: 28px; font-size: 12px; padding: 0 7px; }
 .blk .eyebrow-blk .var-chip { text-transform: none; letter-spacing: 0; }
+
+/* Modals fit the visible screen: on phones 100vh includes the browser's toolbars, which hid the footer buttons.
+   The header and footer stay put and only the body scrolls. */
+.overlay { height: 100vh; height: 100dvh; }
+.modal { max-height: calc(100vh - 12vh - 16px); max-height: calc(100dvh - 12dvh - 16px); }
+.modal-head, .modal-foot { flex-shrink: 0; }
+.modal-body { min-height: 0; overscroll-behavior: contain; }
+.modal-foot { flex-wrap: wrap; }
+body:has(.overlay) .sc { display: none; } /* the support chat button would cover the footer */
+@media (max-width: 640px) {
+  .overlay { align-items: flex-end; padding: 12px 10px max(10px, env(safe-area-inset-bottom)); }
+  .modal { max-height: calc(100dvh - 22px - env(safe-area-inset-bottom)); }
+  .modal-foot .btn { flex: 1 1 auto; justify-content: center; }
+  .modal-foot > a.btn-ghost[href] { flex-basis: 100%; order: 3; margin-right: 0 !important; }
+}
+@media (max-width: 640px) {
+  .modal-foot > .grow { flex-basis: 100%; }
+  .tg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tg-thumb { height: 170px; }
+  .tg-desc { display: none; }
+  .tg-top { gap: 8px; }
+  .tg-note { display: block; line-height: 1.5; }
+  .tg-top .seg-tabs { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; }
+  .tg-top .seg-tab { flex: none; }
+}
