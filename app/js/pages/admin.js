@@ -1,12 +1,12 @@
 // Platform admin: sign-ups, users, teams, revenue, sending health, the support inbox and website settings.
 // Access is checked in the database (platform_admins + security-definer functions); this page only renders.
 import { sb, state, api } from "../lib/sb.js";
-import { esc, icon, num, fmtDate, fmtDateTime, ago, badge, toast, errToast, on, debounce, confirmModal, formModal, fieldHtml, emptyState, initials } from "../lib/ui.js";
+import { esc, icon, num, fmtDate, fmtDateTime, ago, badge, toast, errToast, on, debounce, confirmModal, formModal, fieldHtml, emptyState, initials, modal, bindSelects } from "../lib/ui.js";
 import { lineChart } from "../lib/chart.js";
 
 // Roles: owner (everything, manages admins), admin (everything else), viewer (read-only usage oversight).
 // The database enforces this; the page only hides what a role can't use.
-const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["revenue", "Revenue", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
+const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["revenue", "Revenue", "viewer"], ["coupons", "Coupons", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
 const RANK = { viewer: 1, admin: 2, owner: 3 };
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
 let ROLE = null;
@@ -36,7 +36,7 @@ export default async function admin(ctx) {
     return;
   }
   if (can("admin")) api("GET", "/support/admin/unread").then((r) => { const a = root.querySelector('.ul-tab[href="/admin/support"]'); if (a && r.unread_threads) a.insertAdjacentHTML("beforeend", ` <span class="badge yellow" style="margin-left:4px">${r.unread_threads}</span>`); }).catch(() => {});
-  const fn = { overview, users, teams, revenue, support, inbox, website, admins }[tab];
+  const fn = { overview, users, teams, revenue, coupons, support, inbox, website, admins }[tab];
   const need = TABS.find((t) => t[0] === tab)?.[2];
   if (!fn || !need || !can(need)) return ctx.navigate("/admin", { replace: true });
   try { await fn(body, ctx); } catch (e) { errToast(e); body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; }
@@ -165,6 +165,7 @@ async function teams(body) {
         if (!(await confirmModal({ title: "Change plan", desc: `Move <b>${esc(t.name)}</b> to <b>${esc(p)}</b> without charging them? Use this for comps and support fixes.`, confirm: "Change plan", danger: false }))) return;
         try { await rpc("admin_set_plan", { p_team: t.id, p_plan: p }); toast("Plan updated"); load(); } catch (e) { errToast(e); }
       } })),
+      { label: "Give a discount", icon: "tag", onClick: () => couponModal({ team: t, onDone: () => toast(`Discount assigned to ${t.name}. It applies at their next checkout.`) }) },
       { label: "Grant credits", icon: "zap", onClick: () => formModal({ title: "Grant credits", desc: `Add pay-as-you-go email credits to ${esc(t.name)}. Use a negative number to remove.`, fields: [{ name: "n", label: "Emails", placeholder: "10000" }], submit: "Grant", validate: (v) => /^-?\d+$/.test(v.n.trim()),
         async onSubmit(v) { const left = await rpc("admin_grant_credits", { p_team: t.id, p_emails: Number(v.n) }); toast(`${t.name} now has ${num(left)} credits`); load(); } }) },
     ], { align: "right", width: 220 });
@@ -204,6 +205,93 @@ async function admins(body) {
       submit: "Add admin", validate: (v) => /@/.test(v.email || ""),
       async onSubmit(v) { await rpc("admin_add_admin", { p_email: v.email.trim(), p_role: v.role }); toast(`${v.email.trim()} added as ${ROLE_LABEL[v.role]}`); await load(); } }));
   await load();
+}
+
+// ---------------------------------------------------------------- coupons
+// Coupon codes anyone can type at checkout, and discounts assigned to one team that apply themselves.
+const COUPON_PLANS = [["starter", "Starter"], ["pro", "Pro"], ["scale", "Scale"], ["growth", "Growth (marketing)"]];
+const couponText = (c) => `${c.percent_off}% off ${c.applies_to === "credits" ? "credit top-ups" : c.duration === "forever" ? "every payment" : "the first payment"}`;
+const couponWhere = (c) => [c.applies_to === "any" ? "Plans and credits" : c.applies_to === "credits" ? "Credits" : "Plans",
+  c.applies_to !== "credits" && c.plans?.length ? c.plans.map((p) => p.replace(/^\w/, (x) => x.toUpperCase())).join(", ") : "",
+  c.applies_to !== "credits" && c.intervals?.length === 1 ? c.intervals[0] : ""].filter(Boolean).join(" · ");
+
+function couponModal({ team, onDone }) {
+  const checks = (name, items, title, hint) => `<div class="field"><label>${title}</label><div class="cp-checks">${items.map(([v, l]) => `<label class="cp-check"><input type="checkbox" name="${name}" value="${v}"> ${l}</label>`).join("")}</div><div class="hint">${hint}</div></div>`;
+  const body = `${team ? `<p class="desc">Assign a discount to <b>${esc(team.name)}</b>. It applies by itself the next time they pay, with no code to type, and only this team can use it.</p>` : `<p class="desc">Anyone with the code can use it at checkout, once per team.</p>`}
+    <div class="cp-grid">${fieldHtml({ name: "percent_off", label: "Discount (%)", type: "number", placeholder: "20" })}${fieldHtml({ name: "code", label: "Code", mono: true, placeholder: team ? "Generated if empty" : "LAUNCH20", optional: !!team })}</div>
+    <div class="cp-grid">${fieldHtml({ name: "applies_to", label: "Applies to", type: "select", value: "subscription", options: [{ value: "subscription", label: "Plans" }, { value: "credits", label: "Credit top-ups" }, { value: "any", label: "Plans and credit top-ups" }] })}
+      ${fieldHtml({ name: "duration", label: "How long", type: "select", value: "once", options: [{ value: "once", label: "First payment only" }, { value: "forever", label: "Every payment" }] })}</div>
+    <div data-plan-only>${checks("plans", COUPON_PLANS, "Only these plans", "Leave all unticked for every plan.")}${checks("intervals", [["monthly", "Monthly"], ["yearly", "Yearly"]], "Only this billing", "Leave both unticked for monthly and yearly.")}</div>
+    <div class="cp-grid">${team ? "" : fieldHtml({ name: "max_redemptions", label: "Total uses", type: "number", placeholder: "Unlimited", optional: true })}${fieldHtml({ name: "expires_at", label: "Expires", type: "date", optional: true })}</div>
+    ${fieldHtml({ name: "description", label: "Note shown to the customer", placeholder: team ? "Thanks for being an early customer" : "Launch week offer", optional: true })}
+    <p class="hint" data-sum style="margin:4px 0 0"></p>`;
+  return modal({ title: team ? "Give a discount" : "New coupon", size: "md", body,
+    foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-submit disabled>${team ? "Assign discount" : "Create coupon"}</button>`,
+    onMount(m, close) {
+      bindSelects(m, () => sync());
+      const btn = m.querySelector("[data-submit]"), val = (n) => m.querySelector(`[name="${n}"]`)?.value?.trim() || "";
+      const ticked = (n) => [...m.querySelectorAll(`input[name="${n}"]:checked`)].map((i) => i.value);
+      const read = () => ({
+        code: val("code").toUpperCase(), percent_off: Number(val("percent_off")), applies_to: val("applies_to"), duration: val("applies_to") === "credits" ? "once" : val("duration"),
+        plans: val("applies_to") === "credits" ? [] : ticked("plans"), intervals: val("applies_to") === "credits" ? [] : ticked("intervals"),
+        max_redemptions: val("max_redemptions"), expires_at: val("expires_at") ? new Date(val("expires_at") + "T23:59:59").toISOString() : "", description: val("description"),
+        ...(team ? { team_id: team.id, auto_apply: true } : {}),
+      });
+      const sync = () => {
+        const v = read(), credits = v.applies_to === "credits";
+        m.querySelector("[data-plan-only]").hidden = credits;
+        const dur = m.querySelector('[data-select="duration"]')?.closest(".field"); if (dur) dur.style.opacity = credits ? ".45" : "";
+        const ok = Number.isInteger(v.percent_off) && v.percent_off >= 1 && v.percent_off <= 95 && (!v.code ? !!team : /^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(v.code)) && (!v.max_redemptions || Number(v.max_redemptions) > 0);
+        btn.disabled = !ok;
+        m.querySelector("[data-sum]").textContent = ok ? `${couponText(v)}${credits ? "" : v.plans.length ? ` on ${v.plans.map((x) => x.replace(/^\w/, (c) => c.toUpperCase())).join(", ")}` : " on any plan"}${v.expires_at ? `, until ${fmtDate(v.expires_at)}` : ""}.` : v.percent_off > 95 ? "Up to 95% off. For a free plan, use Set plan on the team instead." : v.code && !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(v.code) ? "Codes are 3 to 40 letters, numbers, - or _." : "";
+      };
+      m.addEventListener("input", sync); m.addEventListener("change", sync); sync();
+      btn.addEventListener("click", async () => {
+        if (btn.disabled) return;
+        const label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>`;
+        try { await rpc("admin_create_coupon", { p: read() }); close(true); onDone?.(); }
+        catch (e) { errToast(e); btn.disabled = false; btn.innerHTML = label; }
+      });
+    } });
+}
+
+async function coupons(body) {
+  let rows = [];
+  const load = async () => {
+    rows = await rpc("admin_coupons");
+    const status = (c) => !c.active ? badge("Off", "gray") : c.expires_at && new Date(c.expires_at) <= new Date() ? badge("Expired", "gray") : c.max_redemptions != null && c.redemptions >= c.max_redemptions ? badge("Used up", "gray") : badge("Active", "green");
+    body.innerHTML = `<div class="row-flex" style="margin-bottom:14px;flex-wrap:wrap;gap:10px"><div><h3 style="margin:0;font-size:15px">Coupons</h3><p class="dim" style="margin:4px 0 0;font-size:12.5px">Codes customers type at checkout, and discounts you've assigned to a team (Teams → ⋯ → Give a discount).</p></div><span class="grow"></span>${can("admin") ? `<button class="btn btn-primary btn-sm" data-new>${icon("plus", 12)} New coupon</button>` : ""}</div>
+      ${rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Code</th><th>Discount</th><th>Where</th><th class="r">Used</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody>${rows.map((c) => `<tr>
+        <td><div class="mono">${esc(c.code)}</div>${c.team_id ? `<div class="dim" style="font-size:12px">${c.auto_apply ? "Assigned to" : "Only for"} ${esc(c.team_name || "a deleted team")}</div>` : c.description ? `<div class="dim" style="font-size:12px">${esc(c.description)}</div>` : ""}</td>
+        <td>${esc(couponText(c))}</td><td class="muted">${esc(couponWhere(c))}</td>
+        <td class="r">${num(c.redemptions)}${c.max_redemptions != null ? ` / ${num(c.max_redemptions)}` : ""}</td>
+        <td class="muted">${c.expires_at ? fmtDate(c.expires_at) : "Never"}</td><td>${status(c)}</td>
+        <td class="act"><button class="ibtn" data-c="${c.id}" title="More">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="card">${emptyState({ icon: "tag", title: "No coupons yet", desc: "Create a code for a launch or a partner, or give one team a discount from the Teams tab." })}</div>`}`;
+  };
+  on(body, "click", "[data-new]", () => couponModal({ onDone: () => { toast("Coupon created"); load().catch(errToast); } }));
+  on(body, "click", "[data-c]", async (_e, b) => {
+    const c = rows.find((r) => r.id === b.dataset.c);
+    const { menu } = await import("../lib/ui.js");
+    menu(b, [
+      { header: c.code },
+      { label: "Copy code", icon: "copy", onClick: () => navigator.clipboard.writeText(c.code).then(() => toast("Copied")) },
+      { label: "Who used it", icon: "list", onClick: () => redemptions(c) },
+      ...(can("admin") ? [{ label: c.active ? "Turn off" : "Turn on", icon: c.active ? "pause" : "play", onClick: async () => {
+        if (c.active && !(await confirmModal({ title: "Turn off coupon", desc: `<b>${esc(c.code)}</b> stops working at checkout. Discounts already given, including renewals on “every payment” coupons, aren't changed.`, confirm: "Turn off", danger: false }))) return;
+        try { await rpc("admin_set_coupon_active", { p_id: c.id, p_active: !c.active }); toast(c.active ? "Coupon turned off" : "Coupon turned on"); load(); } catch (e) { errToast(e); }
+      } }] : []),
+    ], { align: "right", width: 200 });
+  });
+  await load();
+}
+
+async function redemptions(c) {
+  const r = await rpc("admin_coupon_redemptions", { p_id: c.id }).catch((e) => { errToast(e); return null; });
+  if (!r) return;
+  modal({ title: `${esc(c.code)} · used ${num(r.length)} time${r.length === 1 ? "" : "s"}`, size: "md", body: r.length
+    ? `<div class="table-wrap"><table class="t"><thead><tr><th>Team</th><th>For</th><th class="r">Paid</th><th>Date</th></tr></thead><tbody>${r.map((x) => `<tr><td>${esc(x.team_name || "—")}</td><td class="muted">${esc(x.kind === "credits" ? "Credits" : x.plan || x.kind)}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(x.amount_after, x.currency)} <span class="dim" style="text-decoration:line-through">${money(x.amount_before, x.currency)}</span></td><td class="muted">${fmtDate(x.created_at)}</td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="desc">Nobody has used this coupon yet.</p>`, foot: `<button class="btn btn-secondary" data-cancel>Close</button>` });
 }
 
 // ---------------------------------------------------------------- revenue

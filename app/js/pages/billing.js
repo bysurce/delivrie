@@ -125,7 +125,7 @@ function overviewPaid(B) {
   const alertRow = (on, label) => `<div class="al ${on ? "on" : ""}">${icon(on ? "check-circle" : "x-circle", 14)}<span>${label}</span></div>`;
   const status = sub?.status === "cancelling" ? `<span class="badge orange">Ends ${fmtDate(sub.cancel_at)}</span>` : sub?.status === "past_due" ? `<span class="badge red">Payment failed</span>` : "";
 
-  B.body.innerHTML = `${payBanner(s)}
+  B.body.innerHTML = `${payBanner(s)}${discountBanner(s)}
     ${sub?.status === "past_due" ? banner("err", "Your last payment failed", "Update your card so your plan keeps renewing. Sending continues for now.", s.admin && sub.can_manage ? `<button class="btn btn-primary btn-sm" data-card>Update card</button>` : "") : ""}
     ${pct >= 0.8 ? banner("warn", `You’ve used ${Math.floor(pct * 100)}% of this month’s ${num(u.included)} emails`, `${pct >= 1 ? `You’re ${num(u.month - u.included)} emails over.` : hitDate ? `At this pace you’ll hit the limit around ${shortDate(hitDate)}.` : ""} Sending won’t stop: extra emails cost ${money(plan.overage[cur], cur, true)} per 1,000, paid from credits first.`, s.admin ? `<button class="btn btn-primary btn-sm" data-topup>Top up credits</button>${s.plan === "pro" ? `<button class="btn btn-secondary btn-sm" data-upgrade="scale">Upgrade to Scale</button>` : ""}` : "") : ""}
     <div class="bgrid"><div class="bcol">
@@ -178,7 +178,7 @@ function overviewFree(B) {
   const resetIn = `${Math.floor(mins / 60)}h ${mins % 60}m`;
   const dPct = u.day_limit ? Math.min(1, u.today / u.day_limit) : 0, mPct = u.included ? Math.min(1, u.month / u.included) : 0;
   const nextMonth = new Date(new Date(P.end).getTime() + 1);
-  B.body.innerHTML = `${payBanner(s)}
+  B.body.innerHTML = `${payBanner(s)}${discountBanner(s)}
     ${dayFull || monthFull ? banner("err", dayFull && !monthFull ? `Daily limit reached · ${num(u.today)} of ${num(u.day_limit)} emails sent today` : `Monthly limit reached · ${num(u.month)} of ${num(u.included)} emails`, dayFull && !monthFull ? `Sending is paused until midnight UTC (resets in ${resetIn}). Upgrade or switch to pay as you go to keep sending.` : `Sending is paused until ${shortDate(nextMonth)}. Upgrade or switch to pay as you go to keep sending.`, s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="${pro?.id || "starter"}">Upgrade to ${esc(pro?.name || "Starter")}</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "")
       : mPct >= 0.8 ? banner("warn", `You’ve used ${Math.floor(mPct * 100)}% of this month’s free emails`, "When you hit the limit, sending pauses. Upgrade or buy credits to keep going.", s.admin ? `<button class="btn btn-primary btn-sm" data-upgrade="${pro?.id || "starter"}">Upgrade to ${esc(pro?.name || "Starter")}</button><button class="btn btn-secondary btn-sm" data-topup>Buy credits</button>` : "") : ""}
     <div class="bgrid"><div class="bcol">
@@ -210,7 +210,7 @@ function overviewPayg(B) {
     ? `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, ${pro.name} would cost ${money(pro.monthly[cur], cur)} instead of about ${money(paygCost, cur)} on credits. Switch once you pass ~${num(Math.round(breakEven / 100) * 100)}.`
     : `At ~${num(Math.round(monthProj / 100) * 100)} emails a month, credits cost about ${money(paygCost, cur)}. ${pro?.name || "Starter"} (${money(pro?.monthly[cur] || 0, cur)}) pays off once you pass ~${num(Math.round(breakEven / 100) * 100)}. Stay on pay as you go until then.`;
   const monthName = new Date().toLocaleDateString(undefined, { month: "long" });
-  B.body.innerHTML = `${payBanner(s)}
+  B.body.innerHTML = `${payBanner(s)}${discountBanner(s)}
     ${low ? banner("warn", s.credits ? `Credits are running low · ${money(s.credit_value, cur)} left` : "You're out of credits", s.credits ? `That covers about ${num(s.credits)} more emails past the free allowance. Sending past it stops at ${money(0, cur)} unless auto top-up is on.` : `Sending past the free allowance (${num(u.included)} a month, ${num(u.day_limit)} a day) is paused until you top up.`, s.admin ? `<button class="btn btn-primary btn-sm" data-topup>Top up</button>${s.auto_topup.enabled ? "" : `<button class="btn btn-secondary btn-sm" data-auto-on>Turn on auto top-up</button>`}` : "") : ""}
     <div class="bgrid"><div class="bcol">
       <div class="card bcard"><div class="row-flex" style="gap:8px"><h3 class="pc-name">Pay as you go</h3><span class="badge yellow">Current plan</span><span class="grow"></span>${s.admin && pro ? `<button class="btn btn-secondary btn-sm" data-upgrade="${pro?.id || "starter"}">Switch to ${esc(pro.name)} · ${money(pro.monthly[cur], cur)}/mo</button>` : ""}</div>
@@ -229,7 +229,7 @@ function creditsTab(B) {
   const s = B.s, cur = s.currency;
   const hist = s.invoices.filter((i) => i.kind === "credits" || (i.kind === "overage" && /credits/.test(i.description || "")));
   const tiles = s.packs.map((k, i) => `<button class="pack" data-pack="${i}" ${s.admin && s.payments_ready ? "" : "disabled"}><b>${money(k.price[cur], cur)}</b><span class="dim">${num(k.emails)} emails</span>${k.note && k.note !== "Minimum" ? `<span class="badge green">${esc(k.note)}</span>` : ""}</button>`).join("");
-  B.body.innerHTML = `${payBanner(s)}<div class="bgrid"><div class="bcol">
+  B.body.innerHTML = `${payBanner(s)}${discountBanner(s)}<div class="bgrid"><div class="bcol">
       <div class="card bcard"><h3>Buy credits</h3><p class="dim sm">Credits never expire. On paid plans they pay for overage first; on pay as you go they pay for every email past the free allowance.</p><div class="packs">${tiles}<button class="pack" data-pack="custom" ${s.admin && s.payments_ready ? "" : "disabled"}><b>Custom</b><span class="dim">Min ${money(s.min_topup[cur], cur)}</span></button></div></div>
       <div class="card bcard"><h3>Top-up history</h3>${hist.length ? `<div class="table-wrap flat"><table class="t"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Status</th></tr></thead><tbody>${hist.map((i) => `<tr><td class="muted">${fullDate(i.paid_at)}</td><td>${esc(i.description || "Credit top-up")}</td><td class="r num">${i.kind === "overage" ? "−" : ""}${money(i.amount, i.currency, true)}</td><td>${statusBadge(i)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty-mini"><b>No top-ups yet</b><span class="dim">Credits you buy show up here.</span></div>`}</div>
     </div><div class="bcol bside">${creditsCard(s)}
@@ -357,6 +357,57 @@ function autoTopup(B) {
 }
 
 // Top up credits (Figma 9.11 · Top up)
+// ------------------------------------------------------------ Coupons
+// "Have a coupon code?" for the plan and top-up dialogs. get() returns what's being bought (or null), and the
+// server works out the discount: a typed code, or else a discount assigned to this team.
+function couponField(el, s, get, onChange) {
+  let code = "", open = false, res = null, err = "", busy = false, seq = 0, timer;
+  const hasAssigned = () => (s.discounts || []).length > 0;
+  const draw = () => {
+    const c = res?.coupon;
+    if (c) {
+      el.innerHTML = `<div class="cp-ok">${icon("tag", 14)}<span class="grow"><b>${esc(c.assigned ? "Your discount" : c.code)}</b> · ${esc(c.label)}${c.description ? `<span class="dim"> · ${esc(c.description)}</span>` : ""}</span><span class="pos">−${money(res.amount_before - res.amount_after, res.currency, true)}</span>${c.assigned ? "" : `<button type="button" class="link" data-cp-x>Remove</button>`}</div>${c.assigned && !open ? `<button type="button" class="link sm" data-cp-open>Use a coupon code instead</button>` : ""}${open && c.assigned ? form() : ""}`;
+    } else if (open) el.innerHTML = form();
+    else el.innerHTML = `<button type="button" class="link sm" data-cp-open>${icon("tag", 12)} Have a coupon code?</button>`;
+    const i = el.querySelector("[data-cp]");
+    if (i && open) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  };
+  const form = () => `<div class="cp-form"><input class="input sm" data-cp placeholder="Coupon code" value="${esc(code)}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40"><button type="button" class="btn btn-secondary btn-sm" data-cp-go ${busy ? "disabled" : ""}>${busy ? `<span class="spinner"></span>` : "Apply"}</button></div>${err ? `<p class="cp-err">${esc(err)}</p>` : ""}`;
+  const check = async () => {
+    const body = get();
+    if (!body || (!code && !hasAssigned())) { res = null; err = ""; draw(); return onChange(null); }
+    const n = ++seq; busy = true; if (open) draw();
+    try {
+      const r = await api("POST", "/billing/coupon", { ...body, coupon: code });
+      if (n !== seq) return;
+      res = r.coupon ? r : null; err = "";
+      if (code && res) open = false;
+    } catch (e) {
+      if (n !== seq) return;
+      res = null; err = code ? e.message || "That coupon can't be used." : ""; // keep what they typed so they can fix it
+    }
+    busy = false; draw(); onChange(res);
+  };
+  on(el, "click", "[data-cp-open]", () => { open = true; draw(); });
+  on(el, "click", "[data-cp-go]", () => { code = (el.querySelector("[data-cp]")?.value || "").trim().toUpperCase(); if (code) check(); });
+  on(el, "keydown", "[data-cp]", (e, i) => { if (e.key === "Enter") { e.preventDefault(); code = i.value.trim().toUpperCase(); if (code) check(); } if (e.key === "Escape") e.stopPropagation(); });
+  on(el, "input", "[data-cp]", (_e, i) => { if (err) { err = ""; const p = el.querySelector(".cp-err"); if (p) p.remove(); } i.value = i.value.toUpperCase(); });
+  on(el, "click", "[data-cp-x]", () => { code = ""; open = false; check(); });
+  draw();
+  return {
+    refresh: (delay = 0) => { clearTimeout(timer); timer = setTimeout(check, delay); },
+    payload: () => (res?.coupon && !res.coupon.assigned ? { coupon: res.coupon.code } : {}),
+    get result() { return res; },
+  };
+}
+
+function discountBanner(s) {
+  const d = (s.discounts || [])[0];
+  if (!d || !s.admin) return "";
+  const where = d.applies_to === "credits" ? "credit top-ups" : d.plans?.length ? d.plans.map(cap1).join(", ") : d.applies_to === "any" ? "plans and credit top-ups" : "any plan";
+  return `<div class="bbanner ok">${icon("tag", 15)}<div class="grow"><b>You have a discount: ${esc(d.label)}</b><span>On ${esc(where)}${d.intervals?.length === 1 ? ` · ${esc(d.intervals[0])} billing` : ""}${d.expires_at ? ` · until ${fullDate(d.expires_at)}` : ""}. It's applied at checkout automatically.${d.description ? ` ${esc(d.description)}` : ""}</span></div>${d.applies_to === "credits" ? `<button class="btn btn-primary btn-sm" data-topup>Top up credits</button>` : `<button class="btn btn-primary btn-sm" data-plan>Choose a plan</button>`}</div>`;
+}
+
 function topUp(B, preset) {
   const s = B.s, cur = s.currency;
   if (!s.admin) return toast("Only team admins can buy credits.", "info");
@@ -370,7 +421,16 @@ function topUp(B, preset) {
     foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go>Pay</button>`,
     onMount(m, close) {
       const tb = m.querySelector("[data-tb]"), go = m.querySelector("[data-go]");
-      let custom = "";
+      let custom = "", cp = null;
+      const quoteBody = () => { const a = amount(); return a && a >= s.min_topup[cur] ? { kind: "credits", currency: cur, ...(pick === "custom" ? { amount: a / 100 } : { pack: pick }) } : null; };
+      // The coupon preview only counts while it matches the amount on screen.
+      const paid = () => { const a = amount(), r = cp?.result; return r && r.amount_before === a ? r.amount_after : a; };
+      const sums = () => {
+        const a = amount(), after = paid(), vat = Math.round(after * s.vat_rate / 100), sum = m.querySelector("[data-sum]");
+        if (sum) sum.innerHTML = `<div><span class="muted">Credits${pick === "custom" && a ? ` · ${num(emails())} emails` : ""}</span><span>${money(a, cur)}</span></div>${after < a ? `<div><span class="muted">Discount</span><span class="pos">−${money(a - after, cur, true)}</span></div>` : ""}${s.vat_rate ? `<div><span class="muted">VAT ${s.vat_rate}%</span><span>${money(vat, cur, true)}</span></div>` : ""}<div class="tot"><span>Charged today</span><span>${money(after + vat, cur, true)}</span></div>`;
+        go.textContent = a ? `Pay ${money(after + vat, cur, true)}` : "Pay";
+        go.disabled = !a || a < s.min_topup[cur];
+      };
       const amount = () => pick === "custom" ? Math.round(Number(String(custom).replace(/[,\s]/g, "")) * 100) || 0 : s.packs[pick].price[cur];
       const emails = () => pick === "custom" ? Math.floor(amount() / s.credit_rate[cur]) : s.packs[pick].emails;
       const autoPack = () => pick === "custom" ? 1 : pick;
@@ -381,14 +441,17 @@ function topUp(B, preset) {
             <div class="pack ${pick === "custom" ? "on" : ""}" data-k="custom" tabindex="0"><b>Custom</b>${pick === "custom" ? `<input class="input sm" data-custom inputmode="decimal" placeholder="${s.min_topup[cur] / 100}" value="${esc(custom)}">` : `<span class="dim">Min ${money(s.min_topup[cur], cur)}</span>`}</div></div>
           <div class="field" style="margin-top:14px"><label>Pay with</label>${segmented(methods, method, "data-mth")}</div>
           <label class="auto-row"><span class="grow"><b>Turn on auto top-up</b><span class="dim">Add ${money(s.packs[autoPack()].price[cur], cur)} when credits drop below ${money(s.auto_topup.threshold, cur)}${method !== "card" ? " · needs a card payment" : ""}</span></span><input type="checkbox" class="toggle" data-autot ${auto ? "checked" : ""} ${s.auto_topup.enabled ? "disabled" : ""}></label>
-          <div class="sum"><div><span class="muted">Credits${pick === "custom" && a ? ` · ${num(emails())} emails` : ""}</span><span>${money(a, cur)}</span></div>${s.vat_rate ? `<div><span class="muted">VAT ${s.vat_rate}%</span><span>${money(vat, cur)}</span></div>` : ""}<div class="tot"><span>Charged today</span><span>${money(a + vat, cur)}</span></div></div>`;
-        go.textContent = a ? `Pay ${money(a + vat, cur)}` : "Pay";
-        go.disabled = !a || a < s.min_topup[cur];
+          <div data-cpw class="cp-wrap"></div><div class="sum" data-sum></div>`;
+        if (!cp) cp = couponField(tb.querySelector("[data-cpw]"), s, quoteBody, sums);
+        else tb.querySelector("[data-cpw]").replaceWith(cp.el);
+        sums();
         if (pick === "custom") { const i = tb.querySelector("[data-custom]"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
       };
       render();
-      on(m, "click", "[data-k]", (e, b) => { if (e.target.matches("[data-custom]")) return; const k = b.dataset.k; pick = k === "custom" ? "custom" : Number(k); render(); });
-      on(m, "input", "[data-custom]", (_e, i) => { custom = i.value; const a = amount(), vat = Math.round(a * s.vat_rate / 100); go.textContent = a ? `Pay ${money(a + vat, cur)}` : "Pay"; go.disabled = !a || a < s.min_topup[cur]; const c = m.querySelector(".sum div span:last-child"); if (c) c.textContent = money(a, cur); const t = m.querySelector(".sum .tot span:last-child"); if (t) t.textContent = money(a + vat, cur); });
+      cp.el = tb.querySelector("[data-cpw]");
+      cp.refresh();
+      on(m, "click", "[data-k]", (e, b) => { if (e.target.matches("[data-custom]")) return; const k = b.dataset.k; pick = k === "custom" ? "custom" : Number(k); render(); cp.refresh(); });
+      on(m, "input", "[data-custom]", (_e, i) => { custom = i.value; sums(); cp.refresh(400); });
       on(m, "click", "[data-mth]", (_e, b) => { method = b.dataset.mth; render(); });
       on(m, "change", "[data-autot]", (_e, t) => { auto = t.checked; });
       go.addEventListener("click", async () => {
@@ -397,12 +460,12 @@ function topUp(B, preset) {
         const label = go.textContent;
         go.disabled = true; go.innerHTML = `<span class="spinner"></span>`;
         try {
-          const payload = { currency: cur, method, ...(pick === "custom" ? { amount: a / 100 } : { pack: pick }), ...(auto ? { auto: { enabled: true, pack: autoPack(), threshold: s.auto_topup.threshold / 100 } } : {}) };
+          const payload = { currency: cur, method, ...(pick === "custom" ? { amount: a / 100 } : { pack: pick }), ...cp.payload(), ...(auto ? { auto: { enabled: true, pack: autoPack(), threshold: s.auto_topup.threshold / 100 } } : {}) };
           const r = await api("POST", "/billing/topup", payload);
           if (r.url) { location.href = r.url; return; }
           close();
           await B.refresh(r);
-          toast(`Credits added · ${money(a, cur)} (${num(r.emails)} emails)${auto ? ". Auto top-up is on" : ""}`, "ok", 6000);
+          toast(`Credits added · ${money(paid(), cur, true)} (${num(r.emails)} emails)${auto ? ". Auto top-up is on" : ""}`, "ok", 6000);
         } catch (e) { errToast(e); go.disabled = false; go.textContent = label; }
       });
     } });
@@ -449,21 +512,38 @@ function changePlan(B, kind, startMode, preselect) {
         }
         mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span>${s.currencies.length > 1 ? segmented(s.currencies.map((c) => [c, c === "USD" ? "$ USD" : "₦ NGN"]), currency, "data-c") : ""}</div>
           ${lockedCur && lockedCur !== currency ? `<p class="hint" style="margin:0 0 10px">Your current plan is billed in ${esc(lockedCur)}. Paying in ${esc(currency)} starts a new subscription and stops the old one.</p>` : ""}
-          <div class="picks stagger">${list}</div>${kind === "marketing" ? "" : `<p class="dim sm" style="margin:12px 0 0">Need emails without a monthly fee? <button class="link" data-payg>Buy pay-as-you-go credits</button></p>`}`;
-        go.textContent = !pick ? "Continue" : pick === "free" ? (kind === "marketing" ? "Move to Starter" : "Downgrade to Free") : `Continue with ${planName(pick, kind)}${kind === "transactional" ? ` · ${mode}` : ""}`;
+          <div class="picks stagger">${list}</div><div data-cpw class="cp-wrap"></div><p class="cp-note" data-cpn></p>${kind === "marketing" ? "" : `<p class="dim sm" style="margin:12px 0 0">Need emails without a monthly fee? <button class="link" data-payg>Buy pay-as-you-go credits</button></p>`}`;
+        if (!cp) cp = couponField(mb.querySelector("[data-cpw]"), s, quoteBody, label);
+        else mb.querySelector("[data-cpw]").replaceWith(cp.el);
+        cp.el = mb.querySelector("[data-cpw]");
+        mb.querySelector("[data-cpw]").hidden = !pick || pick === "free";
+        label();
+      };
+      let cp = null;
+      const quoteBody = () => pick && pick !== "free" ? { kind, plan: pick, currency, interval: kind === "marketing" ? "monthly" : mode } : null;
+      // Button and note follow the current choice; a coupon preview only counts while it matches it.
+      const label = () => {
+        const q = quoteBody(), r = cp?.result, note = mb.querySelector("[data-cpn]");
+        const list = kind === "marketing" ? s.marketing : s.plans, p = q && list.find((x) => x.id === pick);
+        const full = p ? p[q.interval][currency] : 0;
+        const ok = r && p && r.amount_before === full;
+        const per = q?.interval === "yearly" ? "year" : "month";
+        go.textContent = !pick ? "Continue" : pick === "free" ? (kind === "marketing" ? "Move to Starter" : "Downgrade to Free") : `Continue with ${planName(pick, kind)}${kind === "transactional" ? ` · ${mode}` : ""}${ok ? ` · ${money(r.amount_after, currency, true)}` : ""}`;
         go.disabled = !pick;
+        if (note) note.innerHTML = ok ? (r.coupon.duration === "forever" ? `You pay <b>${money(r.amount_after, currency, true)}</b> a ${per} instead of ${money(full, currency)}, for as long as you stay on ${esc(planName(pick, kind))}.` : `You pay <b>${money(r.amount_after, currency, true)}</b> today, then ${money(full, currency)} a ${per}.`) : "";
       };
       render();
-      on(m, "click", "[data-m]", (_e, b) => { mode = b.dataset.m; if (pick && pick !== "free" && isCurrent(pick)) pick = null; render(); });
-      on(m, "click", "[data-c]", (_e, b) => { currency = b.dataset.c; try { localStorage.setItem("dlv_currency", currency); } catch {} render(); });
-      on(m, "change", "input[name=pick]", (_e, i) => { pick = i.value; render(); });
+      cp.refresh();
+      on(m, "click", "[data-m]", (_e, b) => { mode = b.dataset.m; if (pick && pick !== "free" && isCurrent(pick)) pick = null; render(); cp.refresh(); });
+      on(m, "click", "[data-c]", (_e, b) => { currency = b.dataset.c; try { localStorage.setItem("dlv_currency", currency); } catch {} render(); cp.refresh(); });
+      on(m, "change", "input[name=pick]", (_e, i) => { pick = i.value; render(); cp.refresh(); });
       on(m, "click", "[data-payg]", () => { close(); topUp(B); });
       go.addEventListener("click", async () => {
         if (!pick) return;
         if (pick === "free") { close(); return kind === "marketing" ? cancelMkt(B) : cancelSub(B); }
         go.disabled = true; go.innerHTML = `<span class="spinner"></span> Opening checkout`;
         try {
-          const r = await api("POST", "/billing/checkout", { kind, plan: pick, currency, interval: kind === "marketing" ? "monthly" : mode });
+          const r = await api("POST", "/billing/checkout", { kind, plan: pick, currency, interval: kind === "marketing" ? "monthly" : mode, ...cp.payload() });
           location.href = r.url;
         } catch (e) { errToast(e); render(); }
       });
