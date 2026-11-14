@@ -1,16 +1,18 @@
 // Shared document-style email editor used by Broadcasts and Templates.
 import { esc, icon, menu, popover, modal, formModal, toast, errToast, selectHtml, bindSelects, codeBlock, el, $ } from "../lib/ui.js";
-import { renderBlocks, sanitizeInline, blocksToText, DEFAULT_STYLE } from "../lib/blocks.js";
+import { renderBlocks, sanitizeInline, blocksToText, DEFAULT_STYLE, FONTS } from "../lib/blocks.js";
 import { sb, state } from "../lib/sb.js";
+import { applyBrand, canBrand } from "../lib/template-library.js";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
-const TEXTY = ["text", "title", "heading"];
+const TEXTY = ["text", "title", "heading", "eyebrow"];
 const LISTY = ["bulleted", "numbered"];
 export const BLOCK_MENU = [
   { header: "Text" },
-  { type: "text", label: "Text", icon: "list" }, { type: "title", label: "Title", icon: "edit" }, { type: "heading", label: "Heading", icon: "edit" },
+  { type: "text", label: "Text", icon: "list" }, { type: "title", label: "Title", icon: "edit" }, { type: "heading", label: "Heading", icon: "edit" }, { type: "eyebrow", label: "Eyebrow", icon: "edit" },
   { type: "bulleted", label: "Bulleted list", icon: "list" }, { type: "numbered", label: "Numbered list", icon: "list" },
   { header: "Blocks" },
+  { type: "logo", label: "Logo", icon: "sparkle" }, { type: "callout", label: "Callout", icon: "alert" }, { type: "rows", label: "Details table", icon: "list" }, { type: "otp", label: "Verification code", icon: "key" },
   { type: "image", label: "Image", icon: "image" }, { type: "button", label: "Button", icon: "arrow-up-right" }, { type: "divider", label: "Divider", icon: "chevron-right" },
   { type: "columns", label: "Columns", icon: "sidebar" }, { type: "social", label: "Social links", icon: "globe" }, { type: "footer", label: "Unsubscribe footer", icon: "mail" },
   { type: "spacer", label: "Spacer", icon: "plus" }, { type: "html", label: "HTML", icon: "code" }, { type: "code", label: "Code block", icon: "terminal" },
@@ -27,6 +29,10 @@ export function newBlock(type) {
   if (type === "html") b.html = '<table role="presentation" width="100%"><tr><td style="padding:16px">Your HTML</td></tr></table>';
   if (type === "code") Object.assign(b, { code: "", language: "JavaScript", style: { padding: 16, radius: 8 } });
   if (type === "spacer") b.height = 24;
+  if (type === "logo") Object.assign(b, { src: "", text: state.team?.brand?.name || state.team?.name || "Your company", height: 32, align: "left", zone: "header" });
+  if (type === "callout") Object.assign(b, { html: "Something worth highlighting." });
+  if (type === "otp") Object.assign(b, { code: "{{code}}", size: 32, align: "left" });
+  if (type === "rows") Object.assign(b, { rows: [{ label: "Item", value: "$10.00" }, { label: "Tax", value: "$0.00" }], total: { label: "Total", value: "$10.00" } });
   return b;
 }
 const chipVars = (html) => String(html || "").replace(/(\{\{\{?\s*[a-zA-Z_][\w|"' ]*\}\}\}?)/g, '<span class="var-chip" contenteditable="false">$1</span>');
@@ -50,6 +56,11 @@ export function mountEditor(container, opts) {
     switch (b.type) {
       case "title": return `<h1 contenteditable="true" data-f="html" data-ph="Title">${chipVars(b.html)}</h1>`;
       case "heading": return `<h2 contenteditable="true" data-f="html" data-ph="Heading">${chipVars(b.html)}</h2>`;
+      case "eyebrow": return `<div class="eyebrow-blk" contenteditable="true" data-f="html" data-ph="EYEBROW">${chipVars(b.html)}</div>`;
+      case "logo": return `<div style="text-align:${b.align || "left"}">${b.src ? `<img src="${esc(b.src)}" alt="${esc(b.alt || b.text || "")}" style="height:${+b.height || 32}px;width:auto;max-width:220px">` : `<span class="logo-blk">${esc(b.text || "Logo")}</span>`}</div>`;
+      case "callout": return `<div class="callout-blk" style="${b.accent ? `border-left:3px solid ${esc(b.accent)};` : ""}">${b.title ? `<div style="font-weight:600;margin-bottom:4px">${esc(b.title)}</div>` : ""}<div contenteditable="true" data-f="html" data-ph="Callout text">${chipVars(b.html)}</div></div>`;
+      case "otp": return `<div style="text-align:${b.align || "left"}"><span class="otp-blk">${chipVars(esc(b.code || ""))}</span></div>`;
+      case "rows": return `<div class="rows-blk">${(b.rows || []).map((r) => `<div><span class="${r.strong ? "" : "dim"}">${chipVars(r.label)}</span><span style="${r.strong ? "font-weight:600" : ""}">${chipVars(r.value)}</span></div>`).join("")}${b.total ? `<div class="tot"><span>${chipVars(b.total.label)}</span><span>${chipVars(b.total.value)}</span></div>` : ""}</div>`;
       case "text": return `<div contenteditable="true" data-f="html" data-ph="Press / for blocks, or start writing">${chipVars(b.html)}</div>`;
       case "bulleted": return `<ul contenteditable="true" data-f="items">${(b.items || [""]).map((i) => `<li>${chipVars(i) || "<br>"}</li>`).join("")}</ul>`;
       case "numbered": return `<ol contenteditable="true" data-f="items">${(b.items || [""]).map((i) => `<li>${chipVars(i) || "<br>"}</li>`).join("")}</ol>`;
@@ -59,7 +70,7 @@ export function mountEditor(container, opts) {
       case "image": return `<div class="img-blk" style="text-align:${b.align || "left"}">${b.src ? `<img src="${esc(b.src)}" alt="${esc(b.alt)}" style="width:${Math.min(+b.width || 600, 600)}px">` : `<div class="ph-img">${icon("image", 16)}&nbsp; Select to add an image</div>`}</div>`;
       case "columns": return `<div style="display:grid;grid-template-columns:repeat(${b.columns.length},1fr);gap:14px">${b.columns.map((c, i) => `<div contenteditable="true" data-f="col" data-col="${i}" style="font-size:14px">${chipVars(c.html)}</div>`).join("")}</div>`;
       case "social": return `<div class="row-flex" style="gap:14px;font-size:13px;color:var(--fg-2)">${(b.links || []).map((l) => `<span style="${l.url ? "" : "opacity:.45"}">${esc(l.label || l.network)}</span>`).join("")}</div>`;
-      case "footer": return `<div class="footer-blk">${b.reason ? `<div>${esc(b.reason)}</div>` : ""}<div><a>Unsubscribe</a> or <a>manage preferences</a></div>${b.address ? `<div style="margin-top:6px">${esc(b.address)}</div>` : '<div style="margin-top:6px;color:var(--orange)">Add your postal address (required for bulk email)</div>'}</div>`;
+      case "footer": return `<div class="footer-blk">${b.reason ? `<div>${esc(b.reason)}</div>` : ""}${b.unsubscribe === false ? "" : "<div><a>Unsubscribe</a> or <a>manage preferences</a></div>"}${b.address ? `<div style="margin-top:6px">${esc(b.address)}</div>` : b.unsubscribe === false ? "" : '<div style="margin-top:6px;color:var(--orange)">Add your postal address (required for bulk email)</div>'}</div>`;
       case "html": return `<div class="html-blk">${esc(b.html)}</div>`;
       case "code": return `<pre class="code-blk" contenteditable="true" data-f="code" data-ph="Write code">${esc(b.code)}</pre>`;
       default: return "";
@@ -75,8 +86,11 @@ export function mountEditor(container, opts) {
     if (s.background && s.background !== "None") css.push(`background:${s.background}`);
     return css.join(";");
   }
+  // In the card layout, blocks placed above or below the card are marked in the canvas.
+  const zoneOf = (b) => doc.page?.layout === "card" ? (b.zone || "body") : "body";
+  function blkHtml(b) { const z = zoneOf(b); return `<div class="blk ${b.id === selected ? "sel" : ""} ${z !== "body" ? "zone-out" : ""}" data-id="${b.id}" ${z !== "body" ? `data-zone="${z === "header" ? "Above card" : "Below card"}"` : ""} style="${styleFor(b)}">${blockInner(b)}</div>`; }
   function renderAll(focusId, atEnd) {
-    host.innerHTML = doc.blocks.map((b) => `<div class="blk ${b.id === selected ? "sel" : ""}" data-id="${b.id}" style="${styleFor(b)}">${blockInner(b)}</div>`).join("");
+    host.innerHTML = doc.blocks.map(blkHtml).join("");
     if (focusId) focusBlock(focusId, atEnd);
   }
   function focusBlock(id, atEnd = true) {
@@ -225,15 +239,21 @@ export function mountEditor(container, opts) {
     }
     if (b.type === "button") s += `<div class="insp-sec"><h4>Button</h4>${row("Text", inp("text", b.text))}${row("Fill", color("fill", b.fill))}${row("Text", color("color", b.color))}${row("Radius", inp("radius", b.radius, "6"))}${row("Width", sel("width", b.width || "Auto", ["Auto", "Full"]))}${row("Align", sel("align", b.align || "left", ["left", "center", "right"]))}</div><div class="insp-sec"><h4>Link</h4>${row("URL", inp("href", b.href, "https://"))}</div>`;
     if (b.type === "image") s += `<div class="insp-sec"><h4>Image</h4><button class="btn btn-secondary btn-sm" data-act="upload">${icon("upload", 12)} Upload image</button>${row("URL", inp("src", b.src, "https://"))}${row("Alt text", inp("alt", b.alt))}${row("Width", inp("width", b.width, "600"))}${row("Link", inp("href", b.href, "https://"))}${row("Align", sel("align", b.align || "left", ["left", "center", "right"]))}${row("Radius", inp("style.radius", st.radius ?? 0, "0"))}</div>`;
+    if (doc.page?.layout === "card") s += `<div class="insp-sec"><h4>Position</h4>${row("Place", sel("zone", b.zone || "body", [{ value: "header", label: "Above the card" }, { value: "body", label: "In the card" }, { value: "footer", label: "Below the card" }]))}</div>`;
+    if (b.type === "logo") s += `<div class="insp-sec"><h4>Logo</h4><button class="btn btn-secondary btn-sm" data-act="upload">${icon("upload", 12)} Upload logo</button>${row("Image URL", inp("src", b.src, "https://"))}${row("Brand name", inp("text", b.text))}${row("Height", inp("height", b.height, "32"))}${row("Link", inp("href", b.href, "https://"))}${row("Align", sel("align", b.align || "left", ["left", "center", "right"]))}<p class="hint">Without an image, the brand name is shown as text.</p></div>`;
+    if (b.type === "callout") s += `<div class="insp-sec"><h4>Callout</h4>${row("Title", inp("title", b.title, "Optional"))}${row("Fill", color("background", b.background))}${row("Accent", color("accent", b.accent))}${row("Radius", inp("radius", b.radius ?? 10, "10"))}</div>`;
+    if (b.type === "otp") s += `<div class="insp-sec"><h4>Verification code</h4>${row("Code", inp("code", b.code, "{{code}}"))}${row("Size", inp("size", b.size ?? 32, "32"))}${row("Fill", color("background", b.background))}${row("Align", sel("align", b.align || "left", ["left", "center"]))}<p class="hint">Use a variable like {{code}} and pass the code when you send.</p></div>`;
+    if (b.type === "rows") s += `<div class="insp-sec"><h4>Rows</h4>${(b.rows || []).map((r, i) => `<div class="rows-edit">${inp(`rows.${i}.label`, r.label, "Label")}${inp(`rows.${i}.value`, r.value, "Value")}${sel(`rows.${i}.strong`, r.strong ? "Bold" : "Normal", ["Normal", "Bold"])}<button class="ibtn" data-act="rowdel" data-i="${i}" title="Remove row">${icon("x", 12)}</button></div>`).join("")}<button class="btn btn-ghost btn-sm" data-act="rowadd">${icon("plus", 12)} Add row</button></div>
+      <div class="insp-sec"><h4>Total</h4>${b.total ? `${row("Label", inp("total.label", b.total.label, "Total"))}${row("Value", inp("total.value", b.total.value))}<button class="btn btn-ghost btn-sm" data-act="totaldel">Remove total</button>` : `<button class="btn btn-ghost btn-sm" data-act="totaladd">${icon("plus", 12)} Add a total</button>`}</div>`;
     if (b.type === "divider") s += `<div class="insp-sec"><h4>Divider</h4>${row("Color", color("style.color", st.color || "#E6E6E6"))}</div>`;
     if (b.type === "spacer") s += `<div class="insp-sec"><h4>Spacer</h4>${row("Height", inp("height", b.height, "24"))}</div>`;
     if (b.type === "columns") s += `<div class="insp-sec"><h4>Columns</h4>${row("Count", sel("columnsCount", String(b.columns.length), ["2", "3"]))}</div>`;
     if (b.type === "social") s += `<div class="insp-sec"><h4>Social links</h4>${(b.links || []).map((l, i) => row(esc(l.network), inp(`links.${i}.url`, l.url, "https://"))).join("")}<button class="btn btn-ghost btn-sm" data-act="addsocial">${icon("plus", 12)} Add link</button></div>`;
-    if (b.type === "footer") s += `<div class="insp-sec"><h4>Unsubscribe footer</h4>${row("Content", inp("reason", b.reason))}${row("Links", `<span class="dim" style="font-size:12px">Unsubscribe, Preferences</span>`)}${row("Address", inp("address", b.address, "Company · Street, City"))}<p class="hint">Bulk email must include a postal address and an unsubscribe link.</p></div>`;
+    if (b.type === "footer") s += `<div class="insp-sec"><h4>Unsubscribe footer</h4>${row("Content", inp("reason", b.reason))}${row("Links", sel("unsubscribe", b.unsubscribe === false ? "Off" : "On", [{ value: "On", label: "Unsubscribe, Preferences" }, { value: "Off", label: "None (transactional)" }]))}${row("Address", inp("address", b.address, "Company · Street, City"))}<p class="hint">Bulk email must include a postal address and an unsubscribe link.</p></div>`;
     if (b.type === "html") s += `<div class="insp-sec"><h4>HTML block</h4><p class="hint">Write or paste raw HTML. It’s inserted as-is, so test it in the clients you care about.</p><button class="btn btn-secondary btn-sm" data-act="html">${icon("code", 12)} Edit HTML</button></div>`;
     if (b.type === "code") s += `<div class="insp-sec"><h4>Attributes</h4>${row("Language", sel("language", b.language || "JavaScript", ["JavaScript", "TypeScript", "Python", "Go", "Ruby", "PHP", "JSON", "HTML", "Shell"]))}${row("Theme", `<span class="dim" style="font-size:12px">Delivrie Dark</span>`)}</div>`;
     s += `<div class="insp-sec"><h4>Spacing</h4>${row("Padding", inp("style.padding", st.padding ?? "", "0 0 12 0"))}${row("Margin", inp("style.margin", st.margin ?? "", "0"))}</div>`;
-    if (!["divider", "spacer", "html"].includes(b.type)) s += `<div class="insp-sec"><h4>Background</h4>${row("Color", color("style.background", st.background && st.background !== "None" ? st.background : ""))}</div><div class="insp-sec"><h4>Border</h4>${row("Radius", inp("style.radius", st.radius ?? 0, "0"))}</div>`;
+    if (!["divider", "spacer", "html", "logo", "otp", "callout"].includes(b.type)) s += `<div class="insp-sec"><h4>Background</h4>${row("Color", color("style.background", st.background && st.background !== "None" ? st.background : ""))}</div><div class="insp-sec"><h4>Border</h4>${row("Radius", inp("style.radius", st.radius ?? 0, "0"))}</div>`;
     h.innerHTML = s;
     bindSelects(h, (key, value) => apply(key, value));
   }
@@ -242,9 +262,12 @@ export function mountEditor(container, opts) {
     if (key === "columnsCount") { const n = +value; while (b.columns.length < n) b.columns.push({ html: "Column" }); b.columns.length = n; }
     else if (key.startsWith("style.")) { b.style = { ...(b.style || {}), [key.slice(6)]: value }; }
     else if (key.startsWith("links.")) { const [, i, f] = key.split("."); b.links[+i][f] = value; }
-    else b[key] = ["radius", "width", "height"].includes(key) ? (value === "" ? "" : Number(value) || 0) : value;
+    else if (key === "unsubscribe") { b.unsubscribe = value !== "Off"; }
+    else if (key.startsWith("rows.")) { const [, i, f] = key.split("."); b.rows[+i][f] = f === "strong" ? value === "Bold" : value; }
+    else if (key.startsWith("total.")) { b.total = { ...(b.total || {}), [key.slice(6)]: value }; }
+    else b[key] = ["radius", "width", "height", "size"].includes(key) ? (value === "" ? "" : Number(value) || 0) : value;
     const node = host.querySelector(`[data-id="${b.id}"]`);
-    if (node && !node.contains(document.activeElement)) { node.outerHTML = `<div class="blk sel" data-id="${b.id}" style="${styleFor(b)}">${blockInner(b)}</div>`; }
+    if (node && !node.contains(document.activeElement)) { node.outerHTML = blkHtml(b); }
     else if (node) node.setAttribute("style", styleFor(b));
     changed();
   }
@@ -260,6 +283,10 @@ export function mountEditor(container, opts) {
       if (a === "html") editHtml(b);
       if (a === "addsocial") { const net = prompt("Network name (e.g. YouTube, Website)"); if (net) { b.links.push({ network: net, label: net, url: "" }); renderInspector(); changed(); } }
       if (a === "upload") uploadImage(b);
+      if (a === "rowadd") { b.rows.push({ label: "", value: "" }); renderInspector(); apply("rows", b.rows); }
+      if (a === "rowdel") { b.rows.splice(+e.target.closest("[data-i]").dataset.i, 1); renderInspector(); apply("rows", b.rows); }
+      if (a === "totaladd") { b.total = { label: "Total", value: "" }; renderInspector(); apply("total", b.total); }
+      if (a === "totaldel") { delete b.total; renderInspector(); apply("rows", b.rows); }
     });
   }
   async function uploadImage(b) {
@@ -272,7 +299,7 @@ export function mountEditor(container, opts) {
         const { error } = await sb.storage.from("email-assets").upload(path, file, { contentType: file.type, upsert: false });
         if (error) throw error;
         b.src = `${location.origin}/media/${path}`;
-        b.alt ||= file.name.replace(/\.\w+$/, "");
+        if (b.type !== "logo") b.alt ||= file.name.replace(/\.\w+$/, "");
         apply("src", b.src); renderInspector(); toast("Image uploaded");
       } catch (e) { errToast(e); }
     };
@@ -288,7 +315,7 @@ export function mountEditor(container, opts) {
   return {
     getDoc, select, deselect,
     setDoc(d) { doc = structuredClone(d); if (!doc.blocks?.length) doc.blocks = [newBlock("text")]; selected = null; renderAll(); opts.inspectorHost && renderInspector(); },
-    setPage(p) { doc.page = { ...(doc.page || {}), ...p }; changed(); },
+    setPage(p) { doc.page = { ...(doc.page || {}), ...p }; if ("layout" in p) { renderAll(); opts.inspectorHost && renderInspector(); } changed(); },
     addBlock(type) { insertAfter(selected || doc.blocks.at(-1)?.id, newBlock(type)); },
     destroy() { document.removeEventListener("selectionchange", onSel); bar?.remove(); },
   };
@@ -303,14 +330,34 @@ export function previewModal(doc, opts = {}) {
   } });
 }
 
-export function pageStylePopover(anchor, doc, onChange) {
+export function pageStylePopover(anchor, doc, onChange, extra = {}) {
   const p = { ...DEFAULT_STYLE.page, ...(doc.page || {}) };
+  const card = p.layout === "card";
+  const fontName = Object.keys(FONTS).find((k) => FONTS[k] === p.font) || "System";
+  const field = (k, label, v) => `<div class="insp-row"><span>${label}</span><input class="input mono" data-p="${k}" value="${esc(v ?? "")}"></div>`;
+  const opt = (v, cur, label = v) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(label)}</option>`;
   popover(anchor, `<div class="insp-sec" style="border:0"><h4>Email styles</h4>
-    <div class="insp-row"><span>Background</span><input class="input mono" data-p="background" value="${esc(p.background)}"></div>
-    <div class="insp-row"><span>Text</span><input class="input mono" data-p="text" value="${esc(p.text)}"></div>
-    <div class="insp-row"><span>Muted</span><input class="input mono" data-p="muted" value="${esc(p.muted)}"></div>
-    <div class="insp-row"><span>Accent</span><input class="input mono" data-p="accent" value="${esc(p.accent)}"></div>
-    <div class="insp-row"><span>Width</span><input class="input" data-p="width" value="${esc(p.width)}"></div></div>`, { width: 300, onMount(el2) { el2.addEventListener("input", (e) => { const k = e.target.dataset.p; if (k) onChange({ [k]: k === "width" ? Number(e.target.value) || 600 : e.target.value }); }); } });
+    ${extra.brandButton || ""}
+    <div class="insp-row"><span>Layout</span><select class="input" data-p="layout">${opt("card", card ? "card" : "plain", "Card")}${opt("plain", card ? "card" : "plain", "Plain")}</select></div>
+    <div class="insp-row"><span>Font</span><select class="input" data-p="font">${Object.keys(FONTS).map((f) => opt(f, fontName)).join("")}</select></div>
+    ${field("background", "Background", p.background)}${card ? field("cardBackground", "Card", p.cardBackground || "#ffffff") + field("radius", "Card radius", p.radius ?? 12) : ""}
+    ${field("heading", "Headings", p.heading || p.text)}${field("text", "Text", p.text)}${field("muted", "Muted", p.muted)}${field("accent", "Accent", p.accent)}${field("width", "Width", p.width)}</div>`, { width: 300, onMount(el2, close) {
+      const set = (e) => { const k = e.target.dataset.p; if (!k) return; const v = e.target.value; onChange({ [k]: k === "width" ? Number(v) || 600 : k === "radius" ? Number(v) || 0 : k === "font" ? FONTS[v] : k === "layout" ? (v === "card" ? "card" : undefined) : v }); if (k === "layout") close?.(); };
+      el2.addEventListener("input", set); el2.addEventListener("change", (e) => { if (e.target.tagName === "SELECT") set(e); });
+      el2.querySelector("[data-apply-brand]")?.addEventListener("click", () => { close?.(); extra.onApplyBrand?.(); });
+    } });
+}
+
+/** The Styles popover with the brand kit button, for the template and broadcast editors. save(doc) stores the new content. */
+export function stylesPopover(anchor, ed, save, navigate) {
+  const brandable = canBrand(state.team?.plan_transactional);
+  const brandButton = brandable
+    ? `<button class="btn btn-secondary btn-sm" data-apply-brand style="width:100%;margin-bottom:12px">${icon("sparkle", 12)} Apply brand kit</button>`
+    : `<p class="hint" style="margin:0 0 12px">Put your logo and colours on every email with a <a href="/billing">brand kit</a>, on Starter and above.</p>`;
+  pageStylePopover(anchor, ed.getDoc(), (p) => ed.setPage(p), { brandButton, onApplyBrand: () => {
+    if (!Object.keys(state.team?.brand || {}).length) { toast("Set up your brand kit first"); return navigate("/settings/brand"); }
+    const d = applyBrand(ed.getDoc(), state.team.brand, state.team?.name); ed.setDoc(d); save(d); toast("Brand kit applied");
+  } });
 }
 
 export { renderBlocks, blocksToText };

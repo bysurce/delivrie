@@ -96,6 +96,11 @@ def build():
     for rel in ("app/js/lib/docs.js", "supabase/functions/delivrie/docs.js"):
         with open(os.path.join(ROOT, rel), "w", encoding="utf-8") as f:
             f.write(js)
+    # The email renderer is shared by the dashboard and the server: keep the server copy in step.
+    with open(os.path.join(ROOT, "app/js/lib/blocks.js"), encoding="utf-8") as f:
+        blocks = f.read()
+    with open(os.path.join(ROOT, "supabase/functions/delivrie/blocks.js"), "w", encoding="utf-8") as f:
+        f.write(blocks)
     return docs
 
 

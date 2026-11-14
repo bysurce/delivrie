@@ -34,7 +34,7 @@
 <body>
   <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Templates</h1><p>Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.</p><p>Templates keep email design out of your code. Build them in the dashboard&#39;s visual or HTML editor (or with the API), publish a version, and send by alias with just the data that changes.</p>
 <h2 id="create-and-publish">Create and publish</h2>
-<ol><li>Open <a href="https://delivrie.io/templates" data-native>Templates</a> and click <b>New template</b>.</li><li>Give it an <b>alias</b>, a stable name your code sends by, like <code>order-confirmation</code>.</li><li>Write the subject and body using variables (below), set a default From address, and click <b>Publish</b>.</li></ol>
+<ol><li>Open <a href="https://delivrie.io/templates" data-native>Templates</a> and click <b>Create template</b>. Start from blank or from one of the ready-made templates (below).</li><li>Give it an <b>alias</b>, a stable name your code sends by, like <code>order-confirmation</code>.</li><li>Write the subject and body using variables (below), set a default From address, and click <b>Publish</b>.</li></ol>
 <p>Or with the API:</p>
 <pre><code class="language-bash">curl -X POST https://delivrie.io/api/templates \
   -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
@@ -50,6 +50,13 @@
 curl -X POST https://delivrie.io/api/templates/order-confirmation/publish \
   -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre>
 <p>Only published versions can be sent. Editing a template doesn&#39;t change what&#39;s sent until you publish again, and every publish is kept in the version history so you can roll back.</p>
+<h2 id="ready-made-templates">Ready-made templates</h2>
+<p>Delivrie includes 22 designed templates you can start from, each with its variables already set up:</p>
+<div class="d-table"><table><thead><tr><th>Category</th><th>Templates</th></tr></thead><tbody><tr><td>Account</td><td>Welcome, Verify email, Sign-in link, Team invitation, Account closed</td></tr><tr><td>Security</td><td>Verification code, Password reset, Password changed, New sign-in alert</td></tr><tr><td>Billing</td><td>Payment receipt, Invoice, Payment failed, Trial ending, Subscription renewed</td></tr><tr><td>Commerce</td><td>Order confirmation, Order shipped, Cart reminder</td></tr><tr><td>Marketing</td><td>Newsletter, Product announcement, Feedback request, Event invitation, We miss you</td></tr></tbody></table></div>
+<p>They use a card layout: your logo above a white card, the content inside it, and the footer below. They&#39;re built with email-safe table layouts and adapt to phone screens. Everything is editable after you create one. Transactional templates have no unsubscribe link; marketing ones do.</p>
+<h2 id="brand-kit">Brand kit</h2>
+<p>On the Starter plan and above, set your brand once in <a href="https://delivrie.io/settings/brand" data-native>Settings → Brand</a>: logo, button and text colours, background, font, button corners, postal address, support email and social links. New templates are created with your brand already applied. To restyle a template or broadcast you already have, open it, click <b>Styles</b>, then <b>Apply brand kit</b>.</p>
+<p>Use a PNG or JPG logo, at least twice the height it&#39;s shown at so it stays sharp on high-resolution screens. Most email apps don&#39;t show SVG images.</p>
 <h2 id="send-a-template">Send a template</h2>
 <p>Pass <code>template</code> instead of <code>html</code>/<code>text</code>. <code>subject</code> and <code>from</code> are optional; the template&#39;s defaults are used when you leave them out.</p>
 <p><b>cURL</b></p><pre><code class="language-bash">curl -X POST https://delivrie.io/api/emails \

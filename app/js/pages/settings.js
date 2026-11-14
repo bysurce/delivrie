@@ -2,9 +2,11 @@ import { sb, state, api, API_BASE, loadTeams, setTeam } from "../lib/sb.js";
 import { sso, connectedApps } from "./security.js";
 import { esc, icon, ago, fmtDate, fmtDateTime, num, plural, toast, errToast, menu, modal, formModal, confirmModal, emptyState, badge, selectHtml, bindSelects, codeBlock, initials, EMAIL_RE, on, debounce, csv, download } from "../lib/ui.js";
 import { brandIcon } from "../lib/icons.js";
+import { renderBlocks, renderVars, FONTS } from "../lib/blocks.js";
+import { LIBRARY, DEFAULT_BRAND, applyBrand, canBrand, samples } from "../lib/template-library.js";
 
 const T = () => state.team.id;
-const TABS = [["usage", "Usage"], ["billing", "Billing"], ["team", "Team"], ["security", "Security"], ["connected-apps", "Connected apps"], ["smtp", "SMTP"], ["integrations", "Integrations"], ["unsubscribe", "Unsubscribe page"], ["documents", "Documents"]];
+const TABS = [["usage", "Usage"], ["billing", "Billing"], ["team", "Team"], ["brand", "Brand"], ["security", "Security"], ["connected-apps", "Connected apps"], ["smtp", "SMTP"], ["integrations", "Integrations"], ["unsubscribe", "Unsubscribe page"], ["documents", "Documents"]];
 const isAdmin = () => state.role === "admin";
 
 export default async function settings(ctx) {
@@ -16,7 +18,7 @@ export default async function settings(ctx) {
   const root = ctx.root;
   root.innerHTML = `<div class="page wide"><div class="page-head"><h1>Settings</h1></div><div class="ul-tabs" style="margin-bottom:22px">${TABS.map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="${k === "billing" ? "/billing" : `/settings/${k === "unsubscribe" ? "unsubscribe-page" : k}`}">${l}</a>`).join("")}</div><div data-body></div></div>`;
   const body = root.querySelector("[data-body]");
-  const fn = { usage, team, suppressions, smtp, integrations, documents, security: sso, "connected-apps": connectedApps }[tab];
+  const fn = { usage, team, brand, suppressions, smtp, integrations, documents, security: sso, "connected-apps": connectedApps }[tab];
   if (!fn) return ctx.navigate("/settings", { replace: true });
   await fn(body, ctx);
 }
@@ -88,6 +90,68 @@ async function team(body, ctx) {
   on(body, "click", "[data-delteam]", async () => {
     if (!(await confirmModal({ title: "Delete team", desc: `This permanently deletes <b>${esc(t.name)}</b> and everything in it, and removes its domains from the mail provider. This can’t be undone.`, confirm: "Delete team", typed: t.name }))) return;
     try { await api("DELETE", "/dashboard/team", { confirm: t.name }); localStorage.removeItem("dlv_team"); toast("Team deleted"); setTimeout(() => location.href = "/emails", 600); } catch (e) { errToast(e); }
+  });
+}
+
+// Brand kit: logo, colours, font and footer details applied to templates. Starter plan and above.
+async function brand(body) {
+  const { data: t, error } = await sb.from("teams").select("id,name,plan_transactional,brand").eq("id", T()).single();
+  if (error) throw error;
+  const allowed = canBrand(t.plan_transactional), admin = isAdmin(), editable = allowed && admin;
+  const b = { ...DEFAULT_BRAND, ...(t.brand || {}), social: { ...DEFAULT_BRAND.social, ...(t.brand?.social || {}) } };
+  const previews = ["welcome", "receipt", "otp"].map((id) => LIBRARY.find((x) => x.id === id));
+  let pv = 0;
+  const dis = editable ? "" : "disabled";
+  const field = (k, label, ph = "", hint = "") => `<div class="field"><label>${label}</label><input class="input" data-b="${k}" value="${esc(b[k] ?? "")}" placeholder="${esc(ph)}" ${dis}>${hint ? `<div class="hint">${hint}</div>` : ""}</div>`;
+  const colour = (k, label) => `<div class="field"><label>${label}</label><div class="brand-colour"><input type="color" data-bc="${k}" value="${esc(/^#[0-9a-f]{6}$/i.test(b[k]) ? b[k] : "#000000")}" ${dis}><input class="input mono" data-b="${k}" value="${esc(b[k])}" ${dis}></div></div>`;
+  const social = (k, label) => `<div class="field"><label>${label}</label><input class="input" data-s="${k}" value="${esc(b.social[k] || "")}" placeholder="https://" ${dis}></div>`;
+  body.innerHTML = `${!allowed ? `<div class="banner" style="margin-bottom:18px">${icon("sparkle", 14)} <span class="grow">Your brand kit puts your logo, colours and font on every template automatically. It’s included on the Starter plan and above.</span><a class="btn btn-ink btn-sm" href="/billing">Upgrade</a></div>` : !admin ? `<div class="banner" style="margin-bottom:18px">${icon("lock", 14)} Only team admins can change the brand kit.</div>` : ""}
+    <div class="brand-grid"><div class="brand-form">
+      <section class="card card-pad"><h3 class="section-title" style="margin-top:0">Logo</h3>
+        <div class="brand-logo"><div class="brand-logo-box" data-logo-box>${b.logo_url ? `<img src="${esc(b.logo_url)}" alt="">` : `<span class="dim">No logo</span>`}</div>
+          <div class="row-flex" style="gap:8px;flex-wrap:wrap"><label class="btn btn-secondary btn-sm ${editable ? "" : "disabled"}">${icon("upload", 13)} Upload logo${editable ? '<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden data-logo>' : ""}</label>${b.logo_url && editable ? `<button class="btn btn-ghost btn-sm" data-logo-rm>Remove</button>` : ""}</div></div>
+        <div class="hint" style="margin-top:10px">PNG or JPG, wide format, at least twice the display height for sharp results. SVG isn’t supported by most email apps.</div>
+        <div class="brand-two">${field("name", "Brand name", t.name, "Shown when there’s no logo, and in template text.")}<div class="field"><label>Logo height</label><input class="input" type="number" min="16" max="80" data-b="logo_height" value="${esc(b.logo_height)}" ${dis}></div></div></section>
+      <section class="card card-pad"><h3 class="section-title" style="margin-top:0">Colours</h3>
+        <div class="brand-two">${colour("primary", "Buttons and accents")}${colour("button_text", "Button text")}${colour("heading", "Headings")}${colour("text", "Body text")}${colour("muted", "Secondary text")}${colour("background", "Background")}${colour("card", "Card")}</div></section>
+      <section class="card card-pad"><h3 class="section-title" style="margin-top:0">Type and shape</h3>
+        <div class="brand-two"><div class="field"><label>Font</label>${selectHtml("font", Object.keys(FONTS).map((f) => ({ value: f, label: f })), b.font, "System", dis)}</div><div class="field"><label>Button corner radius</label><input class="input" type="number" min="0" max="30" data-b="radius" value="${esc(b.radius)}" ${dis}></div></div>
+        <div class="hint">Inter falls back to the system font in email apps that can’t load web fonts.</div></section>
+      <section class="card card-pad"><h3 class="section-title" style="margin-top:0">Footer</h3>
+        ${field("address", "Postal address", "Acme Ltd, 12 Admiralty Way, Lekki, Lagos", "Required by anti-spam laws for marketing email.")}
+        <div class="brand-two">${field("website", "Website", "https://acme.com")}${field("support_email", "Support email", "support@acme.com")}</div>
+        <div class="brand-two">${social("x", "X")}${social("linkedin", "LinkedIn")}${social("instagram", "Instagram")}${social("facebook", "Facebook")}${social("youtube", "YouTube")}</div></section>
+      ${editable ? `<div class="row-flex"><span class="grow dim" data-bstate style="font-size:12.5px">New templates use your brand kit. Open a template and choose Styles → Apply brand to update one you already have.</span><button class="btn btn-primary" data-bsave>Save brand kit</button></div>` : ""}
+    </div>
+    <div class="brand-preview"><div class="row-flex" style="margin-bottom:10px"><span style="font-weight:500">Preview</span><span class="grow"></span><div class="seg-tabs" style="margin:0">${previews.map((p, i) => `<button class="seg-tab ${i === 0 ? "on" : ""}" data-pv="${i}">${esc(p.name)}</button>`).join("")}</div></div>
+      <div class="brand-frame"><iframe sandbox data-frame></iframe></div></div></div>`;
+  const frame = body.querySelector("[data-frame]");
+  const fit = () => { const w = frame.parentElement.clientWidth; if (w) { frame.style.transform = `scale(${w / 640})`; frame.parentElement.style.height = Math.round(1000 * w / 640) + "px"; } };
+  new ResizeObserver(fit).observe(frame.parentElement); fit();
+  const draw = () => { const p = previews[pv]; frame.srcdoc = renderVars(renderBlocks(applyBrand(p.content, b, t.name), { subject: p.subject }), samples(p), p.variables); };
+  const drawSoon = debounce(draw, 120);
+  draw();
+  on(body, "click", "[data-pv]", (_e, btn) => { pv = +btn.dataset.pv; body.querySelectorAll("[data-pv]").forEach((x) => x.classList.toggle("on", x === btn)); draw(); });
+  if (!editable) return;
+  bindSelects(body, (name, v) => { b[name] = v; drawSoon(); });
+  on(body, "input", "[data-b]", (_e, inp) => { const k = inp.dataset.b; b[k] = ["logo_height", "radius"].includes(k) ? Number(inp.value) : inp.value.trim(); const c = body.querySelector(`[data-bc="${k}"]`); if (c && /^#[0-9a-f]{6}$/i.test(b[k])) c.value = b[k]; drawSoon(); });
+  on(body, "input", "[data-bc]", (_e, inp) => { const k = inp.dataset.bc; b[k] = inp.value; body.querySelector(`[data-b="${k}"]`).value = inp.value; drawSoon(); });
+  on(body, "input", "[data-s]", (_e, inp) => { b.social[inp.dataset.s] = inp.value.trim(); drawSoon(); });
+  const logoBox = () => { body.querySelector("[data-logo-box]").innerHTML = b.logo_url ? `<img src="${esc(b.logo_url)}" alt="">` : `<span class="dim">No logo</span>`; };
+  on(body, "change", "[data-logo]", async (_e, inp) => {
+    const f = inp.files[0]; if (!f) return; if (f.size > 2 * 1024 * 1024) return toast("Logos must be under 2 MB", "err");
+    if (f.type === "image/svg+xml") return toast("Use a PNG or JPG: most email apps can’t show SVG", "err");
+    const path = `${T()}/brand-logo-${Date.now()}.${(f.name.split(".").pop() || "png").toLowerCase()}`;
+    const { error: e } = await sb.storage.from("email-assets").upload(path, f, { contentType: f.type }); if (e) return errToast(e);
+    b.logo_url = `${location.origin}/media/${path}`; logoBox(); draw(); toast("Logo uploaded. Save to keep it.");
+  });
+  on(body, "click", "[data-logo-rm]", () => { b.logo_url = ""; logoBox(); draw(); });
+  on(body, "click", "[data-bsave]", async (_e, btn) => {
+    for (const k of ["primary", "button_text", "heading", "text", "muted", "background", "card"]) if (!/^#[0-9a-f]{6}$/i.test(b[k])) return toast(`Use a hex colour like #4F46E5 for ${k.replace("_", " ")}`, "err");
+    btn.disabled = true;
+    const { data, error: e } = await sb.rpc("set_team_brand", { p_team: T(), p_brand: b });
+    btn.disabled = false; if (e) return errToast(e);
+    state.team.brand = data; toast("Brand kit saved");
   });
 }
 

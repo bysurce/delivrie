@@ -1,33 +1,9 @@
 import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, ago, fmtDateTime, toast, errToast, menu, modal, formModal, confirmModal, emptyState, debounce, drawer, codeBlock, badge, on } from "../lib/ui.js";
 import { renderBlocks, renderVars } from "../lib/blocks.js";
-import { mountEditor, previewModal, pageStylePopover } from "./editor.js";
+import { mountEditor, previewModal, stylesPopover } from "./editor.js";
+import { LIBRARY, BLANK, CATEGORIES, applyBrand, canBrand, samples } from "../lib/template-library.js";
 import { testModal } from "./broadcast-edit.js";
-
-const STARTERS = [
-  { name: "Blank", content: { blocks: [{ id: "t1", type: "text", html: "" }] } },
-  { name: "Welcome", subject: "Welcome to {{{company|our team}}}, {{{first_name|there}}}", variables: [{ name: "first_name", type: "string", fallback: "there" }, { name: "company", type: "string", fallback: "our team" }, { name: "cta_url", type: "string", fallback: "https://example.com" }], content: { blocks: [
-    { id: "a", type: "title", html: "Welcome aboard, {{{first_name|there}}}" },
-    { id: "b", type: "text", html: "Thanks for signing up. Here’s everything you need to get going in the next five minutes." },
-    { id: "c", type: "button", text: "Get started", href: "{{{cta_url}}}", fill: "#FAD600", color: "#211F20", radius: 6, width: "Auto" },
-    { id: "d", type: "divider" }, { id: "e", type: "text", html: "Questions? Just reply to this email — a real person reads every one.", style: { color: "#6b6e75", fontSize: 13 } }] } },
-  { name: "Password reset", subject: "Reset your password", variables: [{ name: "reset_url", type: "string", fallback: "" }, { name: "first_name", type: "string", fallback: "there" }], content: { blocks: [
-    { id: "a", type: "heading", html: "Reset your password" },
-    { id: "b", type: "text", html: "Hi {{{first_name|there}}}, someone asked to reset the password for your account. If that was you, use the button below. The link expires in 30 minutes." },
-    { id: "c", type: "button", text: "Reset password", href: "{{{reset_url}}}", fill: "#111111", color: "#FFFFFF", radius: 6, width: "Auto" },
-    { id: "d", type: "text", html: "If you didn’t ask for this, you can ignore this email.", style: { color: "#6b6e75", fontSize: 13 } }] } },
-  { name: "Receipt", subject: "Your receipt #{{{order_id}}}", variables: [{ name: "order_id", type: "string", fallback: "" }, { name: "amount", type: "string", fallback: "" }, { name: "date", type: "string", fallback: "" }], content: { blocks: [
-    { id: "a", type: "heading", html: "Thanks for your order" },
-    { id: "b", type: "text", html: "Order <b>#{{{order_id}}}</b> · {{{date}}}" },
-    { id: "c", type: "divider" },
-    { id: "d", type: "columns", columns: [{ html: "Total" }, { html: "<b>{{{amount}}}</b>" }] },
-    { id: "e", type: "divider" }, { id: "f", type: "text", html: "Keep this email for your records.", style: { color: "#6b6e75", fontSize: 13 } }] } },
-  { name: "Magic link", subject: "Your sign-in link", variables: [{ name: "link", type: "string", fallback: "" }, { name: "code", type: "string", fallback: "" }], content: { blocks: [
-    { id: "a", type: "heading", html: "Sign in" },
-    { id: "b", type: "text", html: "Click the button to sign in. This link works once and expires in 10 minutes." },
-    { id: "c", type: "button", text: "Sign in", href: "{{{link}}}", fill: "#FAD600", color: "#211F20", radius: 6, width: "Auto" },
-    { id: "d", type: "text", html: "Or enter this code: <b>{{{code}}}</b>" }] } },
-];
 
 export async function gallery(ctx) {
   ctx.crumb("template", "Templates");
@@ -38,7 +14,7 @@ export async function gallery(ctx) {
   let rows = [], folders = [], folder = ctx.query.folder || "all";
   async function load() {
     const [{ data, error }, { data: fs }] = await Promise.all([
-      sb.from("templates").select("id,name,alias,status,published_version,subject,content,updated_at,created_at,folder_id").eq("team_id", state.team.id).order("updated_at", { ascending: false }),
+      sb.from("templates").select("id,name,alias,status,published_version,subject,content,variables,updated_at,created_at,folder_id").eq("team_id", state.team.id).order("updated_at", { ascending: false }),
       sb.from("template_folders").select("id,name").eq("team_id", state.team.id).order("name"),
     ]);
     if (error) throw error; rows = data; folders = fs || []; draw();
@@ -57,7 +33,7 @@ export async function gallery(ctx) {
     body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">${r.map((t) => `<div class="card clickable tpl-card" data-id="${t.id}" style="overflow:hidden;cursor:pointer">
       <div style="height:170px;overflow:hidden;background:#fff;position:relative;pointer-events:none"><iframe sandbox data-thumb="${t.id}" style="width:640px;height:720px;border:0;transform:scale(.4);transform-origin:0 0;position:absolute;left:calc(50% - 128px);top:0"></iframe></div>
       <div style="padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)"><div class="grow"><div class="ellipsis" style="font-weight:500">${esc(t.name)}</div><div class="dim" style="font-size:12px">${t.status === "published" ? `v${t.published_version} · ` : "Draft · "}${ago(t.updated_at)}</div></div><button class="ibtn" data-row="${t.id}">${icon("more")}</button></div></div>`).join("")}</div>`;
-    r.forEach((t) => { const f = body.querySelector(`[data-thumb="${t.id}"]`); if (f) f.srcdoc = renderVars(renderBlocks(t.content || { blocks: [] }, { subject: t.subject }), {}, []); });
+    r.forEach((t) => { const f = body.querySelector(`[data-thumb="${t.id}"]`); if (f) f.srcdoc = renderVars(renderBlocks(t.content || { blocks: [] }, { subject: t.subject }), Object.fromEntries((t.variables || []).map((v) => [v.name, v.sample || v.fallback || ""])), t.variables || []); });
   }
   root.querySelector("[data-q]").addEventListener("input", draw);
   const folderModal = (f) => formModal({ title: f ? "Rename folder" : "New folder", fields: [{ name: "name", label: "Name", value: f?.name || "", placeholder: "Payments" }], submit: f ? "Save" : "Create folder", validate: (v) => v.name && v.name.length <= 60,
@@ -94,18 +70,38 @@ export async function gallery(ctx) {
   await load();
 }
 
+// The team's brand kit when its plan includes one; otherwise templates use neutral styling with the team name.
+export const teamBrand = () => (canBrand(state.team?.plan_transactional) ? state.team?.brand || {} : {});
+const fillBrand = (str) => String(str || "").replace(/%BRAND%/g, teamBrand().name || state.team?.name || "Your company");
+
 function createModal(navigate) {
-  let pick = 0;
-  modal({ title: "Create template", size: "lg", body: `<div class="field"><label>Name</label><input class="input" data-name placeholder="Welcome email"></div><div class="field"><label>Start from</label><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${STARTERS.map((s, i) => `<button class="radio-card ${i === 0 ? "on" : ""}" data-pick="${i}" style="justify-content:center;${i === 0 ? "border-color:var(--yellow)" : ""}">${esc(s.name)}</button>`).join("")}</div></div>`,
-    foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Create</button>`,
+  const all = [BLANK, ...LIBRARY];
+  let cat = "All", pick = null;
+  const branded = canBrand(state.team?.plan_transactional) && Object.keys(state.team?.brand || {}).length;
+  modal({ title: "Create template", size: "tpl-gallery", body: `<div class="tg-top"><div class="seg-tabs" style="margin:0">${["All", ...CATEGORIES].map((c) => `<button class="seg-tab ${c === "All" ? "on" : ""}" data-cat="${c}">${c}</button>`).join("")}</div><span class="grow"></span><span class="dim tg-note">${branded ? `${icon("check", 12)} Styled with your brand kit` : canBrand(state.team?.plan_transactional) ? `<a href="/settings/brand">Set up your brand kit</a> to style these with your logo and colours` : `Add your logo and colours with a brand kit on <a href="/billing">Starter</a>`}</span></div><div class="tg-grid" data-grid></div>`,
+    foot: `<span class="dim grow" data-picked style="font-size:12.5px">Choose a template</span><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok disabled>Use template</button>`,
     onMount(m, close) {
-      on(m, "click", "[data-pick]", (_e, b) => { pick = +b.dataset.pick; m.querySelectorAll("[data-pick]").forEach((x) => x.style.borderColor = x === b ? "var(--yellow)" : ""); const n = m.querySelector("[data-name]"); if (!n.value || STARTERS.some((s) => s.name === n.value)) n.value = pick ? STARTERS[pick].name : ""; });
-      m.querySelector("[data-ok]").onclick = async () => {
-        const s = STARTERS[pick]; const name = m.querySelector("[data-name]").value.trim() || s.name;
-        const { data, error } = await sb.from("templates").insert({ team_id: state.team.id, name, subject: s.subject || null, content: structuredClone(s.content), variables: s.variables || [], status: "draft", created_by: state.user.id }).select("id").single();
-        if (error) return errToast(error);
+      const grid = m.querySelector("[data-grid]");
+      const draw = () => {
+        const list = all.filter((t) => cat === "All" || t.category === cat);
+        grid.innerHTML = list.map((t) => `<button class="tg-card ${pick === t.id ? "on" : ""}" data-pick="${t.id}"><div class="tg-thumb"><iframe sandbox tabindex="-1" data-thumb="${t.id}"></iframe></div><div class="tg-meta"><div class="tg-name">${esc(t.name)}</div><div class="tg-desc">${esc(t.desc)}</div></div></button>`).join("");
+        list.forEach((t) => { grid.querySelector(`[data-thumb="${t.id}"]`).srcdoc = renderVars(renderBlocks(applyBrand(t.content, teamBrand(), state.team?.name), {}), samples(t), t.variables); });
+      };
+      draw();
+      on(m, "click", "[data-cat]", (_e, b) => { cat = b.dataset.cat; m.querySelectorAll("[data-cat]").forEach((x) => x.classList.toggle("on", x === b)); draw(); });
+      const create = async () => {
+        const t = all.find((x) => x.id === pick); if (!t) return;
+        const ok = m.querySelector("[data-ok]"); ok.disabled = true;
+        const { data, error } = await sb.from("templates").insert({ team_id: state.team.id, name: t.id === "blank" ? "Untitled template" : t.name, subject: fillBrand(t.subject) || null, content: applyBrand(t.content, teamBrand(), state.team?.name), variables: (t.variables || []).map(({ name, type, fallback, sample }) => ({ name, type, fallback, sample })), status: "draft", created_by: state.user.id }).select("id").single();
+        if (error) { ok.disabled = false; return errToast(error); }
         close(true); navigate(`/templates/${data.id}`);
       };
+      on(m, "click", "[data-pick]", (e, b) => {
+        pick = b.dataset.pick; m.querySelectorAll("[data-pick]").forEach((x) => x.classList.toggle("on", x === b));
+        m.querySelector("[data-ok]").disabled = false; m.querySelector("[data-picked]").textContent = all.find((x) => x.id === pick).name;
+        if (e.detail === 2) create();
+      });
+      m.querySelector("[data-ok]").onclick = create;
     } });
 }
 
@@ -163,8 +159,8 @@ export async function editor(ctx) {
     menu(subj, [{ header: "Variables" }, ...t.variables.map((v) => ({ label: v.name, icon: "code", right: v.type, onClick: () => ins(v.name) })), { sep: true }, { label: "Create variable", icon: "plus", onClick: async () => { const v = await createVariable(); if (v) ins(v.name); } }], { width: 240 });
     function ins(name) { const p = subj.selectionStart; subj.value = subj.value.slice(0, p - 2) + `{{{${name}}}}` + subj.value.slice(p); set("subject", subj.value); subj.focus(); }
   });
-  root.querySelector("[data-styles]").onclick = (e) => pageStylePopover(e.currentTarget, t.content || {}, (p) => ed.setPage(p));
-  root.querySelector("[data-preview]").onclick = () => { const sample = Object.fromEntries(t.variables.map((v) => [v.name, v.fallback || `{${v.name}}`])); previewModal(ed.getDoc(), { subject: renderVars(t.subject || "", sample, t.variables), transform: (h) => renderVars(h, sample, t.variables) }); };
+  root.querySelector("[data-styles]").onclick = (e) => stylesPopover(e.currentTarget, ed, (d) => set("content", d), ctx.navigate);
+  root.querySelector("[data-preview]").onclick = () => { const sample = Object.fromEntries(t.variables.map((v) => [v.name, v.sample || v.fallback || `{${v.name}}`])); previewModal(ed.getDoc(), { subject: renderVars(t.subject || "", sample, t.variables), transform: (h) => renderVars(h, sample, t.variables) }); };
   root.querySelector("[data-test]").onclick = async () => { await flush(); testModal(id, "template"); };
   root.querySelector("[data-vars]").onclick = () => variablesDrawer(t, set);
   root.querySelector("[data-history]").onclick = () => historyDrawer(t, versions || [], async (snap, v) => {

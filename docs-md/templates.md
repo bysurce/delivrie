@@ -6,7 +6,7 @@ Templates keep email design out of your code. Build them in the dashboard's visu
 
 ## Create and publish
 
-1. Open [Templates](https://delivrie.io/templates) and click **New template**.
+1. Open [Templates](https://delivrie.io/templates) and click **Create template**. Start from blank or from one of the ready-made templates (below).
 2. Give it an **alias**, a stable name your code sends by, like `order-confirmation`.
 3. Write the subject and body using variables (below), set a default From address, and click **Publish**.
 
@@ -29,6 +29,26 @@ curl -X POST https://delivrie.io/api/templates/order-confirmation/publish \
 ```
 
 Only published versions can be sent. Editing a template doesn't change what's sent until you publish again, and every publish is kept in the version history so you can roll back.
+
+## Ready-made templates
+
+Delivrie includes 22 designed templates you can start from, each with its variables already set up:
+
+| Category | Templates |
+| --- | --- |
+| Account | Welcome, Verify email, Sign-in link, Team invitation, Account closed |
+| Security | Verification code, Password reset, Password changed, New sign-in alert |
+| Billing | Payment receipt, Invoice, Payment failed, Trial ending, Subscription renewed |
+| Commerce | Order confirmation, Order shipped, Cart reminder |
+| Marketing | Newsletter, Product announcement, Feedback request, Event invitation, We miss you |
+
+They use a card layout: your logo above a white card, the content inside it, and the footer below. They're built with email-safe table layouts and adapt to phone screens. Everything is editable after you create one. Transactional templates have no unsubscribe link; marketing ones do.
+
+## Brand kit
+
+On the Starter plan and above, set your brand once in [Settings → Brand](https://delivrie.io/settings/brand): logo, button and text colours, background, font, button corners, postal address, support email and social links. New templates are created with your brand already applied. To restyle a template or broadcast you already have, open it, click **Styles**, then **Apply brand kit**.
+
+Use a PNG or JPG logo, at least twice the height it's shown at so it stays sharp on high-resolution screens. Most email apps don't show SVG images.
 
 ## Send a template
 

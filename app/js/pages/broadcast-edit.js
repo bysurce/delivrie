@@ -1,6 +1,6 @@
 import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, toast, errToast, menu, modal, debounce, selectHtml, bindSelects, num, fmtDateTime, EMAIL_RE, TZ } from "../lib/ui.js";
-import { mountEditor, previewModal, pageStylePopover } from "./editor.js";
+import { mountEditor, previewModal, stylesPopover } from "./editor.js";
 import { renderBlocks } from "../lib/blocks.js";
 import { runChecks, checksHtml } from "../lib/checks.js";
 
@@ -64,7 +64,7 @@ export default async function broadcastEdit(ctx) {
     }
     set(name, value || null);
   });
-  root.querySelector("[data-styles]").onclick = (e) => pageStylePopover(e.currentTarget, b.content || {}, (p) => ed.setPage(p));
+  root.querySelector("[data-styles]").onclick = (e) => stylesPopover(e.currentTarget, ed, (d) => set("content", d), ctx.navigate);
   root.querySelector("[data-preview]").onclick = () => previewModal(ed.getDoc(), { subject: b.subject, previewText: b.preview_text });
   root.querySelector("[data-test]").onclick = async () => { await flush(); testModal(id); };
   root.querySelector("[data-review]").onclick = async () => { await flush(); reviewModal(b, segs, topics, ctx); };
@@ -96,7 +96,7 @@ function reviewModal(b, segs, topics, ctx) {
   if (!b.subject) issues.push("Add a subject");
   if (!b.segment_id) issues.push("Choose a segment to send to");
   const blocks = b.content?.blocks || [];
-  if (!blocks.some((x) => x.type === "footer") && !JSON.stringify(blocks).includes("unsubscribe_url")) issues.push("Add an unsubscribe footer — bulk email must let people opt out");
+  if (!blocks.some((x) => x.type === "footer" && x.unsubscribe !== false) && !JSON.stringify(blocks).includes("unsubscribe_url")) issues.push("Add an unsubscribe footer — bulk email must let people opt out");
   const seg = segs.find((s) => s.id === b.segment_id); const topic = topics.find((t) => t.id === b.topic_id);
   const tomorrow = new Date(Date.now() + 864e5); tomorrow.setHours(9, 0, 0, 0);
   const local = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
