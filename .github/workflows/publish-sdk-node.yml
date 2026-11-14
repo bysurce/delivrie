@@ -84,16 +84,22 @@ jobs:
           if [ "$tag" != "$pkg" ] || [ "$pkg" != "$src" ]; then
             echo "::error::Tag $tag, package.json $pkg and VERSION in src/client.ts $src must match."; exit 1
           fi
-          if npm view "delivrie@$pkg" version >/dev/null 2>&1; then
-            echo "::error::delivrie@$pkg is already on npm. Bump the version in package.json and src/client.ts."; exit 1
-          fi
           echo "VERSION=$pkg" >> "$GITHUB_ENV"
-      - run: npm install -g typescript@6.0.3
-      - run: npm run build
-      - run: npx -y npm@latest publish --access public --provenance
+          if npm view "delivrie@$pkg" version >/dev/null 2>&1; then
+            echo "::notice::delivrie@$pkg is already on npm, so this run only makes sure the release is tagged. Bump the version to publish again."
+            echo "ALREADY_PUBLISHED=1" >> "$GITHUB_ENV"
+          fi
+      - if: env.ALREADY_PUBLISHED != '1'
+        run: npm install -g typescript@6.0.3
+      - if: env.ALREADY_PUBLISHED != '1'
+        run: npm run build
+      - if: env.ALREADY_PUBLISHED != '1'
+        run: npx -y npm@latest publish --access public --provenance
       - name: Check it's live
+        if: env.ALREADY_PUBLISHED != '1'
         run: |
-          for i in 1 2 3 4 5 6; do
+          # New versions can take a few minutes to show up on the registry.
+          for i in $(seq 1 36); do
             if npx -y npm@latest view "delivrie@$VERSION" version 2>/dev/null | grep -qx "$VERSION"; then echo "delivrie@$VERSION is live"; exit 0; fi
             sleep 10
           done
