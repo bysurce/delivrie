@@ -8,7 +8,7 @@ import type {
 } from "./types.js";
 import { verifyWebhook, type VerifyWebhookOptions } from "./webhooks.js";
 
-export const VERSION = "0.1.1";
+export const VERSION = "0.2.0";
 const DEFAULT_BASE_URL = "https://delivrie.io/api";
 
 export interface DelivrieOptions {
@@ -34,6 +34,36 @@ function toBase64(bytes: Uint8Array): string {
   let s = "";
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
   return btoa(s);
+}
+
+// React Email: render a component to HTML and text with @react-email/render, which the app installs alongside
+// React Email (it's an optional peer dependency, so the SDK itself stays dependency-free). The specifier is
+// left for the runtime to resolve, so bundlers don't fail for apps that never send React components.
+async function renderReact(node: unknown): Promise<{ html: string; text: string }> {
+  let mod: { render: (n: unknown, o?: { plainText?: boolean }) => string | Promise<string> };
+  try {
+    const specifier = "@react-email/render";
+    mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ specifier);
+  } catch {
+    throw new ReactRenderError("To send React Email components, install @react-email/render: npm install @react-email/render");
+  }
+  try {
+    return { html: await mod.render(node), text: await mod.render(node, { plainText: true }) };
+  } catch (e) {
+    throw new ReactRenderError(`Couldn't render the React component: ${(e as Error)?.message || e}`);
+  }
+}
+class ReactRenderError extends Error {}
+
+async function prepareEmail(e: SendEmailRequest): Promise<Record<string, unknown>> {
+  const out = normalizeEmail(e);
+  if (e.react !== undefined && e.react !== null) {
+    const { html, text } = await renderReact(e.react);
+    if (out.html === undefined) out.html = html;
+    if (out.text === undefined) out.text = text;
+  }
+  delete out.react;
+  return out;
 }
 
 function normalizeEmail(e: SendEmailRequest): Record<string, unknown> {
@@ -133,9 +163,15 @@ export class Delivrie {
 
   readonly emails = {
     /** Send one email. Returns its id straight away; delivery events arrive through webhooks. */
-    send: (email: SendEmailRequest, opts?: RequestOptions) => this.request<CreateEmailResponse>("POST", "/emails", normalizeEmail(email), opts),
+    send: async (email: SendEmailRequest, opts?: RequestOptions): Promise<Result<CreateEmailResponse>> => {
+      try { return await this.request<CreateEmailResponse>("POST", "/emails", await prepareEmail(email), opts); }
+      catch (e) { if (e instanceof ReactRenderError) return renderFailure(e); throw e; }
+    },
     /** Send up to 100 emails in one request (no attachments or scheduling). */
-    batch: (emails: SendEmailRequest[], opts?: RequestOptions) => this.request<{ data: CreateEmailResponse[] }>("POST", "/emails/batch", emails.map(normalizeEmail), opts),
+    batch: async (emails: SendEmailRequest[], opts?: RequestOptions): Promise<Result<{ data: CreateEmailResponse[] }>> => {
+      try { return await this.request<{ data: CreateEmailResponse[] }>("POST", "/emails/batch", await Promise.all(emails.map(prepareEmail)), opts); }
+      catch (e) { if (e instanceof ReactRenderError) return renderFailure(e); throw e; }
+    },
     get: (id: string) => this.request<Email>("GET", `/emails/${enc(id)}`),
     list: (params: ListEmailsParams = {}) => this.request<List<EmailSummary>>("GET", "/emails", undefined, { query: { ...params } }),
     /** Received (inbound) emails. */
@@ -263,6 +299,10 @@ export class Delivrie {
   };
 
   readonly usage = { get: () => this.request<Usage>("GET", "/usage") };
+}
+
+function renderFailure(e: Error): { data: null; error: DelivrieErrorResponse } {
+  return { data: null, error: { statusCode: 0, name: "react_render_error", message: e.message } };
 }
 
 function backoff(attempt: number) {

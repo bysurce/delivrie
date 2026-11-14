@@ -33,6 +33,19 @@ const Delivrie = require("delivrie");
 const delivrie = new Delivrie("dlv_...");
 ```
 
+## React Email
+
+Pass a [React Email](https://react.email) component and the SDK renders it to HTML and text (install `@react-email/render` alongside React Email):
+
+```tsx
+await delivrie.emails.send({
+  from: "Acme <hello@mail.acme.com>",
+  to: "ada@example.com",
+  subject: "Welcome",
+  react: <Welcome name="Ada" />,
+});
+```
+
 ## Results and errors
 
 Every call resolves to `{ data, error }`, and exactly one of them is `null`. API errors never throw, so you don't need `try`/`catch`:

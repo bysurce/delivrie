@@ -78,7 +78,7 @@ export default function Page() {
 
 ## React Email
 
-Build templates as React components with [React Email](https://react.email) and render them to HTML:
+Build templates as React components with [React Email](https://react.email) and send them with the `react` option:
 
 ```bash
 npm install @react-email/components @react-email/render
@@ -100,16 +100,25 @@ export default function Welcome({ name }: { name: string }) {
 }
 ```
 
-```ts app/api/send/route.ts
-import { render } from "@react-email/render";
+Pass the component as `react`; the SDK renders it to HTML and plain text:
+
+```tsx app/api/welcome/route.tsx
 import Welcome from "@/emails/welcome";
 import { delivrie } from "@/lib/delivrie";
 
-const html = await render(Welcome({ name: "Ada" }));
-await delivrie.emails.send({ from: "Acme <hello@mail.acme.com>", to: "ada@example.com", subject: "Welcome", html });
+export async function POST(req: Request) {
+  const { email, name } = await req.json();
+  const { data, error } = await delivrie.emails.send({
+    from: "Acme <hello@mail.acme.com>",
+    to: email,
+    subject: "Welcome to Acme",
+    react: <Welcome name={name} />,
+  });
+  return error ? Response.json(error, { status: 502 }) : Response.json(data);
+}
 ```
 
-Delivrie creates the plain-text version from your HTML automatically.
+Preview templates while you design them with `npx react-email dev`.
 
 ## Receive webhooks
 

@@ -156,3 +156,20 @@ test("API key from env, and a clear error without one", () => {
   assert.throws(() => new Delivrie(undefined, { fetch: mock({}) }), /Missing API key/);
   if (prev !== undefined) process.env.DELIVRIE_API_KEY = prev;
 });
+
+test("react without @react-email/render installed returns a clear error and sends nothing", async () => {
+  const fetch = mock({ body: { id: "x" } });
+  const d = new Delivrie("k", { fetch });
+  const r = await d.emails.send({ from: "a@x.io", to: "b@y.io", subject: "s", react: { type: "div", props: {} } });
+  assert.equal(r.data, null);
+  assert.equal(r.error.name, "react_render_error");
+  assert.match(r.error.message, /npm install @react-email\/render/);
+  assert.equal(fetch.calls.length, 0);
+});
+
+test("react is never sent to the API", async () => {
+  const fetch = mock({ body: { id: "x" } });
+  const d = new Delivrie("k", { fetch });
+  await d.emails.send({ from: "a@x.io", to: "b@y.io", subject: "s", html: "<p>hi</p>", react: null });
+  assert.ok(!("react" in fetch.calls[0].body));
+});

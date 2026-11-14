@@ -1,5 +1,5 @@
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
-import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, SENDING_REGIONS, updateDomainConfig, verifyDomain } from "./ses.ts";
+import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
@@ -645,7 +645,16 @@ route("GET", "/dashboard/status", dash(async (_r, c) => {
   const full = await accountStatus(d?.[0]?.region || "eu-west-1");
   const { data: adm } = c.userId ? await db.from("platform_admins").select("user_id").eq("user_id", c.userId).maybeSingle() : { data: null };
   const aws = adm ? full : { configured: !!full?.configured, sending: full?.configured ? full?.sending !== false : false };
-  return { credits: t?.credits || 0, aws, system_from: SYSTEM_FROM ? SYSTEM_FROM : null, regions: SENDING_REGIONS.map((id) => ({ id, label: regionLabel(id) })), limits_enforced: ENFORCE_LIMITS, plan: t?.plan_transactional || "free", limits: LIMITS[t?.plan_transactional || "free"] || LIMITS.free };
+  return { credits: t?.credits || 0, aws, system_from: SYSTEM_FROM ? SYSTEM_FROM : null, regions: (await sendingRegions()).map((id) => ({ id, label: regionLabel(id) })), limits_enforced: ENFORCE_LIMITS, plan: t?.plan_transactional || "free", limits: LIMITS[t?.plan_transactional || "free"] || LIMITS.free };
+}));
+route("GET", "/dashboard/regions", dash(async (_r, c, _p, url) => {
+  // Platform admins only: which sending regions have SES production access (a region is offered to customers once it does).
+  const { data: adm } = c.userId ? await db.from("platform_admins").select("user_id").eq("user_id", c.userId).maybeSingle() : { data: null };
+  if (!adm) throw forbidden("Only platform admins can see this");
+  const fresh = url.searchParams.get("fresh") === "1";
+  const st = await Promise.all(REGION_CANDIDATES.map((r) => regionStatus(r, fresh).catch((e) => ({ region: r, production: false, sending: false, checked_at: new Date().toISOString(), error: String(e?.message || e) }))));
+  const offered = await sendingRegions();
+  return { object: "list", data: st.map((x) => ({ ...x, label: regionLabel(x.region), offered: offered.includes(x.region) })) };
 }));
 route("POST", "/dashboard/test-email", dash(async (_r, c, _p, _u, b) => {
   const to = asArray(b?.to);

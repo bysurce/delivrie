@@ -63,7 +63,7 @@ const { data, error } = await delivrie.emails.send({
   subject: &quot;Welcome&quot;,
   html: &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
 });</code></pre>
-<p>Same <code>{ data, error }</code> result, same field names. Using React Email? Render it yourself: <code>html: await render(&lt;Welcome /&gt;)</code> with <code>render</code> from <code>@react-email/render</code>.</p>
+<p>Same <code>{ data, error }</code> result, same field names. React Email works the same way too: pass <code>react: &lt;Welcome /&gt;</code> and keep <code>@react-email/render</code> installed.</p>
 <h3 id="option-c-plain-http">Option C: plain HTTP</h3>
 <p>Replace <code>https://api.resend.com</code> with <code>https://delivrie.io/api</code> and your <code>re_...</code> key with a <code>dlv_...</code> key. Paths and bodies stay the same.</p>
 <h2 id="4-update-webhooks">4. Update webhooks</h2>

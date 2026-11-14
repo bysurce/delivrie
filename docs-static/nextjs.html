@@ -83,9 +83,9 @@ export default function Page() {
   );
 }</code></pre>
 <h2 id="react-email">React Email</h2>
-<p>Build templates as React components with <a href="https://react.email" target="_blank" rel="noopener" data-native>React Email</a> and render them to HTML:</p>
+<p>Build templates as React components with <a href="https://react.email" target="_blank" rel="noopener" data-native>React Email</a> and send them with the <code>react</code> option:</p>
 <pre><code class="language-bash">npm install @react-email/components @react-email/render</code></pre>
-<p><b>emails/welcome.tsx</b></p><pre><code class="language-tsx">import { Html, Body, Heading, Text, Button } from &quot;@react-email/components&quot;;
+<pre><code class="language-tsx">import { Html, Body, Heading, Text, Button } from &quot;@react-email/components&quot;;
 
 export default function Welcome({ name }: { name: string }) {
   return (
@@ -97,13 +97,22 @@ export default function Welcome({ name }: { name: string }) {
       &lt;/Body&gt;
     &lt;/Html&gt;
   );
-}</code></pre><p><b>app/api/send/route.ts</b></p><pre><code class="language-ts">import { render } from &quot;@react-email/render&quot;;
-import Welcome from &quot;@/emails/welcome&quot;;
+}</code></pre>
+<p>Pass the component as <code>react</code>; the SDK renders it to HTML and plain text:</p>
+<pre><code class="language-tsx">import Welcome from &quot;@/emails/welcome&quot;;
 import { delivrie } from &quot;@/lib/delivrie&quot;;
 
-const html = await render(Welcome({ name: &quot;Ada&quot; }));
-await delivrie.emails.send({ from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;, to: &quot;ada@example.com&quot;, subject: &quot;Welcome&quot;, html });</code></pre>
-<p>Delivrie creates the plain-text version from your HTML automatically.</p>
+export async function POST(req: Request) {
+  const { email, name } = await req.json();
+  const { data, error } = await delivrie.emails.send({
+    from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+    to: email,
+    subject: &quot;Welcome to Acme&quot;,
+    react: &lt;Welcome name={name} /&gt;,
+  });
+  return error ? Response.json(error, { status: 502 }) : Response.json(data);
+}</code></pre>
+<p>Preview templates while you design them with <code>npx react-email dev</code>.</p>
 <h2 id="receive-webhooks">Receive webhooks</h2>
 <pre><code class="language-ts">import { verifyWebhook } from &quot;delivrie&quot;;
 

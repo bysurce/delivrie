@@ -72,10 +72,24 @@ async function overview(body) {
     lineChart(body.querySelector('[data-chart="emails"]'), { labels, height: 200, series: [{ name: "Sent", color: "#8a8f98", values: rows.map((r) => Number(r.sent)) }, { name: "Delivered", color: "#3fa672", values: rows.map((r) => Number(r.delivered)) }, { name: "Bounced", color: "#e5484d", values: rows.map((r) => Number(r.bounced)) }] });
   };
   draw(daily);
+  regionsCard(body);
   on(body, "click", "[data-days]", async (_e, b) => {
     days = Number(b.dataset.days);
     try { draw(await rpc("admin_daily", { p_days: days })); } catch (e) { errToast(e); }
   });
+}
+// Sending regions: a region is offered to customers once AWS grants SES production access there.
+async function regionsCard(body, fresh = false) {
+  let box = body.querySelector("[data-regions]");
+  if (!box) { box = document.createElement("div"); box.dataset.regions = ""; box.className = "card card-pad"; box.style.marginTop = "14px"; body.appendChild(box); }
+  box.innerHTML = `<div class="row-flex"><h3 class="h3">Sending regions</h3><span class="grow"></span><span class="spinner"></span></div>`;
+  try {
+    const { data } = await api("GET", `/dashboard/regions${fresh ? "?fresh=1" : ""}`);
+    box.innerHTML = `<div class="row-flex"><h3 class="h3">Sending regions</h3><span class="grow"></span><button class="btn btn-secondary btn-sm" data-recheck>${icon("refresh", 12)} Check again</button></div>
+      <p class="dim" style="font-size:12.5px;margin:6px 0 12px">Customers can pick a region once AWS grants SES production access there. Request it in the AWS console: SES → Account dashboard → Request production access, in each region.</p>
+      <div class="table-wrap"><table class="t"><thead><tr><th>Region</th><th>SES access</th><th>Offered to customers</th><th>Checked</th></tr></thead><tbody>${data.map((r) => `<tr><td>${esc(r.label)}</td><td>${r.error ? badge("Error", "red") + ` <span class="dim" style="font-size:11.5px">${esc(r.error)}</span>` : r.production ? badge("Production", "green") : badge("Sandbox", "yellow")}</td><td>${r.offered ? badge("Yes", "green") : badge("No", "gray")}</td><td class="dim">${esc(ago(r.checked_at))}</td></tr>`).join("")}</tbody></table></div>`;
+    box.querySelector("[data-recheck]").onclick = () => regionsCard(body, true);
+  } catch (e) { box.innerHTML = `<h3 class="h3">Sending regions</h3><p class="dim" style="margin-top:8px">${esc(e.message || "Couldn't load regions")}</p>`; }
 }
 function bars(map, total) {
   const rows = Object.entries(map || {}).sort((a, b) => b[1] - a[1]);

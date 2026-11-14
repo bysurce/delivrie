@@ -1,21 +1,20 @@
 import { api, state, sb, API_BASE } from "../lib/sb.js";
 import { esc, icon, toast, errToast, codeBlock, copyText, menu } from "../lib/ui.js";
+import { recStatus } from "./domains.js";
 
 export function snippets({ key, from, to, base }) {
   const subject = "Hello World", html = "<p>Congrats on sending your <strong>first email</strong>!</p>";
   return {
-    "Node.js": [`const res = await fetch('${base}/emails', {
-  method: 'POST',
-  headers: {
-    Authorization: 'Bearer ${key}',
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    from: '${from}',
-    to: '${to}',
-    subject: '${subject}',
-    html: '${html}',
-  }),
+    "Node.js": [`// npm install delivrie
+import { Delivrie } from 'delivrie';
+
+const delivrie = new Delivrie('${key}');
+
+const { data, error } = await delivrie.emails.send({
+  from: '${from}',
+  to: '${to}',
+  subject: '${subject}',
+  html: '${html}',
 });`, "js"],
     PHP: [`<?php
 $ch = curl_init('${base}/emails');
@@ -98,16 +97,19 @@ var res = await http.PostAsJsonAsync("${base}/emails", new {
 export default async function onboarding(ctx) {
   ctx.crumb("terminal", "Get started");
   const root = ctx.root;
-  root.innerHTML = `<div class="page narrow"><div class="page-head" style="flex-direction:column;align-items:flex-start;gap:4px"><h1 style="font-size:24px">Send your first email</h1><p class="muted">Two steps: create an API key, then call the API from your stack.</p></div><div class="steps" data-steps><div class="skeleton" style="height:120px"></div></div><div data-explore></div></div>`;
+  root.innerHTML = `<div class="page narrow"><div class="page-head" style="flex-direction:column;align-items:flex-start;gap:4px"><h1 style="font-size:24px">Get started</h1><p class="muted">Three steps, about five minutes: create an API key, send a test email, then verify your domain to email anyone.</p></div><div class="steps" data-steps><div class="skeleton" style="height:120px"></div></div><div data-explore></div></div>`;
   let status = {};
   try { status = await api("GET", "/dashboard/status"); } catch {}
   const { data: doms } = await sb.from("domains").select("name,status").eq("team_id", state.team.id).eq("status", "verified").limit(1);
   const verified = doms?.[0]?.name;
-  const from = status.system_from || (verified ? `${state.team.name} <onboarding@${verified}>` : "");
+  let from = status.system_from || (verified ? `${state.team.name} <onboarding@${verified}>` : "");
   const to = state.user.email;
   let key = sessionStorage.getItem(`dlv_onb_key_${state.team.id}`) || "";
   let lang = localStorage.getItem("dlv_lang") || "Node.js";
   let reveal = false, sent = false;
+  // Step 3: the team's domain (a verified one if there is one, else the newest), checked automatically while pending.
+  let dom = null, checking = false, checkedAt = null, regions = status.regions?.length ? status.regions : [{ id: "eu-west-1", label: "Ireland (eu-west-1)" }];
+  try { const { data } = await api("GET", "/domains"); dom = (data || []).find((x) => x.status === "verified") || (data || [])[0] || null; } catch {}
 
   const draw = () => {
     const masked = key ? key.slice(0, 8) + "•".repeat(24) : "";
@@ -122,9 +124,34 @@ export default async function onboarding(ctx) {
         <h3>Send an email</h3><p class="sub">Run this snippet, or paste it into your agent with Copy for AI.</p>
         ${key ? `<div class="code" style="border-radius:10px"><div class="codebar">${Object.keys(snips).map((l) => `<button class="lang ${l === lang ? "on" : ""}" data-lang="${l}">${l}</button>`).join("")}<span class="grow"></span><button class="btn btn-ghost btn-sm" data-ai>${icon("sparkle", 13)} Copy for AI</button><button class="ibtn" data-copy="${esc(snippets({ key, from: from || "you@yourdomain.com", to, base: API_BASE })[lang][0])}">${icon("copy")}</button></div>${codeBlock(snips[lang][0], { copy: false }).replace('class="code"', 'class="code" style="border:0;border-radius:0"')}</div>
         <div class="row-flex" style="margin-top:12px">${from ? `<button class="btn btn-primary" data-send ${sent ? "disabled" : ""}>${icon("send", 13)} Send email</button><span class="dim" style="font-size:12px">Sends from ${esc(from)} to ${esc(to)}</span>` : `<button class="btn btn-primary" disabled>${icon("send", 13)} Send email</button><span class="dim" style="font-size:12px">${status.aws?.configured === false ? "Sending isn’t configured on this Delivrie install yet." : "Verify a domain to send your first email."} <a class="link" href="/domains/new">Add a domain</a></span>`}</div>` : ""}
-      </div></div>`;
+      </div></div>
+      ${domainStep()}`;
     if (sent) root.querySelector("[data-explore]").innerHTML = explore();
   };
+  const domainStep = () => {
+    const ok = dom?.status === "verified";
+    const head = `<div class="step ${ok ? "done" : "active"}"><div class="step-num">${ok ? icon("check", 12) : "3"}</div><div class="step-card"><h3>Send from your own domain</h3>`;
+    if (ok) return `${head}<p class="sub"><b>${esc(dom.name)}</b> is verified. Send from any address on it, like <span class="mono">hello@${esc(dom.name)}</span>, to anyone.</p></div></div>`;
+    if (!dom) return `${head}<p class="sub">Until then you can only email yourself, your team and the test addresses. Use a subdomain like <span class="mono">mail.yourcompany.com</span> so your app’s email has its own reputation.</p>
+      <div class="row-flex" style="gap:8px;align-items:stretch;flex-wrap:wrap"><input class="input" data-dname placeholder="mail.yourcompany.com" style="flex:1;min-width:200px">${regions.length > 1 ? `<select class="input" data-dregion style="width:auto">${regions.map((r) => `<option value="${esc(r.id)}">${esc(r.label)}</option>`).join("")}</select>` : ""}<button class="btn btn-primary" data-adddomain>${icon("plus", 13)} Add domain</button></div></div></div>`;
+    const rows = (dom.records || []).filter((r) => ["dkim", "sending", "dmarc"].includes(r.group));
+    const recs = `<div class="table-wrap"><table class="t onb-recs"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th>Status</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="mono">${esc(r.type)}</td><td><button class="mono copyable" data-copy="${esc(r.name)}" title="Copy">${esc(r.name)}</button></td><td><button class="mono copyable trunc" data-copy="${esc(r.value)}" title="Copy">${r.priority ? `<span class="dim">${esc(r.priority)}</span> ` : ""}${esc(r.value)}</button></td><td>${recStatus(r.status)}</td></tr>`).join("")}</tbody></table></div>`;
+    return `${head}<p class="sub">Add these records at your DNS provider (where you bought the domain, or Cloudflare). Most providers only need the part of the name before your domain. We check every 15 seconds while this page is open.</p>
+      ${recs}
+      <div class="row-flex" style="margin-top:12px;gap:10px;flex-wrap:wrap"><button class="btn btn-secondary" data-checknow ${checking ? "disabled" : ""}>${checking ? '<span class="spinner"></span> Checking' : `${icon("refresh", 13)} Check now`}</button><button class="btn btn-ghost" data-copyrecs>${icon("copy", 13)} Copy records as text</button><span class="grow"></span><span class="dim" style="font-size:12px">${esc(dom.name)} · ${esc(dom.status.replace(/_/g, " "))}${checkedAt ? ` · checked ${new Date(checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span></div>
+      <p class="dim" style="font-size:12px;margin-top:10px">Stuck? <a class="link" href="/docs/domain-not-verifying">Why a domain might not verify</a> · <a class="link" href="/domains/${esc(dom.id)}">Open domain settings</a></p></div></div>`;
+  };
+  const verifyNow = async () => {
+    if (!dom || dom.status === "verified" || checking) return;
+    checking = true; draw();
+    try {
+      dom = await api("POST", `/domains/${dom.id}/verify`);
+      checkedAt = Date.now();
+      if (dom.status === "verified") { toast(`${dom.name} is verified`, "ok"); if (!status.system_from) from = `${state.team.name} <onboarding@${dom.name}>`; }
+    } catch {}
+    checking = false; draw();
+  };
+  const timer = setInterval(() => { if (!root.isConnected) return clearInterval(timer); if (dom && dom.status !== "verified" && document.visibilityState === "visible") verifyNow(); }, 15000);
   const explore = () => `<h2 class="section-title" style="font-size:16px;margin-top:36px">Explore more</h2><p class="muted" style="margin-bottom:14px">Keep going with the rest of Delivrie.</p>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px">
       ${[["globe", "Add a domain", `Send from your own domain instead of the shared sender and lift deliverability.`, "/domains/new", "Add domain", true],
@@ -142,6 +169,15 @@ export default async function onboarding(ctx) {
       catch (err) { errToast(err); t.disabled = false; t.innerHTML = `${icon("plus", 13)} Add API key`; }
     }
     if (t.dataset.reveal !== undefined) { reveal = !reveal; draw(); }
+    if (t.dataset.adddomain !== undefined) {
+      const name = (root.querySelector("[data-dname]").value || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+      if (!/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(name)) return toast("Enter a domain like mail.yourcompany.com", "err");
+      t.disabled = true; t.innerHTML = '<span class="spinner"></span> Adding';
+      try { dom = await api("POST", "/domains", { name, region: root.querySelector("[data-dregion]")?.value || regions[0].id }); toast("Domain added. Now add the DNS records"); draw(); }
+      catch (err) { errToast(err); t.disabled = false; t.innerHTML = `${icon("plus", 13)} Add domain`; }
+    }
+    if (t.dataset.checknow !== undefined) verifyNow();
+    if (t.dataset.copyrecs !== undefined) copyText((dom.records || []).filter((r) => r.group !== "receiving").map((r) => `${r.type}\t${r.name}.${dom.name}\t${r.priority ? r.priority + " " : ""}${r.value}`).join("\n"), "Records copied");
     if (t.dataset.lang) { lang = t.dataset.lang; localStorage.setItem("dlv_lang", lang); draw(); }
     if (t.dataset.ai !== undefined) {
       const real = snippets({ key, from: from || "you@yourdomain.com", to, base: API_BASE })[lang][0];

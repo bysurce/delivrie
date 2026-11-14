@@ -1149,3 +1149,18 @@ tr.revoked td { opacity: .5; }
 :root[data-theme="light"] .d-callout.tip > svg { color: #1f7a4d; }
 /* the guide list is long: scroll the sidebar instead of squeezing its links under the theme switch */
 @media (min-width: 901px) { .d-side { padding-bottom: 0; } .d-side > * { flex-shrink: 0; } .d-theme { padding-bottom: 16px; margin-top: auto; } }
+/* sidebar setup checklist (until key, first email and verified domain) */
+.setup-card { display: flex; flex-direction: column; gap: 7px; margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(250, 214, 0, .55); background: rgba(250, 214, 0, .08); font-size: 12px; color: var(--fg); }
+.setup-card:hover { background: rgba(250, 214, 0, .14); }
+.setup-card .row { display: flex; align-items: center; justify-content: space-between; }
+.setup-card b { font-weight: 500; font-size: 12.5px; }
+.setup-card .n, .setup-card .next { color: var(--fg-2); }
+.setup-card .bar { height: 4px; border-radius: 4px; background: var(--muted); overflow: hidden; }
+.setup-card .bar i { display: block; height: 100%; background: #fad600; border-radius: 4px; }
+/* onboarding: every step card spans the column */
+.steps { align-items: stretch; } .steps > .step { width: 100%; } .steps .step-card { min-width: 0; }
+table.t.onb-recs { table-layout: fixed; width: 100%; }
+.onb-recs th:nth-child(1), .onb-recs td:nth-child(1) { width: 58px; }
+.onb-recs th:nth-child(2), .onb-recs td:nth-child(2) { width: 30%; }
+.onb-recs th:nth-child(4), .onb-recs td:nth-child(4) { width: 96px; }
+.onb-recs .copyable { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; text-align: left; }

@@ -61,6 +61,27 @@ const { data, error } = await delivrie.emails.send({
 
 Field names match the API (`reply_to`, `scheduled_at`). `replyTo` and `scheduledAt` are accepted as aliases, and `scheduledAt` can be a `Date`. Every field is described in [Send an email](/docs/send-email).
 
+## React Email
+
+Pass a [React Email](https://react.email) component as `react`, and the SDK renders it to HTML and plain text for you:
+
+```bash
+npm install @react-email/components @react-email/render
+```
+
+```tsx
+import { Welcome } from "./emails/welcome";
+
+await delivrie.emails.send({
+  from: "Acme <hello@mail.acme.com>",
+  to: "ada@example.com",
+  subject: "Welcome to Acme",
+  react: <Welcome name="Ada" />,
+});
+```
+
+`react` works in `emails.batch` too. If you also pass `html`, the `html` wins. Without `@react-email/render` installed, the call returns an error named `react_render_error` explaining what to install. On edge runtimes that can't load it at run time, render first with `await render(<Welcome />)` and pass the result as `html`.
+
 ## Results and errors
 
 Every method resolves to `{ data, error }`, and exactly one of them is `null`. API errors never throw, so there's no `try`/`catch` to forget:

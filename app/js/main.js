@@ -65,6 +65,22 @@ function teamAvatar(t, cls = "") {
   return t?.avatar_url ? `<span class="avatar sq ${cls}"><img src="${esc(t.avatar_url)}" alt=""></span>` : `<span class="avatar sq yellow ${cls}">${esc((t?.name || "?")[0].toUpperCase())}</span>`;
 }
 function navLink(i) { return `<a class="nav-item" href="${i.href}" data-nav="${i.href}">${icon(i.icon, 15)}<span>${i.label}</span></a>`; }
+// Setup checklist in the sidebar until the team has a key, a first email and a verified domain.
+let setupBusy = false;
+async function setupCard() {
+  const box = $("[data-setup]"); if (!box || !state.team || setupBusy) return;
+  const doneKey = `dlv_setup_done_${state.team.id}`;
+  try { if (localStorage.getItem(doneKey)) { box.innerHTML = ""; return; } } catch {}
+  setupBusy = true;
+  try {
+    const [keys, emails, doms] = await Promise.all([api("GET", "/api-keys"), api("GET", "/emails?limit=1"), api("GET", "/domains")]);
+    const steps = [["API key", (keys.data || []).length > 0], ["First email", (emails.data || []).length > 0], ["Verified domain", (doms.data || []).some((d) => d.status === "verified")]];
+    const done = steps.filter((x) => x[1]).length;
+    if (done === steps.length) { try { localStorage.setItem(doneKey, "1"); } catch {} box.innerHTML = ""; return; }
+    box.innerHTML = `<a class="setup-card" href="/onboarding"><span class="row"><b>Get started</b><span class="n">${done} of ${steps.length}</span></span><span class="bar"><i style="width:${Math.round(done / steps.length * 100)}%"></i></span><span class="next">Next: ${esc(steps.find((x) => !x[1])[0])}</span></a>`;
+  } catch { box.innerHTML = ""; } finally { setupBusy = false; }
+}
+
 function shellHtml() {
   const closed = JSON.parse(localStorage.getItem("dlv_nav_closed") || "{}");
   return `<div class="shell">
@@ -76,6 +92,7 @@ function shellHtml() {
       </div>
       ${NAV.map((n) => n.section ? `<div class="nav-sec ${closed[n.section] ? "closed" : ""}" data-sec="${n.section}">${n.section}<span class="caret"></span></div><div class="nav-group ${closed[n.section] ? "closed" : ""}" data-group="${n.section}">${n.items.map(navLink).join("")}</div>` : navLink(n)).join("")}
       <div class="side-spacer"></div>
+      <div data-setup></div>
       <a class="whatsnew" href="/changelog" data-native><span class="k">What’s new</span><span class="v">Automations and Inbox are live</span></a>
       <div class="side-foot"><button class="who" id="who-btn"><span class="avatar me">${esc(initials(state.profile?.full_name || state.user?.email || "?"))}</span><span class="who-t"><span>${esc(state.profile?.full_name || state.user?.email?.split("@")[0] || "")}</span><small>${esc(state.user?.email || "")}</small></span></button>${themeSwitch()}</div>
     </nav>
@@ -241,6 +258,7 @@ export async function render(forceShell = false) {
     if (!shellMounted || forceShell || !$("#content")) { app().innerHTML = shellHtml(); bindShell(app()); shellMounted = true; }
     import("./lib/chat.js").then((m) => m.mountChat()).catch(() => {});
     markNav();
+    setupCard();
     const content = $("#content");
     content.innerHTML = "";
     content.scrollTop = 0;

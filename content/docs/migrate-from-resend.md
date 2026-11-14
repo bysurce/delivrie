@@ -63,7 +63,7 @@ const { data, error } = await delivrie.emails.send({
 });
 ```
 
-Same `{ data, error }` result, same field names. Using React Email? Render it yourself: `html: await render(<Welcome />)` with `render` from `@react-email/render`.
+Same `{ data, error }` result, same field names. React Email works the same way too: pass `react: <Welcome />` and keep `@react-email/render` installed.
 
 ### Option C: plain HTTP
 

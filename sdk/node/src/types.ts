@@ -65,6 +65,11 @@ export interface SendEmailRequest {
   html?: string;
   /** Generated from `html` when omitted. */
   text?: string;
+  /**
+   * A React Email component, like `<Welcome name="Ada" />`. The SDK renders it to `html` and `text` with
+   * `@react-email/render`, which you install alongside React Email. Ignored if you also pass `html`.
+   */
+  react?: unknown;
   cc?: string | string[];
   bcc?: string | string[];
   reply_to?: string | string[];

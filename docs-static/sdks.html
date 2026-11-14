@@ -52,6 +52,18 @@ const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);</code></pre>
   tags: [{ name: &quot;category&quot;, value: &quot;receipt&quot; }],
 }, { idempotencyKey: &quot;order-1042-receipt&quot; });</code></pre>
 <p>Field names match the API (<code>reply_to</code>, <code>scheduled_at</code>). <code>replyTo</code> and <code>scheduledAt</code> are accepted as aliases, and <code>scheduledAt</code> can be a <code>Date</code>. Every field is described in <a href="/docs/send-email">Send an email</a>.</p>
+<h2 id="react-email">React Email</h2>
+<p>Pass a <a href="https://react.email" target="_blank" rel="noopener" data-native>React Email</a> component as <code>react</code>, and the SDK renders it to HTML and plain text for you:</p>
+<pre><code class="language-bash">npm install @react-email/components @react-email/render</code></pre>
+<pre><code class="language-tsx">import { Welcome } from &quot;./emails/welcome&quot;;
+
+await delivrie.emails.send({
+  from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+  to: &quot;ada@example.com&quot;,
+  subject: &quot;Welcome to Acme&quot;,
+  react: &lt;Welcome name=&quot;Ada&quot; /&gt;,
+});</code></pre>
+<p><code>react</code> works in <code>emails.batch</code> too. If you also pass <code>html</code>, the <code>html</code> wins. Without <code>@react-email/render</code> installed, the call returns an error named <code>react_render_error</code> explaining what to install. On edge runtimes that can&#39;t load it at run time, render first with <code>await render(&lt;Welcome /&gt;)</code> and pass the result as <code>html</code>.</p>
 <h2 id="results-and-errors">Results and errors</h2>
 <p>Every method resolves to <code>{ data, error }</code>, and exactly one of them is <code>null</code>. API errors never throw, so there&#39;s no <code>try</code>/<code>catch</code> to forget:</p>
 <pre><code class="language-ts">const { data, error } = await delivrie.emails.send(email);

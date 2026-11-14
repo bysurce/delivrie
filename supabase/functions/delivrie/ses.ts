@@ -14,9 +14,33 @@ export const hasAws = () => !!credsFromEnv();
 
 export function regionLabel(r: string) { return `${SES_REGIONS[r] || r} (${r})`; }
 
-// Regions where our sending account has full (production) access. Others can only send to verified test
-// addresses, so customers aren't offered them. Add a region here once it has production access.
-export const SENDING_REGIONS = ["eu-west-1"];
+// Regions customers can pick, in display order. A region is only offered once our SES account has production
+// access there (otherwise it could only send to verified addresses). Access is checked with AWS and cached for
+// 10 minutes, so a region appears on its own once AWS approves it. Ireland is always offered.
+export const REGION_CANDIDATES = ["eu-west-1", "us-east-1", "sa-east-1", "ap-northeast-1"];
+const DEFAULT_REGION = "eu-west-1";
+const REGION_TTL = 10 * 60 * 1000;
+
+export async function regionStatus(region: string, fresh = false): Promise<{ region: string; production: boolean; sending: boolean; checked_at: string; error?: string }> {
+  const key = `ses_region:${region}`;
+  if (!fresh) {
+    try {
+      const cached = JSON.parse((await setting(key)) || "null");
+      if (cached && Date.now() - new Date(cached.checked_at).getTime() < REGION_TTL) return cached;
+    } catch { /* recheck */ }
+  }
+  const a = await accountStatus(region);
+  const out = { region, production: !!a.production, sending: a.sending !== false && !a.error, checked_at: new Date().toISOString(), ...(a.error ? { error: String(a.error).slice(0, 200) } : {}) };
+  if (a.configured) await setSetting(key, JSON.stringify(out));
+  return out;
+}
+
+/** Regions customers can send from right now. */
+export async function sendingRegions(): Promise<string[]> {
+  const st = await Promise.all(REGION_CANDIDATES.map((r) => regionStatus(r).catch(() => null)));
+  const ok = REGION_CANDIDATES.filter((r, i) => r === DEFAULT_REGION || (st[i]?.production && st[i]?.sending));
+  return ok.length ? ok : [DEFAULT_REGION];
+}
 
 const EVENT_TYPES_BASE = ["SEND", "DELIVERY", "BOUNCE", "COMPLAINT", "DELIVERY_DELAY", "REJECT", "RENDERING_FAILURE"];
 
@@ -77,7 +101,8 @@ export function buildRecords(d: Any, dkimPublic: string) {
 export async function createDomain(teamId: string, name: string, region: string, opts: Any = {}) {
   name = name.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   if (!/^(?=.{3,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(name)) throw new HttpError(422, "validation_error", "Enter a valid domain like mail.example.com");
-  if (!SENDING_REGIONS.includes(region)) throw new HttpError(422, "validation_error", `Region ${region} isn't available. Available: ${SENDING_REGIONS.join(", ")}`);
+  const available = await sendingRegions();
+  if (!available.includes(region)) throw new HttpError(422, "validation_error", `Region ${region} isn't available. Available: ${available.join(", ")}`);
   const c = creds();
   const { data: existing } = await db.from("domains").select("id").eq("name", name).limit(1);
   if (existing?.length) throw new HttpError(409, "domain_exists", `${name} is already registered on Delivrie`);
