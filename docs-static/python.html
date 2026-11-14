@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Python · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django&#x27;s SMTP backend.">
+  <meta name="description" content="Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django&#x27;s SMTP backend.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/python">
   <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/python.md">
   <meta property="og:url" content="https://delivrie.io/docs/python">
   <meta property="og:title" content="Python · Delivrie Docs">
-  <meta property="og:description" content="Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django&#x27;s SMTP backend.">
+  <meta property="og:description" content="Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django&#x27;s SMTP backend.">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=3">
   <meta property="og:image:width" content="2400">
   <meta property="og:image:height" content="1260">
@@ -29,65 +29,63 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Python", "description": "Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django's SMTP backend.", "url": "https://delivrie.io/docs/python", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Python", "item": "https://delivrie.io/docs/python"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Python", "description": "Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django's SMTP backend.", "url": "https://delivrie.io/docs/python", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Python", "item": "https://delivrie.io/docs/python"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Python</h1><p>Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django&#x27;s SMTP backend.</p><p>There&#39;s no Python package yet. The API is a single JSON request, so <code>requests</code> or <code>httpx</code> is all you need. (Already using the <code>resend</code> package? Set <code>RESEND_API_URL=https://delivrie.io/api</code> and it talks to Delivrie; see <a href="/docs/migrate-from-resend">Migrate from Resend</a>.)</p>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Python</h1><p>Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django&#x27;s SMTP backend.</p><p>The official [<code>delivrie</code>](https://pypi.org/project/delivrie/) package covers the whole API. It has no dependencies, works on Python 3.10 and later, and comes in sync and async versions. (Already using the <code>resend</code> package? Set <code>RESEND_API_URL=https://delivrie.io/api</code> and it talks to Delivrie; see <a href="/docs/migrate-from-resend">Migrate from Resend</a>.)</p>
+<pre><code class="language-bash">pip install delivrie</code></pre>
 <h2 id="send-an-email">Send an email</h2>
-<pre><code class="language-python">import os
-import requests
+<p>Create an API key in <a href="https://delivrie.io/api-keys" data-native>API keys</a> and set it as <code>DELIVRIE_API_KEY</code>.</p>
+<pre><code class="language-python">from delivrie import Delivrie
 
-def send_email(to, subject, html, idempotency_key=None):
-    res = requests.post(
-        &quot;https://delivrie.io/api/emails&quot;,
-        headers={
-            &quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;DELIVRIE_API_KEY&#39;]}&quot;,
-            **({&quot;Idempotency-Key&quot;: idempotency_key} if idempotency_key else {}),
-        },
-        json={
-            &quot;from&quot;: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
-            &quot;to&quot;: to,
-            &quot;subject&quot;: subject,
-            &quot;html&quot;: html,
-        },
-        timeout=30,
-    )
-    body = res.json()
-    if not res.ok:
-        raise RuntimeError(f&quot;{body[&#39;name&#39;]}: {body[&#39;message&#39;]}&quot;)
-    return body[&quot;id&quot;]
+client = Delivrie()  # reads DELIVRIE_API_KEY
 
-send_email(&quot;ada@example.com&quot;, &quot;Welcome&quot;, &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;, idempotency_key=&quot;welcome-42&quot;)</code></pre>
-<h2 id="async-fastapi-httpx">Async (FastAPI, httpx)</h2>
-<pre><code class="language-python">import os
-import httpx
+email = client.emails.send(
+    from_=&quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+    to=&quot;ada@example.com&quot;,
+    subject=&quot;Welcome to Acme&quot;,
+    html=&quot;&lt;p&gt;Thanks for signing up.&lt;/p&gt;&quot;,
+    idempotency_key=&quot;welcome-42&quot;,
+)
+print(email[&quot;id&quot;])</code></pre>
+<p><code>from</code> is a Python keyword, so pass <code>from_</code>, or pass a dict exactly like the REST API: <code>client.emails.send({&quot;from&quot;: ..., &quot;to&quot;: ..., ...})</code>. A <code>datetime</code> works for <code>scheduled_at</code>, <code>bytes</code> for attachment content and a dict for <code>tags</code>.</p>
+<p>With an <code>idempotency_key</code>, the SDK retries network errors, rate limits and server errors safely: a retry returns the original email instead of sending a second one. Without one, sends aren&#39;t retried. See <a href="/docs/idempotency">Idempotency and retries</a>.</p>
+<h2 id="errors">Errors</h2>
+<p>Methods return the API&#39;s JSON as a dict and raise <code>DelivrieError</code> on failure:</p>
+<pre><code class="language-python">from delivrie import DelivrieError
+
+try:
+    client.emails.send(from_=&quot;Acme &lt;hello@mail.acme.com&gt;&quot;, to=&quot;ada@example.com&quot;, subject=&quot;Hi&quot;, text=&quot;Hello&quot;)
+except DelivrieError as e:
+    print(e.status_code, e.name, e.message)</code></pre>
+<p>Branch on <code>e.name</code> (see <a href="/docs/errors">Errors</a>). <code>status_code</code> is 0 for <code>network_error</code> and <code>timeout</code>.</p>
+<h2 id="templates-and-attachments">Templates and attachments</h2>
+<pre><code class="language-python">client.emails.send(
+    from_=&quot;Acme &lt;billing@mail.acme.com&gt;&quot;,
+    to=&quot;ada@example.com&quot;,
+    template={&quot;id&quot;: &quot;invoice&quot;, &quot;variables&quot;: {&quot;first_name&quot;: &quot;Ada&quot;, &quot;total&quot;: &quot;₦27,000&quot;}},
+    attachments=[{&quot;filename&quot;: &quot;invoice.pdf&quot;, &quot;content&quot;: open(&quot;invoice.pdf&quot;, &quot;rb&quot;).read()}],
+)</code></pre>
+<h2 id="async-fastapi">Async (FastAPI)</h2>
+<pre><code class="language-python">from delivrie import AsyncDelivrie, DelivrieError
 from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
-client = httpx.AsyncClient(
-    base_url=&quot;https://delivrie.io/api&quot;,
-    headers={&quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;DELIVRIE_API_KEY&#39;]}&quot;},
-    timeout=30,
-)
+client = AsyncDelivrie()
 
 @app.post(&quot;/signup&quot;)
 async def signup(email: str):
-    res = await client.post(&quot;/emails&quot;, json={
-        &quot;from&quot;: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
-        &quot;to&quot;: email,
-        &quot;subject&quot;: &quot;Welcome&quot;,
-        &quot;html&quot;: &quot;&lt;p&gt;Thanks for signing up.&lt;/p&gt;&quot;,
-    }, headers={&quot;Idempotency-Key&quot;: f&quot;welcome-{email}&quot;})
-    if res.is_error:
-        raise HTTPException(502, res.json()[&quot;message&quot;])
-    return {&quot;email_id&quot;: res.json()[&quot;id&quot;]}</code></pre>
-<h2 id="attachments">Attachments</h2>
-<pre><code class="language-python">import base64
-
-with open(&quot;invoice.pdf&quot;, &quot;rb&quot;) as f:
-    content = base64.b64encode(f.read()).decode()
-
-payload[&quot;attachments&quot;] = [{&quot;filename&quot;: &quot;invoice.pdf&quot;, &quot;content&quot;: content}]</code></pre>
+    try:
+        sent = await client.emails.send(
+            from_=&quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+            to=email,
+            subject=&quot;Welcome&quot;,
+            html=&quot;&lt;p&gt;Thanks for signing up.&lt;/p&gt;&quot;,
+            idempotency_key=f&quot;welcome-{email}&quot;,
+        )
+    except DelivrieError as e:
+        raise HTTPException(502, e.message)
+    return {&quot;email_id&quot;: sent[&quot;id&quot;]}</code></pre>
 <h2 id="django">Django</h2>
 <p>The simplest setup is Django&#39;s SMTP backend with the <a href="/docs/smtp">SMTP relay</a>, so <code>send_mail</code> and password-reset emails go through Delivrie:</p>
 <pre><code class="language-python">EMAIL_BACKEND = &quot;django.core.mail.backends.smtp.EmailBackend&quot;
@@ -97,44 +95,56 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = &quot;delivrie&quot;
 EMAIL_HOST_PASSWORD = os.environ[&quot;DELIVRIE_API_KEY&quot;]
 DEFAULT_FROM_EMAIL = &quot;Acme &lt;hello@mail.acme.com&gt;&quot;</code></pre>
+<p>For templates, scheduling or tags, call the SDK from your views or tasks instead.</p>
 <h2 id="flask">Flask</h2>
-<pre><code class="language-python">import os, requests
+<pre><code class="language-python">from delivrie import Delivrie, DelivrieError
 from flask import Flask, request
 
 app = Flask(__name__)
+client = Delivrie()
 
 @app.post(&quot;/contact&quot;)
 def contact():
-    res = requests.post(
-        &quot;https://delivrie.io/api/emails&quot;,
-        headers={&quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;DELIVRIE_API_KEY&#39;]}&quot;},
-        json={
-            &quot;from&quot;: &quot;Website &lt;forms@mail.acme.com&gt;&quot;,
-            &quot;to&quot;: &quot;team@acme.com&quot;,
-            &quot;reply_to&quot;: request.form[&quot;email&quot;],
-            &quot;subject&quot;: &quot;New contact form message&quot;,
-            &quot;text&quot;: request.form[&quot;message&quot;],
-        },
-        timeout=30,
-    )
-    return (&quot;Sent&quot;, 200) if res.ok else (res.json()[&quot;message&quot;], 502)</code></pre>
+    try:
+        client.emails.send(
+            from_=&quot;Website &lt;forms@mail.acme.com&gt;&quot;,
+            to=&quot;team@acme.com&quot;,
+            reply_to=request.form[&quot;email&quot;],
+            subject=&quot;New contact form message&quot;,
+            text=request.form[&quot;message&quot;],
+        )
+    except DelivrieError as e:
+        return e.message, 502
+    return &quot;Sent&quot;, 200</code></pre>
 <h2 id="verify-webhooks">Verify webhooks</h2>
-<pre><code class="language-python">import base64, hashlib, hmac, json, os, time
+<p>Pass the raw body, before parsing it:</p>
+<pre><code class="language-python">import os
+from delivrie import verify_webhook, WebhookVerificationError
 
-def verify_webhook(payload: bytes, headers: dict, secret: str, tolerance: int = 300) -&gt; dict:
-    msg_id = headers[&quot;webhook-id&quot;]
-    timestamp = headers[&quot;webhook-timestamp&quot;]
-    if abs(time.time() - int(timestamp)) &gt; tolerance:
-        raise ValueError(&quot;timestamp too old&quot;)
-    key = base64.b64decode(secret.removeprefix(&quot;whsec_&quot;))
-    signed = f&quot;{msg_id}.{timestamp}.&quot;.encode() + payload
-    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
-    for sig in headers[&quot;webhook-signature&quot;].split():
-        version, _, value = sig.partition(&quot;,&quot;)
-        if version == &quot;v1&quot; and hmac.compare_digest(value, expected):
-            return json.loads(payload)
-    raise ValueError(&quot;invalid signature&quot;)</code></pre>
-<p>In Flask pass <code>request.get_data()</code> and <code>{k.lower(): v for k, v in request.headers.items()}</code>; in Django, <code>request.body</code> and <code>{k.lower(): v for k, v in request.headers.items()}</code>. The [<code>standardwebhooks</code>](https://pypi.org/project/standardwebhooks/) package does the same thing.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+@app.post(&quot;/webhooks/delivrie&quot;)
+def delivrie_webhook():
+    try:
+        event = verify_webhook(request.get_data(), request.headers, os.environ[&quot;DELIVRIE_WEBHOOK_SECRET&quot;])
+    except WebhookVerificationError:
+        return &quot;&quot;, 400
+    if event[&quot;type&quot;] == &quot;email.bounced&quot;:
+        ...
+    return &quot;&quot;, 204</code></pre>
+<p>In Django pass <code>request.body</code> and <code>request.headers</code>; in FastAPI, <code>await request.body()</code> and <code>request.headers</code>.</p>
+<h2 id="everything-else">Everything else</h2>
+<p>The client uses the same names as the <a href="/docs/sdks">Node.js SDK</a>, in snake_case: <code>client.domains</code>, <code>client.api_keys</code>, <code>client.webhooks</code>, <code>client.contacts</code>, <code>client.segments</code>, <code>client.broadcasts</code>, <code>client.templates</code>, <code>client.suppressions</code>, <code>client.events</code>, <code>client.automations</code>, <code>client.inbox.threads</code>, <code>client.metrics</code>, <code>client.logs</code> and <code>client.usage</code>. For anything else, <code>client.request(&quot;GET&quot;, &quot;/path&quot;)</code> calls the API directly.</p>
+<h2 id="without-the-sdk">Without the SDK</h2>
+<p>The API is a single JSON request, so <code>requests</code> or <code>httpx</code> work too:</p>
+<pre><code class="language-python">import os, requests
+
+res = requests.post(
+    &quot;https://delivrie.io/api/emails&quot;,
+    headers={&quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;DELIVRIE_API_KEY&#39;]}&quot;, &quot;Idempotency-Key&quot;: &quot;welcome-42&quot;},
+    json={&quot;from&quot;: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;ada@example.com&quot;, &quot;subject&quot;: &quot;Welcome&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi&lt;/p&gt;&quot;},
+    timeout=30,
+)
+res.raise_for_status()
+print(res.json()[&quot;id&quot;])</code></pre><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

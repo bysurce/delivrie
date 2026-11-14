@@ -986,75 +986,85 @@ await transport.sendMail({ from: "Acme <hello@mail.acme.com>", to: "ada@example.
 
 # Python
 
-Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django's SMTP backend.
+Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django's SMTP backend.
 
-There's no Python package yet. The API is a single JSON request, so `requests` or `httpx` is all you need. (Already using the `resend` package? Set `RESEND_API_URL=https://delivrie.io/api` and it talks to Delivrie; see [Migrate from Resend](/docs/migrate-from-resend).)
+The official [`delivrie`](https://pypi.org/project/delivrie/) package covers the whole API. It has no dependencies, works on Python 3.10 and later, and comes in sync and async versions. (Already using the `resend` package? Set `RESEND_API_URL=https://delivrie.io/api` and it talks to Delivrie; see [Migrate from Resend](/docs/migrate-from-resend).)
+
+```bash
+pip install delivrie
+```
 
 ## Send an email
 
+Create an API key in [API keys](https://delivrie.io/api-keys) and set it as `DELIVRIE_API_KEY`.
+
 ```python send.py
-import os
-import requests
+from delivrie import Delivrie
 
-def send_email(to, subject, html, idempotency_key=None):
-    res = requests.post(
-        "https://delivrie.io/api/emails",
-        headers={
-            "Authorization": f"Bearer {os.environ['DELIVRIE_API_KEY']}",
-            **({"Idempotency-Key": idempotency_key} if idempotency_key else {}),
-        },
-        json={
-            "from": "Acme <hello@mail.acme.com>",
-            "to": to,
-            "subject": subject,
-            "html": html,
-        },
-        timeout=30,
-    )
-    body = res.json()
-    if not res.ok:
-        raise RuntimeError(f"{body['name']}: {body['message']}")
-    return body["id"]
+client = Delivrie()  # reads DELIVRIE_API_KEY
 
-send_email("ada@example.com", "Welcome", "<p>Welcome to Acme</p>", idempotency_key="welcome-42")
+email = client.emails.send(
+    from_="Acme <hello@mail.acme.com>",
+    to="ada@example.com",
+    subject="Welcome to Acme",
+    html="<p>Thanks for signing up.</p>",
+    idempotency_key="welcome-42",
+)
+print(email["id"])
 ```
 
-## Async (FastAPI, httpx)
+`from` is a Python keyword, so pass `from_`, or pass a dict exactly like the REST API: `client.emails.send({"from": ..., "to": ..., ...})`. A `datetime` works for `scheduled_at`, `bytes` for attachment content and a dict for `tags`.
+
+With an `idempotency_key`, the SDK retries network errors, rate limits and server errors safely: a retry returns the original email instead of sending a second one. Without one, sends aren't retried. See [Idempotency and retries](/docs/idempotency).
+
+## Errors
+
+Methods return the API's JSON as a dict and raise `DelivrieError` on failure:
+
+```python
+from delivrie import DelivrieError
+
+try:
+    client.emails.send(from_="Acme <hello@mail.acme.com>", to="ada@example.com", subject="Hi", text="Hello")
+except DelivrieError as e:
+    print(e.status_code, e.name, e.message)
+```
+
+Branch on `e.name` (see [Errors](/docs/errors)). `status_code` is 0 for `network_error` and `timeout`.
+
+## Templates and attachments
+
+```python
+client.emails.send(
+    from_="Acme <billing@mail.acme.com>",
+    to="ada@example.com",
+    template={"id": "invoice", "variables": {"first_name": "Ada", "total": "₦27,000"}},
+    attachments=[{"filename": "invoice.pdf", "content": open("invoice.pdf", "rb").read()}],
+)
+```
+
+## Async (FastAPI)
 
 ```python main.py
-import os
-import httpx
+from delivrie import AsyncDelivrie, DelivrieError
 from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
-client = httpx.AsyncClient(
-    base_url="https://delivrie.io/api",
-    headers={"Authorization": f"Bearer {os.environ['DELIVRIE_API_KEY']}"},
-    timeout=30,
-)
+client = AsyncDelivrie()
 
 @app.post("/signup")
 async def signup(email: str):
-    res = await client.post("/emails", json={
-        "from": "Acme <hello@mail.acme.com>",
-        "to": email,
-        "subject": "Welcome",
-        "html": "<p>Thanks for signing up.</p>",
-    }, headers={"Idempotency-Key": f"welcome-{email}"})
-    if res.is_error:
-        raise HTTPException(502, res.json()["message"])
-    return {"email_id": res.json()["id"]}
-```
-
-## Attachments
-
-```python
-import base64
-
-with open("invoice.pdf", "rb") as f:
-    content = base64.b64encode(f.read()).decode()
-
-payload["attachments"] = [{"filename": "invoice.pdf", "content": content}]
+    try:
+        sent = await client.emails.send(
+            from_="Acme <hello@mail.acme.com>",
+            to=email,
+            subject="Welcome",
+            html="<p>Thanks for signing up.</p>",
+            idempotency_key=f"welcome-{email}",
+        )
+    except DelivrieError as e:
+        raise HTTPException(502, e.message)
+    return {"email_id": sent["id"]}
 ```
 
 ## Django
@@ -1071,52 +1081,73 @@ EMAIL_HOST_PASSWORD = os.environ["DELIVRIE_API_KEY"]
 DEFAULT_FROM_EMAIL = "Acme <hello@mail.acme.com>"
 ```
 
+For templates, scheduling or tags, call the SDK from your views or tasks instead.
+
 ## Flask
 
 ```python app.py
-import os, requests
+from delivrie import Delivrie, DelivrieError
 from flask import Flask, request
 
 app = Flask(__name__)
+client = Delivrie()
 
 @app.post("/contact")
 def contact():
-    res = requests.post(
-        "https://delivrie.io/api/emails",
-        headers={"Authorization": f"Bearer {os.environ['DELIVRIE_API_KEY']}"},
-        json={
-            "from": "Website <forms@mail.acme.com>",
-            "to": "team@acme.com",
-            "reply_to": request.form["email"],
-            "subject": "New contact form message",
-            "text": request.form["message"],
-        },
-        timeout=30,
-    )
-    return ("Sent", 200) if res.ok else (res.json()["message"], 502)
+    try:
+        client.emails.send(
+            from_="Website <forms@mail.acme.com>",
+            to="team@acme.com",
+            reply_to=request.form["email"],
+            subject="New contact form message",
+            text=request.form["message"],
+        )
+    except DelivrieError as e:
+        return e.message, 502
+    return "Sent", 200
 ```
 
 ## Verify webhooks
 
-```python webhooks.py
-import base64, hashlib, hmac, json, os, time
+Pass the raw body, before parsing it:
 
-def verify_webhook(payload: bytes, headers: dict, secret: str, tolerance: int = 300) -> dict:
-    msg_id = headers["webhook-id"]
-    timestamp = headers["webhook-timestamp"]
-    if abs(time.time() - int(timestamp)) > tolerance:
-        raise ValueError("timestamp too old")
-    key = base64.b64decode(secret.removeprefix("whsec_"))
-    signed = f"{msg_id}.{timestamp}.".encode() + payload
-    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
-    for sig in headers["webhook-signature"].split():
-        version, _, value = sig.partition(",")
-        if version == "v1" and hmac.compare_digest(value, expected):
-            return json.loads(payload)
-    raise ValueError("invalid signature")
+```python webhooks.py
+import os
+from delivrie import verify_webhook, WebhookVerificationError
+
+@app.post("/webhooks/delivrie")
+def delivrie_webhook():
+    try:
+        event = verify_webhook(request.get_data(), request.headers, os.environ["DELIVRIE_WEBHOOK_SECRET"])
+    except WebhookVerificationError:
+        return "", 400
+    if event["type"] == "email.bounced":
+        ...
+    return "", 204
 ```
 
-In Flask pass `request.get_data()` and `{k.lower(): v for k, v in request.headers.items()}`; in Django, `request.body` and `{k.lower(): v for k, v in request.headers.items()}`. The [`standardwebhooks`](https://pypi.org/project/standardwebhooks/) package does the same thing.
+In Django pass `request.body` and `request.headers`; in FastAPI, `await request.body()` and `request.headers`.
+
+## Everything else
+
+The client uses the same names as the [Node.js SDK](/docs/sdks), in snake_case: `client.domains`, `client.api_keys`, `client.webhooks`, `client.contacts`, `client.segments`, `client.broadcasts`, `client.templates`, `client.suppressions`, `client.events`, `client.automations`, `client.inbox.threads`, `client.metrics`, `client.logs` and `client.usage`. For anything else, `client.request("GET", "/path")` calls the API directly.
+
+## Without the SDK
+
+The API is a single JSON request, so `requests` or `httpx` work too:
+
+```python
+import os, requests
+
+res = requests.post(
+    "https://delivrie.io/api/emails",
+    headers={"Authorization": f"Bearer {os.environ['DELIVRIE_API_KEY']}", "Idempotency-Key": "welcome-42"},
+    json={"from": "Acme <hello@mail.acme.com>", "to": "ada@example.com", "subject": "Welcome", "html": "<p>Hi</p>"},
+    timeout=30,
+)
+res.raise_for_status()
+print(res.json()["id"])
+```
 
 
 ---
