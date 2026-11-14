@@ -6,17 +6,6 @@ const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 export const API_BASE = `${location.origin}/api`;
 export const sb = createClient(SUPABASE_URL, ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "sb-hnjejflinvaoxbduxeiu-auth-token" } });
 
-// GitHub's OAuth app still only accepts the project's own supabase.co callback, so GitHub sign-in goes through that
-// address until the app's callback is moved to auth.delivrie.io. Same backend and the same stored session, so the
-// sign-in finishes normally on our domain. Remove this (and use sb everywhere) once GitHub accepts auth.delivrie.io.
-const LEGACY_PROVIDERS = new Set(["github"]);
-let legacy = null;
-export function authClient(provider) {
-  if (!LEGACY_PROVIDERS.has(provider)) return sb;
-  legacy ||= createClient("https://hnjejflinvaoxbduxeiu.supabase.co", ANON, { auth: { persistSession: true, autoRefreshToken: false, detectSessionInUrl: false, flowType: "pkce", storageKey: "sb-hnjejflinvaoxbduxeiu-auth-token" } });
-  return legacy;
-}
-
 export const state = { session: null, user: null, profile: null, teams: [], team: null, role: null, status: null };
 
 export async function loadSession() {

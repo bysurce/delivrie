@@ -1,4 +1,4 @@
-import { sb, state, api, API_BASE, loadTeams, setTeam, authClient } from "../lib/sb.js";
+import { sb, state, api, API_BASE, loadTeams, setTeam } from "../lib/sb.js";
 import { sso, connectedApps } from "./security.js";
 import { esc, icon, ago, fmtDate, fmtDateTime, num, plural, toast, errToast, menu, modal, formModal, confirmModal, emptyState, badge, selectHtml, bindSelects, codeBlock, initials, EMAIL_RE, on, debounce, csv, download } from "../lib/ui.js";
 import { brandIcon } from "../lib/icons.js";
@@ -202,7 +202,7 @@ export async function profile(ctx) {
       } });
   });
   on(root, "click", "[data-mfaoff]", async (_e, b) => { if (!(await confirmModal({ title: "Remove two-factor", desc: "You’ll only need your password to log in.", confirm: "Remove" }))) return; const { error } = await sb.auth.mfa.unenroll({ factorId: b.dataset.mfaoff }); if (error) return errToast(error.message.includes("AAL2") ? new Error("Log out and back in with your code first, then try again.") : error); toast("Two-factor removed"); reload(); });
-  on(root, "click", "[data-link]", async (_e, b) => { const { error } = await authClient(b.dataset.link).auth.linkIdentity({ provider: b.dataset.link, options: { redirectTo: `${location.origin}/profile` } }); const name = b.dataset.link === "google" ? "Google" : "GitHub"; if (error) errToast(/manual linking/i.test(error.message) ? new Error(`Connecting ${name} to an existing login isn’t turned on yet.`) : error.message.includes("disabled") || error.message.includes("not enabled") ? new Error(`${name} sign-in isn’t enabled on this workspace yet.`) : error); });
+  on(root, "click", "[data-link]", async (_e, b) => { const { error } = await sb.auth.linkIdentity({ provider: b.dataset.link, options: { redirectTo: `${location.origin}/profile` } }); const name = b.dataset.link === "google" ? "Google" : "GitHub"; if (error) errToast(/manual linking/i.test(error.message) ? new Error(`Connecting ${name} to an existing login isn’t turned on yet.`) : error.message.includes("disabled") || error.message.includes("not enabled") ? new Error(`${name} sign-in isn’t enabled on this workspace yet.`) : error); });
   on(root, "click", "[data-unlink]", async (_e, b) => { const idn = identities.find((i) => i.provider === b.dataset.unlink); const { error } = await sb.auth.unlinkIdentity(idn); if (error) return errToast(error); toast("Disconnected"); reload(); });
   on(root, "click", "[data-switch]", (_e, b) => { setTeam(b.dataset.switch); location.href = "/emails"; });
   on(root, "click", "[data-delacct]", async () => {
