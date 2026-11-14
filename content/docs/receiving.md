@@ -73,6 +73,10 @@ Set `reply_to` to a receiving address when you send, and customer replies come b
 { "from": "Acme <orders@mail.acme.com>", "reply_to": "support@in.acme.com", "to": "ada@example.com", "subject": "Your order is confirmed", "html": "..." }
 ```
 
+## How long received mail is kept
+
+Received email and Inbox replies are kept for 7 days on Free, 14 on Starter and 30 on Pro and Scale. After that the message body and attachments are deleted; the sender, subject and thread stay. Save anything you need longer from the `email.received` webhook.
+
 ## Spam and security checks
 
 Each received email's `received` event records the receiving server's spam, virus, SPF, DKIM and DMARC verdicts. Check them before acting on mail automatically, especially for messages that trigger actions in your app.

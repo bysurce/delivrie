@@ -482,7 +482,7 @@ You don't need to give an assistant your API key. Connect it to the [MCP server]
 
 # Plans and limits
 
-Email allowances, daily limits, domains, webhooks, log retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
+Email allowances, daily limits, domains, webhooks, data retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
 
 | | Free | Starter | Pro | Scale |
 | --- | --- | --- | --- | --- |
@@ -492,7 +492,9 @@ Email allowances, daily limits, domains, webhooks, log retention and team seats 
 | Domains | 1 | 10 | 10 | 1,000 |
 | Webhook endpoints | 1 | 10 | 10 | Unlimited |
 | Team members | 1 | 5 | 5 | Unlimited |
-| Log and email retention | 1 day | 3 days | 3 days | 7 days |
+| Sent email content kept | 1 day | 3 days | 3 days | 7 days |
+| Inbox mail kept (received email and Inbox replies) | 7 days | 14 days | 30 days | 30 days |
+| API request logs kept | 30 days | 30 days | 30 days | 30 days |
 
 Prices are on the [pricing page](https://delivrie.io/pricing). Enterprise plans with custom volumes, retention and support are available through [sales](https://delivrie.io/contact-sales).
 
@@ -2104,7 +2106,14 @@ Bounce events include the type (`Permanent` or `Transient`), the sub-type and th
 
 ## Retention
 
-Email content and events are kept for your plan's retention period (1 day on Free, 3 days on Starter and Pro, 7 days on Scale). Use webhooks to keep your own record if you need it longer.
+After your plan's retention period, an email's HTML, text and attachments are deleted. Its recipients, subject, status and events stay, so logs and metrics keep working.
+
+| | Free | Starter | Pro | Scale |
+| --- | --- | --- | --- | --- |
+| Sent email | 1 day | 3 days | 3 days | 7 days |
+| Received email and Inbox replies | 7 days | 14 days | 30 days | 30 days |
+
+Use webhooks to keep your own copy if you need it longer.
 
 
 ---
@@ -2388,6 +2397,10 @@ Set `reply_to` to a receiving address when you send, and customer replies come b
 ```json
 { "from": "Acme <orders@mail.acme.com>", "reply_to": "support@in.acme.com", "to": "ada@example.com", "subject": "Your order is confirmed", "html": "..." }
 ```
+
+## How long received mail is kept
+
+Received email and Inbox replies are kept for 7 days on Free, 14 on Starter and 30 on Pro and Scale. After that the message body and attachments are deleted; the sender, subject and thread stay. Save anything you need longer from the `email.received` webhook.
 
 ## Spam and security checks
 
@@ -3210,7 +3223,7 @@ Retries can deliver an event more than once. Skip events whose `webhook-id` you'
 
 **Can I change plans any time?** Yes, in [Billing](https://delivrie.io/billing). You can pay in naira or US dollars.
 
-**How long are emails and logs kept?** 1 day on Free, 3 days on Starter and Pro, 7 days on Scale. Use [webhooks](/docs/webhooks) to keep your own records.
+**How long are emails and logs kept?** Sent email content: 1 day on Free, 3 on Starter and Pro, 7 on Scale. Received email and Inbox conversations: 7 days on Free, 14 on Starter, 30 on Pro and Scale. API request logs: 30 days. Recipients, status and events stay after content is deleted. Use [webhooks](/docs/webhooks) to keep your own records.
 
 **Can several people use one account?** Yes: invite teammates in Settings. Free includes one member; Starter and Pro five; Scale unlimited.
 

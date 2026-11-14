@@ -11,7 +11,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Build with AI](https://delivrie.io/docs/build-with-ai.md): Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and the MCP server.
 - [Migrate from Resend](https://delivrie.io/docs/migrate-from-resend.md): Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to the delivrie package.
 - [API keys](https://delivrie.io/docs/api-keys.md): Create, scope, store and rotate Delivrie API keys: full access vs sending access, domain-restricted keys, and what to do if a key leaks.
-- [Plans and limits](https://delivrie.io/docs/limits.md): Email allowances, daily limits, domains, webhooks, log retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
+- [Plans and limits](https://delivrie.io/docs/limits.md): Email allowances, daily limits, domains, webhooks, data retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
 
 ## SDKs and frameworks
 

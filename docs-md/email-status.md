@@ -66,4 +66,11 @@ Bounce events include the type (`Permanent` or `Transient`), the sub-type and th
 
 ## Retention
 
-Email content and events are kept for your plan's retention period (1 day on Free, 3 days on Starter and Pro, 7 days on Scale). Use webhooks to keep your own record if you need it longer.
+After your plan's retention period, an email's HTML, text and attachments are deleted. Its recipients, subject, status and events stay, so logs and metrics keep working.
+
+| | Free | Starter | Pro | Scale |
+| --- | --- | --- | --- | --- |
+| Sent email | 1 day | 3 days | 3 days | 7 days |
+| Received email and Inbox replies | 7 days | 14 days | 30 days | 30 days |
+
+Use webhooks to keep your own copy if you need it longer.

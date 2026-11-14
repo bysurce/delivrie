@@ -1,6 +1,6 @@
 # Plans and limits
 
-Email allowances, daily limits, domains, webhooks, log retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
+Email allowances, daily limits, domains, webhooks, data retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
 
 | | Free | Starter | Pro | Scale |
 | --- | --- | --- | --- | --- |
@@ -10,7 +10,9 @@ Email allowances, daily limits, domains, webhooks, log retention and team seats 
 | Domains | 1 | 10 | 10 | 1,000 |
 | Webhook endpoints | 1 | 10 | 10 | Unlimited |
 | Team members | 1 | 5 | 5 | Unlimited |
-| Log and email retention | 1 day | 3 days | 3 days | 7 days |
+| Sent email content kept | 1 day | 3 days | 3 days | 7 days |
+| Inbox mail kept (received email and Inbox replies) | 7 days | 14 days | 30 days | 30 days |
+| API request logs kept | 30 days | 30 days | 30 days | 30 days |
 
 Prices are on the [pricing page](https://delivrie.io/pricing). Enterprise plans with custom volumes, retention and support are available through [sales](https://delivrie.io/contact-sales).
 

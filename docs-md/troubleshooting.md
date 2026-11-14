@@ -70,7 +70,7 @@ Retries can deliver an event more than once. Skip events whose `webhook-id` you'
 
 **Can I change plans any time?** Yes, in [Billing](https://delivrie.io/billing). You can pay in naira or US dollars.
 
-**How long are emails and logs kept?** 1 day on Free, 3 days on Starter and Pro, 7 days on Scale. Use [webhooks](/docs/webhooks) to keep your own records.
+**How long are emails and logs kept?** Sent email content: 1 day on Free, 3 on Starter and Pro, 7 on Scale. Received email and Inbox conversations: 7 days on Free, 14 on Starter, 30 on Pro and Scale. API request logs: 30 days. Recipients, status and events stay after content is deleted. Use [webhooks](/docs/webhooks) to keep your own records.
 
 **Can several people use one account?** Yes: invite teammates in Settings. Free includes one member; Starter and Pro five; Scale unlimited.
 
