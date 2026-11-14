@@ -1,4 +1,5 @@
-# Tests the Node SDK on every change, and publishes it to npm when you push a tag like sdk-node-v0.1.0.
+# Tests the Node SDK on every change. Publishes to npm when you push a tag like sdk-node-v0.1.0, or when you run it
+# by hand from main with "publish" ticked (it then tags the release sdk-node-v<version> itself).
 # Publishing needs one repository secret: NPM_TOKEN (npmjs.com → Access Tokens → Granular, publish rights for "delivrie").
 name: Node SDK
 
@@ -10,6 +11,11 @@ on:
   pull_request:
     paths: ["sdk/node/**"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the version in sdk/node/package.json to npm
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -32,10 +38,10 @@ jobs:
 
   publish:
     needs: test
-    if: startsWith(github.ref, 'refs/tags/sdk-node-v')
+    if: startsWith(github.ref, 'refs/tags/sdk-node-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # to tag the release on manual runs
       id-token: write # npm provenance: links the package to this repo and commit
     defaults:
       run:
@@ -51,12 +57,22 @@ jobs:
       - name: Check token and version
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then echo "::error::Add the NPM_TOKEN repository secret to publish."; exit 1; fi
-          tag="${GITHUB_REF_NAME#sdk-node-v}"
           pkg="$(node -p 'require("./package.json").version')"
           src="$(grep -oE 'VERSION = "[^"]+"' src/client.ts | cut -d'"' -f2)"
+          tag="$pkg"
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="${GITHUB_REF_NAME#sdk-node-v}"; fi
           if [ "$tag" != "$pkg" ] || [ "$pkg" != "$src" ]; then
             echo "::error::Tag $tag, package.json $pkg and VERSION in src/client.ts $src must match."; exit 1
           fi
+          if npm view "delivrie@$pkg" version >/dev/null 2>&1; then
+            echo "::error::delivrie@$pkg is already on npm. Bump the version in package.json and src/client.ts."; exit 1
+          fi
+          echo "VERSION=$pkg" >> "$GITHUB_ENV"
       - run: npm install -g typescript@6.0.3
       - run: npm run build
       - run: npm publish --access public --provenance
+      - name: Tag the release
+        if: github.ref_type != 'tag'
+        run: |
+          git tag "sdk-node-v$VERSION"
+          git push origin "sdk-node-v$VERSION"
