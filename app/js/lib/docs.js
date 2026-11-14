@@ -7,6 +7,17 @@ export const DOCS = [
 3. Send an email with POST /emails, passing from, to, subject and html or text.
 
 Every request is authenticated with the header Authorization: Bearer dlv_your_key. The base URL is https://delivrie.io/api.` },
+  { id: "sdks", title: "Node.js SDK", body: `The \`delivrie\` package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs, so the same code runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge. Install it with \`npm install delivrie\`.
+
+Create a client with \`new Delivrie(apiKey)\`. Without a key it reads \`DELIVRIE_API_KEY\` from the environment. Keep the key on your server: never ship it to a browser.
+
+Every call resolves to \`{ data, error }\`, and one of them is \`null\`. API errors don't throw. \`error\` has \`statusCode\`, \`name\` and \`message\`, the same as the API's errors; network problems and timeouts have \`statusCode\` 0 and the name \`network_error\` or \`timeout\`.
+
+Reads and deletes are retried up to twice on server and network errors. Sends are only retried when you pass an \`idempotencyKey\`, so a retry never sends an email twice.
+
+The client covers emails, domains, apiKeys, webhooks, contacts, segments, topics, broadcasts, templates, suppressions, events, automations, inbox, metrics, logs and usage, with types for every request and response. Attachments can be base64 strings, Buffers or Uint8Arrays.
+
+\`verifyWebhook\` checks a webhook's Standard Webhooks signature against the raw request body and your \`whsec_\` secret, rejects replays older than five minutes, and returns the parsed event. It's async because it uses Web Crypto.` },
   { id: "send-email", title: "Send an email", body: `POST /emails sends one email. Body fields:
 from (required) "Name <you@yourdomain.com>" from a verified domain.
 to (required) one address or an array of up to 50.

@@ -19,7 +19,7 @@
       "destination": "/docs-static/api/:slug.html"
     },
     {
-      "source": "/docs/:slug(api-keys|broadcasts|contacts|cors|deliverability|dmarc|domain-not-verifying|domains|email-status|errors|getting-started|limits|mcp|send-email|smtp|suppressions|templates|test-mode|webhooks)",
+      "source": "/docs/:slug(api-keys|broadcasts|contacts|cors|deliverability|dmarc|domain-not-verifying|domains|email-status|errors|getting-started|limits|mcp|sdks|send-email|smtp|suppressions|templates|test-mode|webhooks)",
       "destination": "/docs-static/:slug.html"
     },
     {

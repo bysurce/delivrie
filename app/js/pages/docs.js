@@ -10,10 +10,40 @@ const BASE = "https://delivrie.io/api";
 const MCP_URL = "https://delivrie.io/api/mcp";
 const doc = (id) => DOCS.find((d) => d.id === id);
 const GUIDES = [
-  ["Get started", [["getting-started", "Introduction"], ["api-keys", "API keys"], ["limits", "Plans and limits"]]],
+  ["Get started", [["getting-started", "Introduction"], ["sdks", "Node.js SDK"], ["api-keys", "API keys"], ["limits", "Plans and limits"]]],
   ["Sending", [["send-email", "Send an email"], ["test-mode", "Test addresses"], ["email-status", "Statuses and events"], ["templates", "Templates"], ["errors", "Errors"], ["cors", "CORS"], ["smtp", "SMTP"]]],
   ["Platform", [["domains", "Domains and DNS"], ["domain-not-verifying", "Domain not verifying"], ["dmarc", "DMARC"], ["deliverability", "Deliverability"], ["suppressions", "Suppressions"], ["webhooks", "Webhooks"], ["broadcasts", "Broadcasts"], ["contacts", "Contacts and segments"]]],
 ];
+const SDK_SEND = `import { Delivrie } from "delivrie";
+
+const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
+
+const { data, error } = await delivrie.emails.send({
+  from: "Kora <orders@mail.kora.ng>",
+  to: "ada@example.com",
+  subject: "Your order is on its way",
+  html: "<p>Thanks for your order!</p>",
+}, { idempotencyKey: "order-1042" });
+
+if (error) console.error(error.name, error.message);
+else console.log("Sent", data.id);`;
+const SDK_WEBHOOK = `import { verifyWebhook } from "delivrie";
+
+export async function POST(req: Request) {
+  try {
+    const event = await verifyWebhook({
+      payload: await req.text(),
+      headers: req.headers,
+      secret: process.env.DELIVRIE_WEBHOOK_SECRET!,
+    });
+    if (event.type === "email.bounced") {
+      // mark the address as bad
+    }
+    return new Response("ok");
+  } catch {
+    return new Response("invalid signature", { status: 400 });
+  }
+}`;
 const GUIDE_ORDER = GUIDES.flatMap(([, items]) => items);
 const LEGACY = { "api-reference": "/docs/api", mcp: "/docs/mcp", "getting-started": "/docs" };
 
@@ -150,6 +180,8 @@ function helpful(prev, next) {
     <div class="d-pn">${prev ? `<a href="${prev[0]}"><span class="dim">Previous</span><b>${esc(prev[1])}</b></a>` : "<span></span>"}${next ? `<a href="${next[0]}" class="r"><span class="dim">Next</span><b>${esc(next[1])}</b></a>` : "<span></span>"}</div>`;
 }
 function inline(s) {
+  // `backticks` mark code; the rest gets the automatic highlighting below.
+  if (s.includes("`")) return s.split(/`([^`]+)`/).map((part, i) => i % 2 ? `<code>${esc(part)}</code>` : inline(part)).join("");
   return esc(s).replace(/\b((?:GET|POST|PATCH|PUT|DELETE) \/[\w/:.{}-]*)/g, "<code>$1</code>")
     .replace(/(\{\{\{?[\w|" ]+\}\}\}?|\bdlv_\w*|\bwhsec_\w*|\b[a-z]+_[a-z_]+\b|\b[\w.+-]+@test\.delivrie\.io\b|https:\/\/delivrie\.io[\w/.-]*)/g, "<code>$1</code>");
 }
@@ -205,6 +237,7 @@ function guidePage(body, id, ctx) {
   const title = d.title;
   const extra = id === "send-email" ? `<h2 id="example">Example</h2>${codeTabs(samples(ALL_ENDPOINTS[0], BASE))}<p>See the full field list in the <a href="/docs/api/send-email">API reference</a>.</p>`
     : id === "getting-started" ? `<h2 id="next">Next steps</h2><div class="d-cards three">${[["/docs/send-email", "send", "Send your first email", "One POST request with from, to, subject and html."], ["/docs/domains", "globe", "Verify a domain", "Add DKIM and SPF records so mail lands in the inbox."], ["/docs/mcp", "sparkle", "Connect an agent", "Let Claude or Cursor send through the MCP server."]].map(([h, ic, t, p]) => `<a class="d-card" href="${h}"><span class="d-ic">${icon(ic, 14)}</span><b>${t}</b><span class="dim">${p}</span></a>`).join("")}</div>`
+    : id === "sdks" ? `<h2 id="example">Example</h2>${codeCard("npm install delivrie", "bash", "terminal")}${codeCard(SDK_SEND, "ts", "send.ts")}<h2 id="webhooks">Verify webhooks</h2>${codeCard(SDK_WEBHOOK, "ts", "app/api/webhooks/route.ts")}<p>With Express, use <code>express.raw({ type: "application/json" })</code> on the route and pass <code>req.body</code> and <code>req.headers</code>. Source and changelog on <a href="https://github.com/codeddesigner/delivrie/tree/main/sdk/node" target="_blank" rel="noopener" data-native>GitHub</a> and <a href="https://www.npmjs.com/package/delivrie" target="_blank" rel="noopener" data-native>npm</a>.</p>`
     : id === "test-mode" ? codeTabs(samples({ ...ALL_ENDPOINTS[0], example: { from: "Kora <orders@kora.ng>", to: ["bounced@test.delivrie.io"], subject: "Bounce test", html: "<p>Testing</p>" } }, BASE)) : "";
   body.innerHTML = `${sidebar([...GUIDES.map(([g, items]) => [g, items.map(([k, l]) => ({ key: k, label: l, href: `/docs/${k}` }))]), ["Agents", [{ key: "mcp", label: "MCP server", href: "/docs/mcp" }]]], id)}
     <main class="d-main"><article class="d-art">
@@ -212,7 +245,7 @@ function guidePage(body, id, ctx) {
       <div class="d-h1"><h1>${esc(title)}</h1><button class="d-chip" data-copy-page>${icon("copy", 12)} Copy page</button></div>
       <div class="d-prose">${prose(d.body)}</div>${extra}
       ${helpful(prev, next)}</article></main>
-    ${toc([["top", title], ...(extra ? [[id === "getting-started" ? "next" : "example", id === "getting-started" ? "Next steps" : "Example"]] : [])], `<div class="d-toc-act"><a href="https://claude.ai/new?q=${encodeURIComponent(`Read ${location.origin}/docs/${id} and help me with Delivrie.`)}" target="_blank" rel="noopener" data-native>${icon("sparkle", 12)} Open in Claude</a></div>`)}`;
+    ${toc([["top", title], ...(extra ? [[id === "getting-started" ? "next" : "example", id === "getting-started" ? "Next steps" : "Example"]] : []), ...(id === "sdks" ? [["webhooks", "Verify webhooks"]] : [])], `<div class="d-toc-act"><a href="https://claude.ai/new?q=${encodeURIComponent(`Read ${location.origin}/docs/${id} and help me with Delivrie.`)}" target="_blank" rel="noopener" data-native>${icon("sparkle", 12)} Open in Claude</a></div>`)}`;
   body.querySelector(".d-art").id = "top";
   body.dataset.md = `# ${title}\n\n${d.body}`;
 }
