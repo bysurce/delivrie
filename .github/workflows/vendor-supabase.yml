@@ -1,0 +1,44 @@
+name: Vendor supabase-js
+
+# Builds the Supabase client the dashboard uses into one self-hosted file (app/vendor/supabase-js.js), so sign-in and
+# data loading don't depend on a third-party CDN. Run by hand when upgrading: set the version, run, then update
+# SUPABASE_JS_VERSION in app/js/lib/sb.js if you track it there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "@supabase/supabase-js version"
+        default: "2.49.1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Bundle
+        run: |
+          mkdir -p /tmp/vendor && cd /tmp/vendor
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund "@supabase/supabase-js@${{ inputs.version }}" esbuild@0.24.2
+          echo 'export * from "@supabase/supabase-js";' > entry.js
+          npx esbuild entry.js --bundle --format=esm --platform=browser --target=es2020 --minify --legal-comments=eof \
+            --outfile="$GITHUB_WORKSPACE/app/vendor/supabase-js.js"
+          cd "$GITHUB_WORKSPACE"
+          { echo "// @supabase/supabase-js ${{ inputs.version }} (MIT), bundled with esbuild by .github/workflows/vendor-supabase.yml"; cat app/vendor/supabase-js.js; } > app/vendor/tmp.js && mv app/vendor/tmp.js app/vendor/supabase-js.js
+          ls -la app/vendor; sha256sum app/vendor/supabase-js.js
+          node -e "import('./app/vendor/supabase-js.js').then(m => { if (typeof m.createClient !== 'function') throw new Error('no createClient'); console.log('createClient ok'); })"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/vendor/supabase-js.js
+          git diff --cached --quiet && { echo "No change"; exit 0; }
+          git commit -m "Vendor @supabase/supabase-js ${{ inputs.version }}"
+          git push
