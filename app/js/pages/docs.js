@@ -130,6 +130,7 @@ const TOOLS = [
   ["create_api_key","Create an API key","manage"],
 ];
 const CHANGELOG = [
+  { date: "Nov 14, 2026", title: "Official Node.js SDK", items: ["npm install delivrie: a typed client for every endpoint, with no dependencies. Runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge.", "Calls return { data, error } instead of throwing, and sends are only retried with an idempotency key, so a retry never sends twice.", "verifyWebhook checks webhook signatures in one line. Guide at /docs/sdks."] },
   { date: "Nov 14, 2026", title: "New Starter plan and a bigger Pro", items: ["Starter is $10 (₦10,000) a month for 20,000 emails, the plan Pro used to be.", "Pro now includes 60,000 emails a month for $20 (₦27,000). Existing Pro subscriptions move to the new Pro, with the new price from their next renewal."] },
   { date: "Nov 13, 2026", title: "SMTP relay on ports 587 and 465", items: ["Send from WordPress, Laravel, Django, Ghost, Supabase Auth and anything else that speaks SMTP: host smtp.delivrie.io, username delivrie, an API key as the password.", "Port 587 with STARTTLS and port 465 with SSL/TLS, plus 2587 and 2465 for hosts that block the usual ports.", "SMTP mail gets the same limits, logs, webhooks and suppressions as the API. Tag messages with an X-Delivrie-Tags header."] },
   { date: "Nov 13, 2026", title: "Support chat", items: ["Chat with the Delivrie team from any page in the dashboard. Replies arrive in the chat and by email."] },

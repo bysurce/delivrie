@@ -104,11 +104,11 @@ def para(text):
     out = []
     for block in re.split(r"\n\s*\n", text.strip()):
         lines = [l for l in block.split("\n") if l.strip()]
-        out.append("<p>" + "<br>".join(E(l) for l in lines) + "</p>")
+        out.append("<p>" + "<br>".join(re.sub(r"`([^`]+)`", r"<code>\1</code>", E(l)) for l in lines) + "</p>")
     return "".join(out)
 
 def short(text, n=155):
-    t = re.sub(r"\s+", " ", text).strip()
+    t = re.sub(r"\s+", " ", text.replace("`", "")).strip()
     if len(t) <= n: return t
     cut = t[:n].rsplit(" ", 1)[0].rstrip(",;:")
     return cut + "…"
