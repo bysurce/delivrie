@@ -52,7 +52,7 @@ Branch on `e.name` (see [Errors](/docs/errors)). `status_code` is 0 for `network
 client.emails.send(
     from_="Acme <billing@mail.acme.com>",
     to="ada@example.com",
-    template={"id": "invoice", "variables": {"first_name": "Ada", "total": "₦27,000"}},
+    template={"id": "invoice", "variables": {"first_name": "Ada", "total": "$20.00"}},
     attachments=[{"filename": "invoice.pdf", "content": open("invoice.pdf", "rb").read()}],
 )
 ```

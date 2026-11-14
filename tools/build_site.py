@@ -180,17 +180,17 @@ def cards(items, cols=4):
     return f'<div class="grid{cols} reveal-stagger">' + "".join(f'<article class="fcard"><span class="fic">{ICON.get(i, ICON["spark"])}</span><h3>{E(t)}</h3><p>{E(d)}</p></article>' for i, t, d in items) + "</div>"
 
 def about():
-    body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built in Lagos by South Circle, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
+    body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built by South Circle, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
     body += """<section class="section"><div class="wrap"><div class="stats reveal-stagger">
       <div><b>4,000</b><span>free emails every month</span></div><div><b>₦ and $</b><span>pricing in your currency</span></div><div><b>64</b><span>MCP tools for AI agents</span></div><div><b>1 call</b><span>to send an email</span></div></div></div></section>"""
     body += f"""<section class="section"><div class="wrap split-2">
       <div class="reveal">{eyebrow("Our story")}<h2 class="h2">Why we built it</h2></div>
-      <div class="prose reveal"><p>Teams across Africa kept hitting the same wall: emails that never arrived, dashboards that hid the reason, and pricing in dollars that punished growth.</p>
-      <p>So we built the email platform we wanted. A clean API, honest logs, templates and an MCP server for agents, priced in Naira with dollars for everyone else.</p>
-      <p>We are a small team in Lagos, and we answer support ourselves.</p></div></div></section>"""
+      <div class="prose reveal"><p>Teams everywhere kept hitting the same wall: emails that never arrived, dashboards that hid the reason, and pricing in dollars that punished growth.</p>
+      <p>So we built the email platform we wanted. A clean API, honest logs, templates and an MCP server for agents, priced in dollars, with Naira for teams in Nigeria.</p>
+      <p>We are a small team based in Lagos, building for developers everywhere, and we answer support ourselves.</p></div></div></section>"""
     body += f'<section class="section"><div class="wrap">{head2("How we work", "What we care about")}' + cards([("zap", "Fast by default", "We treat latency as a bug, from the API to the dashboard."), ("info", "Nothing hidden", "Every bounce, block and webhook attempt is visible, with the reason."), ("code", "Developers first", "Docs and errors written for the person debugging at 2am."), ("shield", "Earn the inbox", "We say no to spam so your email keeps landing.")]) + "</div></section>"
     body += CTA
-    return page("/about", "About", "Delivrie is an email API, SMTP relay and MCP server for developers and AI agents, built in Lagos by South Circle and priced in Naira and dollars.", body, jsonld=[ORG, crumbs(("Home", "/"), ("About", "/about"))])
+    return page("/about", "About", "Delivrie is an email API, SMTP relay and MCP server for developers and AI agents, built by South Circle for developers everywhere, priced in dollars or Naira.", body, jsonld=[ORG, crumbs(("Home", "/"), ("About", "/about"))])
 
 def customers():
     body = hero("Customers", "Built for the emails<br> that matter.", "Receipts, one-time passwords, shipping updates and launches. Here is what teams send with Delivrie.", [("Talk to sales", "/contact-sales", "b-secondary"), ("Start for free", "/signup", "b-primary")])
@@ -206,11 +206,11 @@ def customers():
     return page("/customers", "Customers", "How teams use Delivrie to send receipts, OTPs, password resets, AI agent emails and newsletters from their own domain.", body)
 
 def careers():
-    body = hero("Careers", "Help the internet<br> reach the inbox.", "We are a small team in Lagos building email infrastructure for developers and AI agents.", [("See open roles", "#roles", "b-primary")])
+    body = hero("Careers", "Help the internet<br> reach the inbox.", "We are a small, remote-friendly team building email infrastructure for developers and AI agents everywhere.", [("See open roles", "#roles", "b-primary")])
     body += f'<section class="section"><div class="wrap">{head2("How we work", "What working here is like")}' + cards([("globe", "Remote-friendly", "Based in Lagos, working with people wherever they do their best work."), ("info", "Written decisions", "Few meetings, clear docs and real focus time."), ("users", "Small team, real ownership", "You ship things customers use the same week.")], 3) + "</div></section>"
     body += """<section class="section" id="roles"><div class="wrap"><div class="story-cta reveal"><div><span class="eyebrow"><i></i>Open roles</span><h2 class="h2">No open roles right now</h2><p class="lede">We are not hiring for specific roles at the moment. If you would love to build email infrastructure, email jobs@delivrie.io and tell us what you would build.</p></div><a class="b-secondary" href="mailto:jobs@delivrie.io">Email jobs@delivrie.io</a></div></div></section>"""
     body += CTA
-    return page("/careers", "Careers", "Join Delivrie in Lagos and work on email infrastructure for developers and AI agents: APIs, deliverability and MCP.", body)
+    return page("/careers", "Careers", "Join Delivrie and work on email infrastructure for developers and AI agents: APIs, deliverability and MCP.", body)
 
 def brand():
     def asset(name, src, bg, files):
@@ -235,7 +235,7 @@ def changelog():
     items = "".join(f'<section class="cl-item reveal"><div class="cl-date">{E(d)}</div><div class="cl-body"><h2>{E(t)}</h2><div class="cl-tags">{"".join(f"<span>{E(x)}</span>" for x in tags)}</div><ul>{"".join(f"<li>{E(i)}</li>" for i in lis)}</ul></div></section>' for d, t, tags, lis in CHANGELOG)
     body = f"""<section class="s-hero"><div class="wrap reveal in">{eyebrow("Changelog")}<h1>What’s new in Delivrie</h1><div class="btn-row"><a class="b-secondary" href="/changelog.xml">RSS feed</a><a class="b-ghost" href="/docs/changelog">In the docs</a></div></div></section>
   <section class="section cl"><div class="wrap">{items}</div></section>"""
-    page("/changelog", "Changelog", "Everything new in Delivrie: SMTP relay, MCP tools, pricing in Naira, inbox, automations and API updates, newest first.", body)
+    page("/changelog", "Changelog", "Everything new in Delivrie: SMTP relay, MCP tools, dollar and Naira pricing, inbox, automations and API updates, newest first.", body)
     rss = "".join(f"<item><title>{E(t)}</title><link>https://delivrie.io/changelog</link><guid isPermaLink=\"false\">{E(d)}-{E(t)}</guid><description>{E(' '.join(lis))}</description></item>" for d, t, tags, lis in CHANGELOG)
     open(os.path.join(ROOT, "changelog.xml"), "w").write(f'<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Delivrie changelog</title><link>https://delivrie.io/changelog</link><description>New features and fixes in Delivrie.</description>{rss}</channel></rss>')
 
@@ -247,7 +247,7 @@ def blog():
     body = f"""<section class="s-hero"><div class="wrap reveal in">{eyebrow("Blog")}<h1>Notes on email,<br> infrastructure and agents</h1><div class="cats">{"".join(f'<button class="{"on" if c == "All" else ""}" data-cat="{E(c)}">{E(c)}</button>' for c in cats)}</div></div></section>
   <section class="section blog"><div class="wrap">{feat}{grid}</div></section>
   {CTA}"""
-    page("/blog", "Blog: email deliverability, DMARC and AI agents", "Guides and notes from the Delivrie team on email deliverability, DMARC, transactional email in Nigeria and letting AI agents send email safely.", body)
+    page("/blog", "Blog: email deliverability, DMARC and AI agents", "Guides and notes from the Delivrie team on email deliverability, DMARC, pricing and letting AI agents send email safely.", body)
     for p in POSTS:
         content = ""
         for kind, text in p["body"]:
@@ -283,7 +283,7 @@ def status():
     page("/status", "System status", "Live status of every part of Delivrie: email API, sending, delivery, SMTP relay, webhooks, scheduled sends, MCP server, dashboard and billing, with 90 days of uptime.", body)
 
 def contact_sales():
-    feats = [("zap", "Volume pricing", "Discounts from 1M emails a month, billed in Naira or dollars."), ("shield", "Security review", "Our DPA, security answers and a call with the team."), ("globe", "Dedicated IPs", "Warm-up plans and help with deliverability."), ("users", "Migration help", "We help you move templates, contacts and suppressions.")]
+    feats = [("zap", "Volume pricing", "Discounts from 1M emails a month, billed in dollars or Naira."), ("shield", "Security review", "Our DPA, security answers and a call with the team."), ("globe", "Dedicated IPs", "Warm-up plans and help with deliverability."), ("users", "Migration help", "We help you move templates, contacts and suppressions.")]
     fl = "".join(f'<div class="cs-f"><span class="fic">{ICON[i]}</span><div><b>{E(t)}</b><span>{E(d)}</span></div></div>' for i, t, d in feats)
     body = f"""<section class="cs"><div class="wrap cs-grid">
     <div class="reveal in">{eyebrow("Sales")}<h1>Talk to our team</h1><p class="lede">High volume, dedicated IPs or a custom contract? Tell us what you are sending and we will reply within one business day.</p>{fl}</div>
@@ -292,18 +292,18 @@ def contact_sales():
       <label>Work email<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
       <label>Company<input name="company" required maxlength="120" autocomplete="organization"></label>
       <label>Monthly email volume<select name="volume"><option>Under 100k</option><option>100k – 1M</option><option selected>1M – 5M</option><option>5M+</option></select></label>
-      <label>Country<select name="country"><option>Nigeria</option><option>Ghana</option><option>Kenya</option><option>South Africa</option><option>United States</option><option>United Kingdom</option><option>Other</option></select></label>
+      <label>Country<select name="country"><option value="">Select a country</option><option>United States</option><option>United Kingdom</option><option>Canada</option><option>Germany</option><option>France</option><option>Netherlands</option><option>Ireland</option><option>Spain</option><option>Brazil</option><option>Mexico</option><option>India</option><option>Singapore</option><option>Japan</option><option>Australia</option><option>United Arab Emirates</option><option>South Africa</option><option>Nigeria</option><option>Kenya</option><option>Ghana</option><option>Other</option></select></label>
       <label>How can we help?<textarea name="message" rows="4" maxlength="4000" placeholder="We send OTPs and statements and want dedicated IPs…"></textarea></label>
       <input name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
       <button class="b-primary" type="submit">Contact sales</button>
       <p class="dim small">By submitting you agree to our <a href="/privacy">Privacy Policy</a>. We reply within one business day.</p>
       <div class="cs-done" hidden><b>Thanks, we got it.</b><span>We will reply to your work email within one business day.</span></div>
     </form></div></section>"""
-    page("/contact-sales", "Contact sales", "Talk to Delivrie about high-volume email pricing in Naira or dollars, dedicated IPs, custom contracts and security reviews.", body)
+    page("/contact-sales", "Contact sales", "Talk to Delivrie about high-volume email pricing in dollars or Naira, dedicated IPs, custom contracts and security reviews.", body)
 
 def support():
     feats = [("book", "Documentation", "Guides for sending, domains, webhooks, the API and the MCP server.", "/docs", "Read the docs"),
-             ("mail", "Email support", "Write to support@delivrie.io. We reply within one business day, Monday to Friday (WAT).", "mailto:support@delivrie.io", "Email support"),
+             ("mail", "Email support", "Write to support@delivrie.io. We reply within one business day, Monday to Friday (UTC+1).", "mailto:support@delivrie.io", "Email support"),
              ("zap", "System status", "Live status of the API, delivery, webhooks, dashboard and MCP server.", "/status", "View status"),
              ("shield", "Security", "Report a vulnerability or ask about how we protect your data.", "mailto:security@delivrie.io", "Email security")]
     cards_html = "".join(f'<article class="fcard"><span class="fic">{ICON.get(i, ICON["spark"])}</span><h3>{E(t)}</h3><p>{E(d)}</p><p><a href="{h}">{E(l)} &rarr;</a></p></article>' for i, t, d, h, l in feats)
@@ -355,7 +355,7 @@ ALTS = {
       "them": [("Sending regions on four continents", "Resend sends from the US, Ireland, Brazil and Japan. Delivrie sends from Ireland today."),
                ("Official SDKs in more languages", "Python, Ruby, PHP, Go, Rust, Java, .NET and Elixir. Delivrie has an official Node.js SDK and copy-paste guides for the rest."),
                ("A longer track record", "Resend has been running at large scale for longer, which matters if your procurement team asks.")],
-      "pick_us": "You pay in Naira, want more email for less, or build with AI tools and want an MCP server and docs your assistant can read.",
+      "pick_us": "You want more email for less, or build with AI tools and want an MCP server and docs your assistant can read.",
       "pick_them": "You need to send from the US, Brazil or Japan, or want an official SDK in a language other than JavaScript.",
     },
     "before": 'curl https://api.resend.com/emails \\\n  -H "Authorization: Bearer re_…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "from": "Acme <hi@acme.com>",\n    "to": "ada@example.com",\n    "subject": "Welcome",\n    "html": "<p>Hi Ada</p>"\n  }\'',
@@ -364,7 +364,7 @@ ALTS = {
     "faq": [("Is Delivrie cheaper than Resend?", "Yes. Starter is $10 a month for 20,000 emails (Resend Pro is $20), Pro is $20 for 60,000 (about $29 on Resend), extra emails are $0.40 to $0.45 per 1,000 (Resend charges $0.90), and the free plan sends 4,000 a month instead of 3,000."),
             ("Is Delivrie a good Resend alternative?", "If you send transactional email through an API or SMTP, yes: the request format matches Resend’s /emails endpoint, and Delivrie adds broadcasts, automations, a shared inbox and an MCP server for AI agents on every plan."),
             ("Can I switch from Resend without rewriting my code?", "Yes. Keep the official Resend SDK and set RESEND_BASE_URL=https://delivrie.io/api with a Delivrie API key, or change the base URL in your own HTTP calls. We run the Resend SDK against Delivrie’s live API every day to make sure it keeps working. Verify your sending domain in Delivrie first."),
-            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan, lets you pay in Naira and includes an MCP server and AI-readable docs. Resend sends from more regions and has official SDKs for more languages. Pick the one that fits how you send."),
+            ("Is Delivrie better than Resend?", "It’s cheaper, has a larger free plan and includes an MCP server and AI-readable docs. You can pay in dollars, or in Naira if you’re in Nigeria. Resend sends from more regions and has official SDKs for more languages. Pick the one that fits how you send."),
             ("Does Delivrie work for teams in the US?", "Yes. Prices are in US dollars, you can pay by card, and the API, SMTP relay and MCP server work from anywhere.")],
   },
   "brevo": {
@@ -396,7 +396,7 @@ ALTS = {
       "them": [("SMS and WhatsApp", "Send text and WhatsApp messages from the same account as your email."),
                ("A built-in CRM", "Deals, pipelines and contact history for a sales team."),
                ("A full marketing suite", "Landing pages, signup forms and a drag-and-drop campaign builder for marketers who don’t write code.")],
-      "pick_us": "Your product sends email from code, you want clean pricing without a provider footer, or you pay in Naira.",
+      "pick_us": "Your product sends email from code, you want clean pricing without a provider footer, or you want to pay in Naira.",
       "pick_them": "Your marketing team needs SMS, WhatsApp and a CRM in one place more than an email API.",
     },
     "before": 'curl https://api.brevo.com/v3/smtp/email \\\n  -H "api-key: xkeysib-…" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "sender": { "email": "hi@acme.com" },\n    "to": [{ "email": "ada@example.com" }],\n    "subject": "Welcome",\n    "htmlContent": "<p>Hi Ada</p>"\n  }\'',

@@ -58,7 +58,7 @@ export default async function suppressions(ctx) {
     toast(`${num(n)} address${n === 1 ? "" : "es"} removed. They can receive email again.`);
   });
   on(root, "click", "[data-add]", () => modal({ title: "Add to suppression list", body: `<p class="desc">Delivrie will skip these addresses for every send, including broadcasts and automations.</p>
-      <div class="field"><label>Email addresses</label><textarea class="textarea mono" data-emails rows="5" placeholder="ada@kora.ng\nold-staff@kora.ng" style="font-size:12.5px"></textarea><div class="hint" data-count>One per line or separated by commas. Up to 1,000 at a time.</div></div>
+      <div class="field"><label>Email addresses</label><textarea class="textarea mono" data-emails rows="5" placeholder="ada@acme.com\nold-staff@acme.com" style="font-size:12.5px"></textarea><div class="hint" data-count>One per line or separated by commas. Up to 1,000 at a time.</div></div>
       <div class="field"><label>Reason</label><select class="input" data-reason><option value="manual">Manual</option><option value="bounce">Hard bounce</option><option value="complaint">Complaint</option><option value="unsubscribe">Unsubscribed</option></select></div>`,
     foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go disabled>Add addresses</button>`,
     onMount(m, close) {

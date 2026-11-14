@@ -14,7 +14,7 @@ import { Delivrie } from "delivrie";
 const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
 
 const { data, error } = await delivrie.emails.send({
-  from: "Kora <orders@mail.kora.ng>",
+  from: "Acme <orders@mail.acme.com>",
   to: "ada@example.com",
   subject: "Your order is on its way",
   html: "<p>Thanks for your order!</p>",
@@ -72,7 +72,7 @@ Change the defaults with `new Delivrie(key, { maxRetries: 0, timeout: 10_000 })`
 ```ts
 // Attachments: pass a base64 string, a Buffer or a Uint8Array
 await delivrie.emails.send({
-  from: "billing@mail.kora.ng",
+  from: "billing@mail.acme.com",
   to: ["ada@example.com"],
   subject: "Invoice",
   text: "Your invoice is attached.",
@@ -81,7 +81,7 @@ await delivrie.emails.send({
 
 // A published template, scheduled for later
 await delivrie.emails.send({
-  from: "hello@mail.kora.ng",
+  from: "hello@mail.acme.com",
   to: "ada@example.com",
   template: { id: "welcome", variables: { first_name: "Ada" } },
   scheduledAt: "tomorrow at 9am",
@@ -91,7 +91,7 @@ await delivrie.emails.send({
 await delivrie.emails.batch([{ ... }, { ... }]);
 
 // Domains, contacts, broadcasts
-await delivrie.domains.create({ name: "mail.kora.ng" });
+await delivrie.domains.create({ name: "mail.acme.com" });
 await delivrie.contacts.create({ email: "ada@example.com", first_name: "Ada" });
 await delivrie.broadcasts.send("bc_123", { scheduled_at: "in 1 hour" });
 

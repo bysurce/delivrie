@@ -62,7 +62,7 @@ MOBILE_MENU = ('<!--mmenu--><div class="mmenu" id="mmenu" role="dialog" aria-mod
   f'<div class="mm-group open"><button type="button" class="mm-row mm-toggle" aria-expanded="true"><span>Product</span>{svg(MI["down"], 18)}</button>'
   '<div class="mm-items">' + "".join(f'<a class="mm-item" href="{h}"><span class="mm-tile">{svg(MI[i], 18)}</span><span><b>{t}</b><small>{d}</small></span></a>' for i, t, d, h in PRODUCTS) + '</div></div>'
   f'<a class="mm-row" href="/docs"><span>Docs</span>{svg(MI["right"], 18)}</a>'
-  f'<a class="mm-row" href="/pricing"><span>Pricing{badge("₦ &amp; $")}</span>{svg(MI["right"], 18)}</a>'
+  f'<a class="mm-row" href="/pricing"><span>Pricing{badge("$ &amp; ₦")}</span>{svg(MI["right"], 18)}</a>'
   f'<a class="mm-row" href="/customers"><span>Customers</span>{svg(MI["right"], 18)}</a>'
   f'<a class="mm-row" href="/changelog"><span>Changelog{badge(LATEST) if LATEST else ""}</span>{svg(MI["right"], 18)}</a>'
   f'<a class="mm-row last" href="/blog"><span>Blog</span>{svg(MI["right"], 18)}</a>'

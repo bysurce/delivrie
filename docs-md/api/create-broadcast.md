@@ -30,8 +30,8 @@ curl -X POST 'https://delivrie.io/api/broadcasts' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "from": "Kora <news@kora.ng>",
-    "subject": "March at Kora",
+    "from": "Acme <news@acme.com>",
+    "subject": "March at Acme",
     "segment_id": "s_4…",
     "html": "<p>Hi {{{first_name|there}}}</p>"
   }'

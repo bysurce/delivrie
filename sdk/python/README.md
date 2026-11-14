@@ -69,7 +69,7 @@ client.emails.send(
 ```python
 client.emails.batch([
     {"from": "Acme <hello@mail.acme.com>", "to": "ada@example.com", "subject": "Hi Ada", "text": "Hello"},
-    {"from": "Acme <hello@mail.acme.com>", "to": "tobi@example.com", "subject": "Hi Tobi", "text": "Hello"},
+    {"from": "Acme <hello@mail.acme.com>", "to": "sam@example.com", "subject": "Hi Sam", "text": "Hello"},
 ], idempotency_key="digest-2026-11-14")
 ```
 

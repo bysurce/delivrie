@@ -40,7 +40,7 @@ curl -X GET 'https://delivrie.io/api/inbox/threads' \
     {
       "object": "inbox_thread",
       "id": "th_4…",
-      "mailbox": "support@in.kora.ng",
+      "mailbox": "support@in.acme.com",
       "contact": "ada@example.com",
       "subject": "Refund",
       "snippet": "Hi, I'd like…",

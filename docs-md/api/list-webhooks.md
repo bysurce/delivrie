@@ -27,7 +27,7 @@ curl -X GET 'https://delivrie.io/api/webhooks' \
   "data": [
     {
       "id": "w_8c…",
-      "endpoint": "https://kora.ng/hooks/delivrie",
+      "endpoint": "https://acme.com/hooks/delivrie",
       "status": "enabled"
     }
   ]

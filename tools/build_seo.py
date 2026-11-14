@@ -37,8 +37,8 @@ def pricing_data():
     return {"ngn": prices("NGN"), "usd": prices("USD"), "faq": [(q, a.replace("\\'", "'")) for q, a in faq]}
 
 def app_ld(pd):
-    offers = [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "NGN", "description": "4,000 emails a month, 133 a day"}]
-    for cur, (starter, pro, scale) in (("NGN", pd["ngn"]), ("USD", pd["usd"])):
+    offers = [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "4,000 emails a month, 133 a day"}]
+    for cur, (starter, pro, scale) in (("USD", pd["usd"]), ("NGN", pd["ngn"])):
         offers += [{"@type": "Offer", "name": "Starter", "price": str(starter), "priceCurrency": cur, "description": "20,000 emails a month",
                     "priceSpecification": {"@type": "UnitPriceSpecification", "price": str(starter), "priceCurrency": cur, "unitCode": "MON"}},
                    {"@type": "Offer", "name": "Pro", "price": str(pro), "priceCurrency": cur, "description": "60,000 emails a month",
@@ -47,7 +47,7 @@ def app_ld(pd):
                     "priceSpecification": {"@type": "UnitPriceSpecification", "price": str(scale), "priceCurrency": cur, "unitCode": "MON"}}]
     return {"@type": "SoftwareApplication", "@id": f"{SITE}/#app", "name": "Delivrie", "applicationCategory": "DeveloperApplication",
             "operatingSystem": "Web", "url": SITE, "publisher": {"@id": f"{SITE}/#org"},
-            "description": "Email API, SMTP relay and MCP server for transactional email, newsletters, automations and a shared inbox, priced in Naira and dollars.",
+            "description": "Email API, SMTP relay and MCP server for transactional email, newsletters, automations and a shared inbox, priced in dollars and Naira.",
             "offers": offers}
 
 def set_head(s, title=None, desc=None, canonical=None, extra_ld=None):

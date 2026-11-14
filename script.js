@@ -2,20 +2,20 @@
   // ---- Product shot: email list ----
   var groups = [
     { label: 'Opened', icon: 'st-opened', rows: [
-      ['a91c2e', 'st-opened', 'Reset your password', 'tunde.b@outlook.com', 'security', 'T', 'Mar 31'],
-      ['77d0b1', 'st-opened-2', 'Welcome to Kora', 'amina@kora.ng', 'onboarding', 'A', 'Mar 31'],
-      ['c03f88', 'st-opened', 'Your receipt from Kora', 'kelechi@yahoo.com', 'transactional', 'K', 'Mar 30']
+      ['a91c2e', 'st-opened', 'Reset your password', 'jordan.b@outlook.com', 'security', 'J', 'Mar 31'],
+      ['77d0b1', 'st-opened-2', 'Welcome to Acme', 'emma@acme.com', 'onboarding', 'E', 'Mar 31'],
+      ['c03f88', 'st-opened', 'Your receipt from Acme', 'liam@yahoo.com', 'transactional', 'L', 'Mar 30']
     ]},
     { label: 'Delivered', icon: 'st-delivered', rows: [
-      ['4ef9a4', 'st-delivered', 'Your order is confirmed', 'chiamaka@gmail.com', 'transactional', 'C', 'Mar 31'],
-      ['b8e211', 'st-delivered', 'Verify your email address', 'ibrahim.m@gmail.com', 'security', 'I', 'Mar 31'],
-      ['19aa07', 'st-delivered', 'New sign-in from Chrome on macOS', 'emeka@okafor.dev', 'security', 'E', 'Mar 30'],
-      ['e6f450', 'st-delivered', 'Your order has shipped', 'folake@gmail.com', 'transactional', 'F', 'Mar 30'],
-      ['2d93cc', 'st-delivered', 'March product update', 'bola@ahmed.io', 'broadcast', 'B', 'Mar 30']
+      ['4ef9a4', 'st-delivered', 'Your order is confirmed', 'sofia@gmail.com', 'transactional', 'S', 'Mar 31'],
+      ['b8e211', 'st-delivered', 'Verify your email address', 'ines.m@gmail.com', 'security', 'I', 'Mar 31'],
+      ['19aa07', 'st-delivered', 'New sign-in from Chrome on macOS', 'ethan@miller.dev', 'security', 'E', 'Mar 30'],
+      ['e6f450', 'st-delivered', 'Your order has shipped', 'freya@gmail.com', 'transactional', 'F', 'Mar 30'],
+      ['2d93cc', 'st-delivered', 'March product update', 'ben@clarke.io', 'broadcast', 'B', 'Mar 30']
     ]},
     { label: 'Bounced', icon: 'st-bounced', rows: [
-      ['f1c7a0', 'st-bounced', 'Your order is confirmed', 'zainab@bello.co', 'transactional', 'Z', 'Mar 29'],
-      ['0b5e3d', 'st-other', 'October newsletter', 'ngozi@eze.ng', 'broadcast', 'N', 'Mar 28']
+      ['f1c7a0', 'st-bounced', 'Your order is confirmed', 'zoe@martin.co', 'transactional', 'Z', 'Mar 29'],
+      ['0b5e3d', 'st-other', 'October newsletter', 'noah@lee.dev', 'broadcast', 'N', 'Mar 28']
     ]}
   ];
 
@@ -33,7 +33,7 @@
           '<span class="subj">' + r[2] + '</span><span class="to">' + r[3] + '</span>' +
           '<span class="grow"></span>' +
           '<span class="pill"><img class="tdot" src="assets/tag-' + r[4] + '.svg" alt="">' + r[4] + '</span>' +
-          '<span class="pill"><img class="ico11" src="assets/globe.svg" alt="">kora.ng</span>' +
+          '<span class="pill"><img class="ico11" src="assets/globe.svg" alt="">acme.com</span>' +
           '<span class="ava">' + r[5] + '</span><span class="date">' + r[6] + '</span></div>';
       });
     });
@@ -118,12 +118,12 @@
   // ---- Integrate: the Node.js SDK, and plain REST calls in the other languages
   var API = 'https://delivrie.io/api/emails';
   var SAMPLES = {
-    node: "import { Delivrie } from 'delivrie'; // npm install delivrie\n\nconst delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);\n\nconst { data, error } = await delivrie.emails.send({\n  from: 'Kora <orders@kora.ng>',\n  to: ['chiamaka@gmail.com'],\n  subject: 'Your order is confirmed',\n  html: '<p>Order KR-20931 is on its way.</p>',\n  tags: [{ name: 'category', value: 'transactional' }],\n});\n\nconsole.log(data?.id); // 4ef9a417-02e9-4c1b-9d0f",
-    python: "import os, requests\n\nres = requests.post(\n    '" + API + "',\n    headers={'Authorization': f\"Bearer {os.environ['DELIVRIE_API_KEY']}\"},\n    json={\n        'from': 'Kora <orders@kora.ng>',\n        'to': ['chiamaka@gmail.com'],\n        'subject': 'Your order is confirmed',\n        'html': '<p>Order KR-20931 is on its way.</p>',\n    },\n)\n\nprint(res.json()['id'])  # 4ef9a417-02e9-4c1b-9d0f",
-    php: "$ch = curl_init('" + API + "');\ncurl_setopt_array($ch, [\n  CURLOPT_POST => true,\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => [\n    'Authorization: Bearer ' . getenv('DELIVRIE_API_KEY'),\n    'Content-Type: application/json',\n  ],\n  CURLOPT_POSTFIELDS => json_encode([\n    'from' => 'Kora <orders@kora.ng>',\n    'to' => ['chiamaka@gmail.com'],\n    'subject' => 'Your order is confirmed',\n    'html' => '<p>Order KR-20931 is on its way.</p>',\n  ]),\n]);\n$email = json_decode(curl_exec($ch), true);",
-    go: "body, _ := json.Marshal(map[string]any{\n\t\"from\":    \"Kora <orders@kora.ng>\",\n\t\"to\":      []string{\"chiamaka@gmail.com\"},\n\t\"subject\": \"Your order is confirmed\",\n\t\"html\":    \"<p>Order KR-20931 is on its way.</p>\",\n})\n\nreq, _ := http.NewRequest(\"POST\", \"" + API + "\", bytes.NewReader(body))\nreq.Header.Set(\"Authorization\", \"Bearer \"+os.Getenv(\"DELIVRIE_API_KEY\"))\nreq.Header.Set(\"Content-Type\", \"application/json\")\n\nres, err := http.DefaultClient.Do(req)",
-    ruby: "require 'net/http'\nrequire 'json'\n\nuri = URI('" + API + "')\nres = Net::HTTP.post(uri, {\n  from: 'Kora <orders@kora.ng>',\n  to: ['chiamaka@gmail.com'],\n  subject: 'Your order is confirmed',\n  html: '<p>Order KR-20931 is on its way.</p>'\n}.to_json,\n  'Authorization' => \"Bearer #{ENV['DELIVRIE_API_KEY']}\",\n  'Content-Type' => 'application/json')\n\nputs JSON.parse(res.body)['id']",
-    curl: "curl -X POST '" + API + "' \\\n  -H \"Authorization: Bearer $DELIVRIE_API_KEY\" \\\n  -H 'Content-Type: application/json' \\\n  -H 'Idempotency-Key: order-KR-20931' \\\n  -d '{\n    \"from\": \"Kora <orders@kora.ng>\",\n    \"to\": [\"chiamaka@gmail.com\"],\n    \"subject\": \"Your order is confirmed\",\n    \"html\": \"<p>Order KR-20931 is on its way.</p>\",\n    \"scheduled_at\": \"in 1 hour\"\n  }'"
+    node: "import { Delivrie } from 'delivrie'; // npm install delivrie\n\nconst delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);\n\nconst { data, error } = await delivrie.emails.send({\n  from: 'Acme <orders@acme.com>',\n  to: ['sofia@gmail.com'],\n  subject: 'Your order is confirmed',\n  html: '<p>Order KR-20931 is on its way.</p>',\n  tags: [{ name: 'category', value: 'transactional' }],\n});\n\nconsole.log(data?.id); // 4ef9a417-02e9-4c1b-9d0f",
+    python: "from delivrie import Delivrie  # pip install delivrie\n\nclient = Delivrie()  # reads DELIVRIE_API_KEY\n\nemail = client.emails.send(\n    from_='Acme <orders@acme.com>',\n    to=['sofia@gmail.com'],\n    subject='Your order is confirmed',\n    html='<p>Order KR-20931 is on its way.</p>',\n)\n\nprint(email['id'])  # 4ef9a417-02e9-4c1b-9d0f",
+    php: "$ch = curl_init('" + API + "');\ncurl_setopt_array($ch, [\n  CURLOPT_POST => true,\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_HTTPHEADER => [\n    'Authorization: Bearer ' . getenv('DELIVRIE_API_KEY'),\n    'Content-Type: application/json',\n  ],\n  CURLOPT_POSTFIELDS => json_encode([\n    'from' => 'Acme <orders@acme.com>',\n    'to' => ['sofia@gmail.com'],\n    'subject' => 'Your order is confirmed',\n    'html' => '<p>Order KR-20931 is on its way.</p>',\n  ]),\n]);\n$email = json_decode(curl_exec($ch), true);",
+    go: "body, _ := json.Marshal(map[string]any{\n\t\"from\":    \"Acme <orders@acme.com>\",\n\t\"to\":      []string{\"sofia@gmail.com\"},\n\t\"subject\": \"Your order is confirmed\",\n\t\"html\":    \"<p>Order KR-20931 is on its way.</p>\",\n})\n\nreq, _ := http.NewRequest(\"POST\", \"" + API + "\", bytes.NewReader(body))\nreq.Header.Set(\"Authorization\", \"Bearer \"+os.Getenv(\"DELIVRIE_API_KEY\"))\nreq.Header.Set(\"Content-Type\", \"application/json\")\n\nres, err := http.DefaultClient.Do(req)",
+    ruby: "require 'net/http'\nrequire 'json'\n\nuri = URI('" + API + "')\nres = Net::HTTP.post(uri, {\n  from: 'Acme <orders@acme.com>',\n  to: ['sofia@gmail.com'],\n  subject: 'Your order is confirmed',\n  html: '<p>Order KR-20931 is on its way.</p>'\n}.to_json,\n  'Authorization' => \"Bearer #{ENV['DELIVRIE_API_KEY']}\",\n  'Content-Type' => 'application/json')\n\nputs JSON.parse(res.body)['id']",
+    curl: "curl -X POST '" + API + "' \\\n  -H \"Authorization: Bearer $DELIVRIE_API_KEY\" \\\n  -H 'Content-Type: application/json' \\\n  -H 'Idempotency-Key: order-KR-20931' \\\n  -d '{\n    \"from\": \"Acme <orders@acme.com>\",\n    \"to\": [\"sofia@gmail.com\"],\n    \"subject\": \"Your order is confirmed\",\n    \"html\": \"<p>Order KR-20931 is on its way.</p>\",\n    \"scheduled_at\": \"in 1 hour\"\n  }'"
   };
   var KW = /\b(const|await|import|require|from|new|return|func|package|var|let|true|puts|print|def|end|nil)\b/g;
   function paint(src) {
@@ -211,7 +211,7 @@
   // ---- Product shot: a new email arrives every few seconds
   function liveInbox() {
     var list = $('#email-list'); if (!list || calm) return;
-    var subjects = [['Your OTP is 482 019', 'tobi@kora.ng', 'security', 'T'], ['Payment received', 'ada@gmail.com', 'transactional', 'A'], ['Welcome to Kora', 'musa@yahoo.com', 'onboarding', 'M'], ['Your order has shipped', 'ife@gmail.com', 'transactional', 'I']];
+    var subjects = [['Your OTP is 482 019', 'sam@acme.com', 'security', 'S'], ['Payment received', 'ada@gmail.com', 'transactional', 'A'], ['Welcome to Acme', 'maya@yahoo.com', 'onboarding', 'M'], ['Your order has shipped', 'ivan@gmail.com', 'transactional', 'I']];
     var k = 0;
     setInterval(function () {
       if (document.hidden) return;
@@ -220,7 +220,7 @@
       var id = Math.random().toString(16).slice(2, 8);
       var row = document.createElement('div');
       row.className = 'row fresh';
-      row.innerHTML = '<span class="id">' + id + '</span><img class="st" src="assets/st-delivered.svg" alt=""><span class="subj">' + s[0] + '</span><span class="to">' + s[1] + '</span><span class="grow"></span><span class="pill"><img class="tdot" src="assets/tag-' + s[2] + '.svg" alt="">' + s[2] + '</span><span class="pill"><img class="ico11" src="assets/globe.svg" alt="">kora.ng</span><span class="ava">' + s[3] + '</span><span class="date">Mar 31</span>';
+      row.innerHTML = '<span class="id">' + id + '</span><img class="st" src="assets/st-delivered.svg" alt=""><span class="subj">' + s[0] + '</span><span class="to">' + s[1] + '</span><span class="grow"></span><span class="pill"><img class="tdot" src="assets/tag-' + s[2] + '.svg" alt="">' + s[2] + '</span><span class="pill"><img class="ico11" src="assets/globe.svg" alt="">acme.com</span><span class="ava">' + s[3] + '</span><span class="date">Mar 31</span>';
       grp.parentNode.insertBefore(row, grp.nextSibling);
       var cnt = grp.querySelector('.count'); if (cnt) cnt.textContent = String(+cnt.textContent + 1);
       setTimeout(function () { var sj = row.querySelector('.subj'); if (sj) sj.style.color = 'inherit'; }, 60);

@@ -27,7 +27,7 @@ curl -X GET 'https://delivrie.io/api/domains' \
   "data": [
     {
       "id": "d91e…",
-      "name": "mail.kora.ng",
+      "name": "mail.acme.com",
       "status": "verified"
     }
   ]

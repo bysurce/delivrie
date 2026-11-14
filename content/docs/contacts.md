@@ -17,7 +17,7 @@ curl -X POST https://delivrie.io/api/contacts \
     "email": "ada@example.com",
     "first_name": "Ada",
     "last_name": "Lovelace",
-    "properties": { "plan": "pro", "city": "Lagos" },
+    "properties": { "plan": "pro", "city": "London" },
     "segments": ["SEGMENT_ID"]
   }'
 ```
@@ -54,7 +54,7 @@ Segments are named groups of contacts. Broadcasts go to a segment, and automatio
 | --- | --- |
 | `POST /segments` with `{ "name": "Beta users" }` | Create a segment |
 | `GET /segments` | List segments |
-| `POST /segments/:id/contacts` with `{ "contacts": ["ada@example.com", { "email": "tobi@example.com", "first_name": "Tobi" }] }` | Add contacts, creating any that don't exist |
+| `POST /segments/:id/contacts` with `{ "contacts": ["ada@example.com", { "email": "sam@example.com", "first_name": "Sam" }] }` | Add contacts, creating any that don't exist |
 | `DELETE /segments/:id` | Delete the segment (the contacts stay) |
 
 ## Topics

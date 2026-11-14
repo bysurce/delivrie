@@ -16,7 +16,7 @@ Access: Needs a full access key.. MCP tool: `create_domain`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `name` | string | Yes | The domain or subdomain, for example mail.kora.ng. |
+| `name` | string | Yes | The domain or subdomain, for example mail.acme.com. |
 | `region` | string | No | Sending region. Default: `eu-west-1`. |
 | `return_path` | string | No | Subdomain used for bounces and SPF. Default: `send`. |
 | `click_tracking` | boolean | No | Rewrite links to track clicks. Default: `false`. |
@@ -29,7 +29,7 @@ curl -X POST 'https://delivrie.io/api/domains' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "name": "mail.kora.ng",
+    "name": "mail.acme.com",
     "region": "eu-west-1"
   }'
 ```
@@ -40,7 +40,7 @@ curl -X POST 'https://delivrie.io/api/domains' \
 {
   "object": "domain",
   "id": "d91e…",
-  "name": "mail.kora.ng",
+  "name": "mail.acme.com",
   "status": "pending",
   "records": [
     {

@@ -38,7 +38,7 @@ curl -X POST 'https://delivrie.io/api/emails' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "from": "Kora <orders@kora.ng>",
+    "from": "Acme <orders@acme.com>",
     "to": [
       "ada@example.com"
     ],

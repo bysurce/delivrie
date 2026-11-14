@@ -193,7 +193,7 @@ export async function editor(ctx) {
     if (s.type === "send") {
       const t = tpls?.find((x) => x.id === s.template_id);
       form = field("Template", `<select class="input" data-s="template_id"><option value="">Choose a template</option>${opt((tpls || []).map((x) => [x.id, `${x.name}${x.status === "published" ? ` · v${x.published_version}` : " · draft"}`]), s.template_id)}</select>`, t && t.status !== "published" ? `<span style="color:var(--orange)">Publish this template before going live.</span> <a href="/templates/${t.id}">Open template</a>` : `Variables like {{{first_name}}} and {{{data.plan}}} are filled from the contact and the event.`)
-        + field("From <span class='dim'>Optional</span>", `<input class="input" data-s="from" value="${esc(s.from || "")}" placeholder="${esc(t?.from || `Kora <hello@${doms?.[0]?.name || "yourdomain.com"}>`)}">`, "Leave empty to use the template’s sender.")
+        + field("From <span class='dim'>Optional</span>", `<input class="input" data-s="from" value="${esc(s.from || "")}" placeholder="${esc(t?.from || `Acme <hello@${doms?.[0]?.name || "yourdomain.com"}>`)}">`, "Leave empty to use the template’s sender.")
         + field("Subject <span class='dim'>Optional</span>", `<input class="input" data-s="subject" value="${esc(s.subject || "")}" placeholder="${esc(t?.subject || "Uses the template subject")}">`)
         + field("Reply-to <span class='dim'>Optional</span>", `<input class="input" data-s="reply_to" value="${esc(s.reply_to || "")}" placeholder="support@yourdomain.com">`)
         + `<label class="row-flex" style="gap:8px;font-size:12.5px;margin-top:4px"><input type="checkbox" class="cb" data-s="marketing" ${s.marketing ? "checked" : ""}> Marketing email: skip contacts who unsubscribed</label>`;

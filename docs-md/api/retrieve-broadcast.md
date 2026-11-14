@@ -31,7 +31,7 @@ curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417' \
 {
   "object": "broadcast",
   "id": "b_7…",
-  "name": "March at Kora",
+  "name": "March at Acme",
   "status": "sent",
   "recipients": 3240
 }

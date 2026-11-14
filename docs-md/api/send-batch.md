@@ -27,7 +27,7 @@ curl -X POST 'https://delivrie.io/api/emails/batch' \
   -H 'Content-Type: application/json' \
   -d '[
     {
-      "from": "Kora <orders@kora.ng>",
+      "from": "Acme <orders@acme.com>",
       "to": [
         "ada@example.com"
       ],
@@ -35,9 +35,9 @@ curl -X POST 'https://delivrie.io/api/emails/batch' \
       "html": "<p>Order 1</p>"
     },
     {
-      "from": "Kora <orders@kora.ng>",
+      "from": "Acme <orders@acme.com>",
       "to": [
-        "tobi@example.com"
+        "sam@example.com"
       ],
       "subject": "Receipt",
       "html": "<p>Order 2</p>"

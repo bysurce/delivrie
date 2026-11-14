@@ -63,7 +63,7 @@ except DelivrieError as e:
 <pre><code class="language-python">client.emails.send(
     from_=&quot;Acme &lt;billing@mail.acme.com&gt;&quot;,
     to=&quot;ada@example.com&quot;,
-    template={&quot;id&quot;: &quot;invoice&quot;, &quot;variables&quot;: {&quot;first_name&quot;: &quot;Ada&quot;, &quot;total&quot;: &quot;₦27,000&quot;}},
+    template={&quot;id&quot;: &quot;invoice&quot;, &quot;variables&quot;: {&quot;first_name&quot;: &quot;Ada&quot;, &quot;total&quot;: &quot;$20.00&quot;}},
     attachments=[{&quot;filename&quot;: &quot;invoice.pdf&quot;, &quot;content&quot;: open(&quot;invoice.pdf&quot;, &quot;rb&quot;).read()}],
 )</code></pre>
 <h2 id="async-fastapi">Async (FastAPI)</h2>

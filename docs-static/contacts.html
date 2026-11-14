@@ -41,7 +41,7 @@
     &quot;email&quot;: &quot;ada@example.com&quot;,
     &quot;first_name&quot;: &quot;Ada&quot;,
     &quot;last_name&quot;: &quot;Lovelace&quot;,
-    &quot;properties&quot;: { &quot;plan&quot;: &quot;pro&quot;, &quot;city&quot;: &quot;Lagos&quot; },
+    &quot;properties&quot;: { &quot;plan&quot;: &quot;pro&quot;, &quot;city&quot;: &quot;London&quot; },
     &quot;segments&quot;: [&quot;SEGMENT_ID&quot;]
   }&#39;</code></pre>
 <pre><code class="language-ts">await delivrie.contacts.create({ email: &quot;ada@example.com&quot;, first_name: &quot;Ada&quot;, properties: { plan: &quot;pro&quot; } });</code></pre>
@@ -58,7 +58,7 @@ curl -X PATCH https://delivrie.io/api/contacts/ada@example.com \
 <p>Properties hold anything you want to personalise or filter by: plan, city, signup date. Define them, with a type and fallback value, in <a href="https://delivrie.io/contacts/properties" data-native>Contacts → Properties</a>. <code>GET /contact-properties</code> lists them. Use them in broadcasts as <code>{{plan}}</code>.</p>
 <h2 id="segments">Segments</h2>
 <p>Segments are named groups of contacts. Broadcasts go to a segment, and automations can start when someone joins one.</p>
-<div class="d-table"><table><thead><tr><th>Request</th><th>What it does</th></tr></thead><tbody><tr><td><code>POST /segments</code> with <code>{ &quot;name&quot;: &quot;Beta users&quot; }</code></td><td>Create a segment</td></tr><tr><td><code>GET /segments</code></td><td>List segments</td></tr><tr><td><code>POST /segments/:id/contacts</code> with <code>{ &quot;contacts&quot;: [&quot;ada@example.com&quot;, { &quot;email&quot;: &quot;tobi@example.com&quot;, &quot;first_name&quot;: &quot;Tobi&quot; }] }</code></td><td>Add contacts, creating any that don&#39;t exist</td></tr><tr><td><code>DELETE /segments/:id</code></td><td>Delete the segment (the contacts stay)</td></tr></tbody></table></div>
+<div class="d-table"><table><thead><tr><th>Request</th><th>What it does</th></tr></thead><tbody><tr><td><code>POST /segments</code> with <code>{ &quot;name&quot;: &quot;Beta users&quot; }</code></td><td>Create a segment</td></tr><tr><td><code>GET /segments</code></td><td>List segments</td></tr><tr><td><code>POST /segments/:id/contacts</code> with <code>{ &quot;contacts&quot;: [&quot;ada@example.com&quot;, { &quot;email&quot;: &quot;sam@example.com&quot;, &quot;first_name&quot;: &quot;Sam&quot; }] }</code></td><td>Add contacts, creating any that don&#39;t exist</td></tr><tr><td><code>DELETE /segments/:id</code></td><td>Delete the segment (the contacts stay)</td></tr></tbody></table></div>
 <h2 id="topics">Topics</h2>
 <p>Topics let people opt out of one kind of email (say, product updates) without leaving everything. Create them in <a href="https://delivrie.io/contacts/topics" data-native>Contacts → Topics</a> with a default of opt-in or opt-out, then pick a topic when you create a broadcast. The unsubscribe page shows each topic as its own switch. <code>GET /topics</code> lists them.</p>
 <h2 id="unsubscribed-contacts">Unsubscribed contacts</h2>

@@ -66,10 +66,10 @@ const ok = (r, code) => assert.ok(r.startsWith(String(code)), `expected ${code},
   const c = client(); await c.read(); await c.cmd("EHLO wp.example");
   ok(await c.cmd("AUTH LOGIN"), 334); ok(await c.cmd(b64("delivrie")), 334); ok(await c.cmd(b64(SEND_ONLY)), 235);
   ok(await c.cmd("MAIL FROM:<bounce@delivrie.io> SIZE=2000"), 250);
-  for (const r of ["ada@example.com", "bola@example.com", "hidden@example.com"]) ok(await c.cmd(`RCPT TO:<${r}>`), 250);
+  for (const r of ["ada@example.com", "ben@example.com", "hidden@example.com"]) ok(await c.cmd(`RCPT TO:<${r}>`), 250);
   ok(await c.cmd("DATA"), 354);
   const msg = [
-    "From: \"Ada's Shop\" <hello@delivrie.io>", "To: Ada <ada@example.com>", "Cc: bola@example.com", "Reply-To: support@delivrie.io",
+    "From: \"Ada's Shop\" <hello@delivrie.io>", "To: Ada <ada@example.com>", "Cc: ben@example.com", "Reply-To: support@delivrie.io",
     "Subject: =?UTF-8?B?" + b64("Ọjà rẹ ti dé 🎉") + "?=", "Message-ID: <abc123@wp.example>", "X-Order-Id: 991", "List-Unsubscribe: <https://x.example/u>",
     "X-Delivrie-Tags: source=wordpress, order", "MIME-Version: 1.0", "Content-Type: multipart/mixed; boundary=\"OUTER\"", "",
     "--OUTER", "Content-Type: multipart/alternative; boundary=INNER", "",
@@ -82,7 +82,7 @@ const ok = (r, code) => assert.ok(r.startsWith(String(code)), `expected ${code},
   const r = await c.read(); ok(r, 250); assert.match(r, /em_1/);
   const e = sent[0];
   assert.equal(e.from, "\"Ada's Shop\" <hello@delivrie.io>");
-  assert.deepEqual(e.to, ["Ada <ada@example.com>"]); assert.deepEqual(e.cc, ["bola@example.com"]); assert.deepEqual(e.bcc, ["hidden@example.com"]);
+  assert.deepEqual(e.to, ["Ada <ada@example.com>"]); assert.deepEqual(e.cc, ["ben@example.com"]); assert.deepEqual(e.bcc, ["hidden@example.com"]);
   assert.deepEqual(e.reply_to, ["support@delivrie.io"]);
   assert.equal(e.subject, "Ọjà rẹ ti dé 🎉");
   assert.equal(e.text, "Hello Ọ\r\n.this line started with a dot"); assert.equal(e.html, "<p>Hello</p>");

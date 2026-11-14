@@ -82,7 +82,7 @@ function normalizeEmail(e: SendEmailRequest): Record<string, unknown> {
  * ```ts
  * import { Delivrie } from "delivrie";
  * const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
- * const { data, error } = await delivrie.emails.send({ from: "Kora <hi@kora.ng>", to: "ada@example.com", subject: "Hi", html: "<p>Hello</p>" });
+ * const { data, error } = await delivrie.emails.send({ from: "Acme <hi@acme.com>", to: "ada@example.com", subject: "Hi", html: "<p>Hello</p>" });
  * ```
  */
 export class Delivrie {

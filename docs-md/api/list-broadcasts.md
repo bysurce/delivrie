@@ -27,7 +27,7 @@ curl -X GET 'https://delivrie.io/api/broadcasts' \
   "data": [
     {
       "id": "b_7…",
-      "name": "March at Kora",
+      "name": "March at Acme",
       "status": "sent"
     }
   ]

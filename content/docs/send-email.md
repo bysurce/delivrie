@@ -157,7 +157,7 @@ curl -X POST https://delivrie.io/api/emails/batch \
   -H "Idempotency-Key: digest-2026-11-14" \
   -d '[
     { "from": "Acme <hi@mail.acme.com>", "to": "ada@example.com", "subject": "Your digest", "html": "<p>Hi Ada</p>" },
-    { "from": "Acme <hi@mail.acme.com>", "to": "tobi@example.com", "subject": "Your digest", "html": "<p>Hi Tobi</p>" }
+    { "from": "Acme <hi@mail.acme.com>", "to": "sam@example.com", "subject": "Your digest", "html": "<p>Hi Sam</p>" }
   ]'
 ```
 

@@ -33,7 +33,7 @@ curl -X POST 'https://delivrie.io/api/segments/4ef9a417/contacts' \
   -d '{
     "contacts": [
       "ada@example.com",
-      "tobi@example.com"
+      "sam@example.com"
     ]
   }'
 ```

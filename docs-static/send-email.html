@@ -109,7 +109,7 @@
   -H &quot;Idempotency-Key: digest-2026-11-14&quot; \
   -d &#39;[
     { &quot;from&quot;: &quot;Acme &lt;hi@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;ada@example.com&quot;, &quot;subject&quot;: &quot;Your digest&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi Ada&lt;/p&gt;&quot; },
-    { &quot;from&quot;: &quot;Acme &lt;hi@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;tobi@example.com&quot;, &quot;subject&quot;: &quot;Your digest&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi Tobi&lt;/p&gt;&quot; }
+    { &quot;from&quot;: &quot;Acme &lt;hi@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;sam@example.com&quot;, &quot;subject&quot;: &quot;Your digest&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi Sam&lt;/p&gt;&quot; }
   ]&#39;</code></pre>
 <pre><code class="language-json">{ &quot;data&quot;: [{ &quot;id&quot;: &quot;4ef9a417-...&quot; }, { &quot;id&quot;: &quot;9a1c22b0-...&quot; }] }</code></pre>
 <p>Batch emails can&#39;t have attachments or <code>scheduled_at</code>. If any email in the batch is invalid, the whole batch is rejected and nothing is sent, so you can fix it and retry. To send the same email to a list of subscribers, use <a href="/docs/broadcasts">broadcasts</a> instead.</p>

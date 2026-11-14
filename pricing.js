@@ -114,7 +114,7 @@
   var FAQ = [
     ['What counts as an email?', 'Each recipient is one email. One message to a To, a CC and a BCC address counts as three.'],
     ['What happens if I go over my plan?', 'On Starter, Pro and Scale we keep sending and bill the extra per 1,000 at the end of the month. On Free, sending pauses until the next day or month.'],
-    ['Can I pay in dollars?', 'Yes. Choose Naira or US dollars at checkout. Payments go through Paystack.'],
+    ['Can I pay in dollars?', 'Yes. Choose US dollars or Naira at checkout. Payments go through Paystack.'],
     ['How do yearly plans work?', 'You pay for ten months and get twelve, billed upfront.'],
     ['Can I change plans anytime?', 'Yes. Upgrades start right away. If you downgrade, you keep your plan until the end of the period you paid for.']
   ];

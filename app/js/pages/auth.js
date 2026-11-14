@@ -258,7 +258,7 @@ export async function resetNew(ctx) {
 
 export async function newTeam(ctx) {
   const card = layout(ctx.root, `${mark}<h1>Create a new team</h1><p class="sub">Your account isn’t part of a team yet. Create one to start sending, or delete the account for good.</p>
-    <form novalidate><div class="field"><label for="tn">Team name</label><input class="input" id="tn" placeholder="Kora" autocomplete="organization"></div><button class="btn btn-primary btn-lg btn-block" type="submit">Create team</button></form>
+    <form novalidate><div class="field"><label for="tn">Team name</label><input class="input" id="tn" placeholder="Acme" autocomplete="organization"></div><button class="btn btn-primary btn-lg btn-block" type="submit">Create team</button></form>
     <button class="btn btn-secondary btn-lg btn-block" data-del>Delete account</button><p class="sub"><a href="#" data-out>Back to log in</a></p>`);
   card.querySelector("form").addEventListener("submit", async (e) => {
     e.preventDefault();

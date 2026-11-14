@@ -118,7 +118,7 @@ async function brand(body) {
         <div class="brand-two"><div class="field"><label>Font</label>${selectHtml("font", Object.keys(FONTS).map((f) => ({ value: f, label: f })), b.font, "System", dis)}</div><div class="field"><label>Button corner radius</label><input class="input" type="number" min="0" max="30" data-b="radius" value="${esc(b.radius)}" ${dis}></div></div>
         <div class="hint">Inter falls back to the system font in email apps that can’t load web fonts.</div></section>
       <section class="card card-pad"><h3 class="section-title" style="margin-top:0">Footer</h3>
-        ${field("address", "Postal address", "Acme Ltd, 12 Admiralty Way, Lekki, Lagos", "Required by anti-spam laws for marketing email.")}
+        ${field("address", "Postal address", "Acme Inc., 548 Market St, San Francisco, CA 94104", "Required by anti-spam laws for marketing email.")}
         <div class="brand-two">${field("website", "Website", "https://acme.com")}${field("support_email", "Support email", "support@acme.com")}</div>
         <div class="brand-two">${social("x", "X")}${social("linkedin", "LinkedIn")}${social("instagram", "Instagram")}${social("facebook", "Facebook")}${social("youtube", "YouTube")}</div></section>
       ${editable ? `<div class="row-flex"><span class="grow dim" data-bstate style="font-size:12.5px">New templates use your brand kit. Open a template and choose Styles → Apply brand to update one you already have.</span><button class="btn btn-primary" data-bsave>Save brand kit</button></div>` : ""}

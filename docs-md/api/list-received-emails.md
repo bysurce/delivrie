@@ -36,7 +36,7 @@ curl -X GET 'https://delivrie.io/api/emails/received' \
       "id": "a5c3e1f0-…",
       "from": "Ada <ada@example.com>",
       "to": [
-        "support@in.kora.ng"
+        "support@in.acme.com"
       ],
       "subject": "Re: Your order",
       "created_at": "2026-11-14T10:22:30Z",

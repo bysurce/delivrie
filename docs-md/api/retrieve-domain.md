@@ -31,7 +31,7 @@ curl -X GET 'https://delivrie.io/api/domains/4ef9a417' \
 {
   "object": "domain",
   "id": "d91e…",
-  "name": "mail.kora.ng",
+  "name": "mail.acme.com",
   "status": "verified"
 }
 ```

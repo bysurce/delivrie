@@ -1038,7 +1038,7 @@ Branch on `e.name` (see [Errors](/docs/errors)). `status_code` is 0 for `network
 client.emails.send(
     from_="Acme <billing@mail.acme.com>",
     to="ada@example.com",
-    template={"id": "invoice", "variables": {"first_name": "Ada", "total": "₦27,000"}},
+    template={"id": "invoice", "variables": {"first_name": "Ada", "total": "$20.00"}},
     attachments=[{"filename": "invoice.pdf", "content": open("invoice.pdf", "rb").read()}],
 )
 ```
@@ -1885,7 +1885,7 @@ curl -X POST https://delivrie.io/api/emails/batch \
   -H "Idempotency-Key: digest-2026-11-14" \
   -d '[
     { "from": "Acme <hi@mail.acme.com>", "to": "ada@example.com", "subject": "Your digest", "html": "<p>Hi Ada</p>" },
-    { "from": "Acme <hi@mail.acme.com>", "to": "tobi@example.com", "subject": "Your digest", "html": "<p>Hi Tobi</p>" }
+    { "from": "Acme <hi@mail.acme.com>", "to": "sam@example.com", "subject": "Your digest", "html": "<p>Hi Sam</p>" }
   ]'
 ```
 
@@ -3100,7 +3100,7 @@ curl -X POST https://delivrie.io/api/contacts \
     "email": "ada@example.com",
     "first_name": "Ada",
     "last_name": "Lovelace",
-    "properties": { "plan": "pro", "city": "Lagos" },
+    "properties": { "plan": "pro", "city": "London" },
     "segments": ["SEGMENT_ID"]
   }'
 ```
@@ -3137,7 +3137,7 @@ Segments are named groups of contacts. Broadcasts go to a segment, and automatio
 | --- | --- |
 | `POST /segments` with `{ "name": "Beta users" }` | Create a segment |
 | `GET /segments` | List segments |
-| `POST /segments/:id/contacts` with `{ "contacts": ["ada@example.com", { "email": "tobi@example.com", "first_name": "Tobi" }] }` | Add contacts, creating any that don't exist |
+| `POST /segments/:id/contacts` with `{ "contacts": ["ada@example.com", { "email": "sam@example.com", "first_name": "Sam" }] }` | Add contacts, creating any that don't exist |
 | `DELETE /segments/:id` | Delete the segment (the contacts stay) |
 
 ## Topics
@@ -3367,7 +3367,7 @@ curl -X POST 'https://delivrie.io/api/emails' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "from": "Kora <orders@kora.ng>",
+    "from": "Acme <orders@acme.com>",
     "to": [
       "ada@example.com"
     ],
@@ -3434,7 +3434,7 @@ curl -X POST 'https://delivrie.io/api/emails/batch' \
   -H 'Content-Type: application/json' \
   -d '[
     {
-      "from": "Kora <orders@kora.ng>",
+      "from": "Acme <orders@acme.com>",
       "to": [
         "ada@example.com"
       ],
@@ -3442,9 +3442,9 @@ curl -X POST 'https://delivrie.io/api/emails/batch' \
       "html": "<p>Order 1</p>"
     },
     {
-      "from": "Kora <orders@kora.ng>",
+      "from": "Acme <orders@acme.com>",
       "to": [
-        "tobi@example.com"
+        "sam@example.com"
       ],
       "subject": "Receipt",
       "html": "<p>Order 2</p>"
@@ -3509,7 +3509,7 @@ curl -X GET 'https://delivrie.io/api/emails/4ef9a417' \
 {
   "object": "email",
   "id": "4ef9a417-…",
-  "from": "Kora <orders@kora.ng>",
+  "from": "Acme <orders@acme.com>",
   "to": [
     "ada@example.com"
   ],
@@ -3731,7 +3731,7 @@ curl -X GET 'https://delivrie.io/api/emails/received' \
       "id": "a5c3e1f0-…",
       "from": "Ada <ada@example.com>",
       "to": [
-        "support@in.kora.ng"
+        "support@in.acme.com"
       ],
       "subject": "Re: Your order",
       "created_at": "2026-11-14T10:22:30Z",
@@ -3792,8 +3792,8 @@ curl -X POST 'https://delivrie.io/api/emails/4ef9a417/forward' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "to": "ops@kora.ng",
-    "from": "Kora <support@mail.kora.ng>",
+    "to": "ops@acme.com",
+    "from": "Acme <support@mail.acme.com>",
     "note": "Can you look at this?"
   }'
 ```
@@ -4258,7 +4258,7 @@ curl -X GET 'https://delivrie.io/api/inbox/threads' \
     {
       "object": "inbox_thread",
       "id": "th_4…",
-      "mailbox": "support@in.kora.ng",
+      "mailbox": "support@in.acme.com",
       "contact": "ada@example.com",
       "subject": "Refund",
       "snippet": "Hi, I'd like…",
@@ -4478,7 +4478,7 @@ Access: Needs a full access key.. MCP tool: `create_domain`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `name` | string | Yes | The domain or subdomain, for example mail.kora.ng. |
+| `name` | string | Yes | The domain or subdomain, for example mail.acme.com. |
 | `region` | string | No | Sending region. Default: `eu-west-1`. |
 | `return_path` | string | No | Subdomain used for bounces and SPF. Default: `send`. |
 | `click_tracking` | boolean | No | Rewrite links to track clicks. Default: `false`. |
@@ -4491,7 +4491,7 @@ curl -X POST 'https://delivrie.io/api/domains' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "name": "mail.kora.ng",
+    "name": "mail.acme.com",
     "region": "eu-west-1"
   }'
 ```
@@ -4502,7 +4502,7 @@ curl -X POST 'https://delivrie.io/api/domains' \
 {
   "object": "domain",
   "id": "d91e…",
-  "name": "mail.kora.ng",
+  "name": "mail.acme.com",
   "status": "pending",
   "records": [
     {
@@ -4558,7 +4558,7 @@ curl -X GET 'https://delivrie.io/api/domains/4ef9a417' \
 {
   "object": "domain",
   "id": "d91e…",
-  "name": "mail.kora.ng",
+  "name": "mail.acme.com",
   "status": "verified"
 }
 ```
@@ -4712,7 +4712,7 @@ curl -X GET 'https://delivrie.io/api/domains' \
   "data": [
     {
       "id": "d91e…",
-      "name": "mail.kora.ng",
+      "name": "mail.acme.com",
       "status": "verified"
     }
   ]
@@ -4951,7 +4951,7 @@ curl -X POST 'https://delivrie.io/api/webhooks' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "endpoint": "https://kora.ng/hooks/delivrie",
+    "endpoint": "https://acme.com/hooks/delivrie",
     "events": [
       "email.delivered",
       "email.bounced",
@@ -5008,7 +5008,7 @@ curl -X GET 'https://delivrie.io/api/webhooks' \
   "data": [
     {
       "id": "w_8c…",
-      "endpoint": "https://kora.ng/hooks/delivrie",
+      "endpoint": "https://acme.com/hooks/delivrie",
       "status": "enabled"
     }
   ]
@@ -5476,7 +5476,7 @@ curl -X POST 'https://delivrie.io/api/segments/4ef9a417/contacts' \
   -d '{
     "contacts": [
       "ada@example.com",
-      "tobi@example.com"
+      "sam@example.com"
     ]
   }'
 ```
@@ -5767,8 +5767,8 @@ curl -X POST 'https://delivrie.io/api/broadcasts' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "from": "Kora <news@kora.ng>",
-    "subject": "March at Kora",
+    "from": "Acme <news@acme.com>",
+    "subject": "March at Acme",
     "segment_id": "s_4…",
     "html": "<p>Hi {{{first_name|there}}}</p>"
   }'
@@ -5927,7 +5927,7 @@ curl -X GET 'https://delivrie.io/api/broadcasts' \
   "data": [
     {
       "id": "b_7…",
-      "name": "March at Kora",
+      "name": "March at Acme",
       "status": "sent"
     }
   ]
@@ -5977,7 +5977,7 @@ curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417' \
 {
   "object": "broadcast",
   "id": "b_7…",
-  "name": "March at Kora",
+  "name": "March at Acme",
   "status": "sent",
   "recipients": 3240
 }

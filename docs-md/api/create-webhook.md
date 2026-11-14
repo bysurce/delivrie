@@ -26,7 +26,7 @@ curl -X POST 'https://delivrie.io/api/webhooks' \
   -H 'Authorization: Bearer dlv_live_••••' \
   -H 'Content-Type: application/json' \
   -d '{
-    "endpoint": "https://kora.ng/hooks/delivrie",
+    "endpoint": "https://acme.com/hooks/delivrie",
     "events": [
       "email.delivered",
       "email.bounced",

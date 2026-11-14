@@ -17,7 +17,7 @@ export function mountChat() {
   wrap.className = "sc";
   wrap.innerHTML = `<button class="sc-fab" aria-label="Chat with support" aria-expanded="false">${CHAT_ICON}<span class="sc-dot" hidden></span></button>
     <section class="sc-panel" role="dialog" aria-label="Support chat" hidden>
-      <header class="sc-head"><div><b>Delivrie support</b><span>We usually reply within a few hours, Monday to Friday (WAT).</span></div><button class="ibtn" data-close aria-label="Close">${icon("x", 14)}</button></header>
+      <header class="sc-head"><div><b>Delivrie support</b><span>We usually reply within a few hours, Monday to Friday (UTC+1).</span></div><button class="ibtn" data-close aria-label="Close">${icon("x", 14)}</button></header>
       <div class="sc-body" aria-live="polite"></div>
       <form class="sc-form"><textarea rows="1" maxlength="5000" placeholder="Write a message…" aria-label="Message"></textarea><button class="btn btn-primary" type="submit" aria-label="Send">${icon("send", 14)}</button></form>
     </section>`;

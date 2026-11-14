@@ -31,7 +31,7 @@ curl -X GET 'https://delivrie.io/api/emails/4ef9a417' \
 {
   "object": "email",
   "id": "4ef9a417-…",
-  "from": "Kora <orders@kora.ng>",
+  "from": "Acme <orders@acme.com>",
   "to": [
     "ada@example.com"
   ],
