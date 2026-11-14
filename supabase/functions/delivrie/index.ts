@@ -203,15 +203,30 @@ async function prepareEmail(c: Ctx, b: Any, idempotencyKey?: string | null) {
   };
 }
 
-async function sendEmails(c: Ctx, bodies: Any[], idem: string | null) {
-  await checkQuota(c, bodies.length);
-  if (idem) {
-    const { data: prev } = await db.from("emails").select("id").eq("team_id", c.teamId).eq("idempotency_key", idem).maybeSingle();
-    if (prev) return [prev];
+// Idempotency keys as stored on each email: the key itself for a single send, key:0, key:1, ... for a batch.
+const idemKeys = (idem: string, n: number, batch: boolean) => batch ? Array.from({ length: n }, (_, i) => `${idem}:${i}`) : [idem];
+async function previousSend(c: Ctx, keys: string[]) {
+  const { data } = await db.from("emails").select("id,idempotency_key").eq("team_id", c.teamId).in("idempotency_key", keys);
+  if (!data?.length) return null;
+  const byKey = new Map(data.map((e: Any) => [e.idempotency_key, e.id]));
+  return keys.filter((k) => byKey.has(k)).map((k) => ({ id: byKey.get(k) }));
+}
+
+async function sendEmails(c: Ctx, bodies: Any[], idem: string | null, batch = false) {
+  const keys = idem ? idemKeys(idem, bodies.length, batch) : null;
+  if (keys) {
+    const prev = await previousSend(c, keys);
+    if (prev) return prev;
   }
+  await checkQuota(c, bodies.length);
   const rows = [];
-  for (let i = 0; i < bodies.length; i++) rows.push(await prepareEmail(c, bodies[i], bodies.length === 1 ? idem : idem ? `${idem}:${i}` : null));
+  for (let i = 0; i < bodies.length; i++) rows.push(await prepareEmail(c, bodies[i], keys ? keys[i] : null));
   const { data, error } = await db.from("emails").insert(rows).select("id,status,team_id");
+  if (error?.code === "23505" && keys) {
+    // The same idempotency key arrived twice at once: the other request won, so return its emails.
+    const prev = await previousSend(c, keys);
+    if (prev) return prev;
+  }
   if (error) throw new HttpError(422, "validation_error", error.message);
   await db.from("email_events").insert((data || []).filter((e: Any) => e.status === "scheduled").map((e: Any) => ({ email_id: e.id, team_id: c.teamId, type: "scheduled", data: {} })));
   const queued = (data || []).filter((e: Any) => e.status === "queued");
@@ -364,7 +379,7 @@ route("POST", "/emails/batch", async (req, c, _p, _u, b) => {
   if (!Array.isArray(b)) throw bad("Body must be an array of emails");
   if (b.length > 100) throw bad("A batch can contain at most 100 emails");
   if (b.some((x: Any) => x.attachments?.length || x.scheduled_at)) throw bad("Batch emails don't support attachments or scheduled_at");
-  return { data: await sendEmails(c, b, req.headers.get("idempotency-key")) };
+  return { data: await sendEmails(c, b, req.headers.get("idempotency-key"), true) };
 });
 route("GET", "/emails", async (_r, c, _p, url) => {
   needFull(c);

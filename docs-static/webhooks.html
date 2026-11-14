@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Webhooks · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Add an HTTPS endpoint in Webhooks and choose events: email.sent, email.delivered, email.delivery_delayed, email.bounced, email.complained, email.opened…">
+  <meta name="description" content="Get Delivrie events (sent, delivered, bounced, complained, opened, clicked, received, contact and domain changes) pushed to your server, with payload…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/webhooks">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/webhooks.md">
   <meta property="og:url" content="https://delivrie.io/docs/webhooks">
   <meta property="og:title" content="Webhooks · Delivrie Docs">
-  <meta property="og:description" content="Add an HTTPS endpoint in Webhooks and choose events: email.sent, email.delivered, email.delivery_delayed, email.bounced, email.complained, email.opened…">
+  <meta property="og:description" content="Get Delivrie events (sent, delivered, bounced, complained, opened, clicked, received, contact and domain changes) pushed to your server, with payload…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,114 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Webhooks", "description": "Add an HTTPS endpoint in Webhooks and choose events: email.sent, email.delivered, email.delivery_delayed, email.bounced, email.complained, email.opened…", "url": "https://delivrie.io/docs/webhooks", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Webhooks", "item": "https://delivrie.io/docs/webhooks"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Webhooks", "description": "Get Delivrie events (sent, delivered, bounced, complained, opened, clicked, received, contact and domain changes) pushed to your server, with payload…", "url": "https://delivrie.io/docs/webhooks", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Webhooks", "item": "https://delivrie.io/docs/webhooks"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Webhooks</h1><p>Add an HTTPS endpoint in Webhooks and choose events: email.sent, email.delivered, email.delivery_delayed, email.bounced, email.complained, email.opened, email.clicked, email.failed, email.received, contact.created, contact.updated, contact.deleted, domain.created, domain.updated.<br>Each request is signed using the Standard Webhooks scheme with the headers webhook-id, webhook-timestamp and webhook-signature. Compute HMAC-SHA256 over id.timestamp.body using the base64-decoded part of your whsec_ secret, then compare with the v1 signature.<br>Failed deliveries are retried with backoff for up to 72 hours. You can replay any attempt from the dashboard.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Webhooks</h1><p>Get Delivrie events (sent, delivered, bounced, complained, opened, clicked, received, contact and domain changes) pushed to your server, with payload examples, signature verification in every language, retries and replays.</p><p>Webhooks push events to your server as they happen, so you don&#39;t have to poll. Use them to mark bounced addresses, record deliveries, react to replies and keep your own history.</p>
+<h2 id="add-an-endpoint">Add an endpoint</h2>
+<p>In <a href="https://delivrie.io/webhooks" data-native>Webhooks</a>, click <b>Add endpoint</b>, enter an <code>https://</code> URL and choose events. Or with the API:</p>
+<pre><code class="language-bash">curl -X POST https://delivrie.io/api/webhooks \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{ &quot;endpoint&quot;: &quot;https://acme.com/webhooks/delivrie&quot;, &quot;events&quot;: [&quot;email.delivered&quot;, &quot;email.bounced&quot;, &quot;email.complained&quot;] }&#39;</code></pre>
+<p>The response includes <code>signing_secret</code> (starts with <code>whsec_</code>). It&#39;s shown once: store it as <code>DELIVRIE_WEBHOOK_SECRET</code>. Use <code>[&quot;*&quot;]</code> to receive every event.</p>
+<h2 id="events">Events</h2>
+<div class="d-table"><table><thead><tr><th>Event</th><th>When</th></tr></thead><tbody><tr><td><code>email.sent</code></td><td>Delivrie&#39;s mail servers accepted the email</td></tr><tr><td><code>email.delivered</code></td><td>The recipient&#39;s server accepted it</td></tr><tr><td><code>email.delivery_delayed</code></td><td>Delivery is temporarily failing and being retried</td></tr><tr><td><code>email.bounced</code></td><td>The recipient&#39;s server rejected it</td></tr><tr><td><code>email.complained</code></td><td>The recipient marked it as spam</td></tr><tr><td><code>email.opened</code></td><td>Opened (open tracking must be on for the domain)</td></tr><tr><td><code>email.clicked</code></td><td>A link was clicked (click tracking must be on)</td></tr><tr><td><code>email.failed</code></td><td>It couldn&#39;t be sent; <code>failed.reason</code> says why</td></tr><tr><td><code>email.received</code></td><td>Mail arrived at one of your <a href="/docs/receiving">receiving</a> addresses</td></tr><tr><td><code>contact.created</code>, <code>contact.updated</code>, <code>contact.deleted</code></td><td>A contact changed</td></tr><tr><td><code>domain.created</code>, <code>domain.updated</code></td><td>A domain was added or its verification status changed</td></tr></tbody></table></div>
+<h2 id="payloads">Payloads</h2>
+<p>Every request is a <code>POST</code> with a JSON body of <code>{ type, created_at, data }</code>.</p>
+<p><b>email.delivered</b></p><pre><code class="language-json">{
+  &quot;type&quot;: &quot;email.delivered&quot;,
+  &quot;created_at&quot;: &quot;2026-11-14T09:12:06.511Z&quot;,
+  &quot;data&quot;: {
+    &quot;email_id&quot;: &quot;4ef9a417-02e9-4d39-ad75-9611e0fcc33c&quot;,
+    &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+    &quot;to&quot;: [&quot;ada@example.com&quot;],
+    &quot;subject&quot;: &quot;Your order is confirmed&quot;,
+    &quot;created_at&quot;: &quot;2026-11-14T09:12:04.120Z&quot;,
+    &quot;tags&quot;: { &quot;category&quot;: &quot;receipt&quot; }
+  }
+}</code></pre><p><b>email.bounced</b></p><pre><code class="language-json">{
+  &quot;type&quot;: &quot;email.bounced&quot;,
+  &quot;created_at&quot;: &quot;2026-11-14T09:12:07.002Z&quot;,
+  &quot;data&quot;: {
+    &quot;email_id&quot;: &quot;4ef9a417-02e9-4d39-ad75-9611e0fcc33c&quot;,
+    &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+    &quot;to&quot;: [&quot;nobody@example.com&quot;],
+    &quot;subject&quot;: &quot;Your order is confirmed&quot;,
+    &quot;created_at&quot;: &quot;2026-11-14T09:12:04.120Z&quot;,
+    &quot;bounce&quot;: {
+      &quot;type&quot;: &quot;Permanent&quot;,
+      &quot;sub_type&quot;: &quot;General&quot;,
+      &quot;message&quot;: &quot;smtp; 550 5.1.1 user unknown&quot;,
+      &quot;recipients&quot;: [{ &quot;emailAddress&quot;: &quot;nobody@example.com&quot; }]
+    }
+  }
+}</code></pre><p><b>email.clicked</b></p><pre><code class="language-json">{
+  &quot;type&quot;: &quot;email.clicked&quot;,
+  &quot;created_at&quot;: &quot;2026-11-14T09:30:12.000Z&quot;,
+  &quot;data&quot;: {
+    &quot;email_id&quot;: &quot;4ef9a417-...&quot;,
+    &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+    &quot;to&quot;: [&quot;ada@example.com&quot;],
+    &quot;subject&quot;: &quot;Your order is confirmed&quot;,
+    &quot;created_at&quot;: &quot;2026-11-14T09:12:04.120Z&quot;,
+    &quot;click&quot;: { &quot;link&quot;: &quot;https://acme.com/orders/1042&quot;, &quot;user_agent&quot;: &quot;Mozilla/5.0 ...&quot;, &quot;ip&quot;: &quot;102.89.0.1&quot; }
+  }
+}</code></pre><p><b>contact.created</b></p><pre><code class="language-json">{
+  &quot;type&quot;: &quot;contact.created&quot;,
+  &quot;created_at&quot;: &quot;2026-11-14T08:00:00.000Z&quot;,
+  &quot;data&quot;: { &quot;id&quot;: &quot;c_12...&quot;, &quot;email&quot;: &quot;ada@example.com&quot;, &quot;first_name&quot;: &quot;Ada&quot;, &quot;last_name&quot;: &quot;Lovelace&quot;, &quot;unsubscribed&quot;: false, &quot;created_at&quot;: &quot;2026-11-14T08:00:00.000Z&quot; }
+}</code></pre><p><b>domain.updated</b></p><pre><code class="language-json">{
+  &quot;type&quot;: &quot;domain.updated&quot;,
+  &quot;created_at&quot;: &quot;2026-11-14T08:05:00.000Z&quot;,
+  &quot;data&quot;: { &quot;id&quot;: &quot;d91e...&quot;, &quot;name&quot;: &quot;mail.acme.com&quot;, &quot;status&quot;: &quot;verified&quot;, &quot;region&quot;: &quot;eu-west-1&quot; }
+}</code></pre>
+<p>All email events share <code>email_id</code>, <code>from</code>, <code>to</code>, <code>subject</code> and <code>created_at</code>, plus <code>tags</code> (as an object) when the email had tags and <code>broadcast_id</code> for broadcast emails. <code>email.bounced</code> adds <code>bounce</code>, <code>email.clicked</code> adds <code>click</code>, <code>email.failed</code> adds <code>failed: { reason }</code>. The <code>email.received</code> payload is shown in <a href="/docs/receiving">Receiving email</a>.</p>
+<h2 id="verify-signatures">Verify signatures</h2>
+<p>Every request is signed with the <a href="https://www.standardwebhooks.com" target="_blank" rel="noopener" data-native>Standard Webhooks</a> scheme, using three headers:</p>
+<div class="d-table"><table><thead><tr><th>Header</th><th>Contains</th></tr></thead><tbody><tr><td><code>webhook-id</code></td><td>A unique event id, like <code>evt_8c1...</code>. The same for retries of one event</td></tr><tr><td><code>webhook-timestamp</code></td><td>Unix time in seconds when this attempt was sent</td></tr><tr><td><code>webhook-signature</code></td><td><code>v1,&lt;base64 signature&gt;</code> (several, space-separated, during secret rotation)</td></tr></tbody></table></div>
+<p>The signature is HMAC-SHA256 of <code>${webhook-id}.${webhook-timestamp}.${raw body}</code>, keyed with the base64-decoded part of your secret after <code>whsec_</code>. Always verify against the <b>raw</b> body, before any JSON parsing, and reject timestamps more than five minutes old.</p>
+<p><b>Node.js</b></p><pre><code class="language-ts">import { verifyWebhook } from &quot;delivrie&quot;;
+
+// Next.js route handler, Hono, Workers... (Express: use express.raw and pass req.body)
+export async function POST(req: Request) {
+  try {
+    const event = await verifyWebhook({
+      payload: await req.text(),
+      headers: req.headers,
+      secret: process.env.DELIVRIE_WEBHOOK_SECRET!,
+    });
+    await handle(event);
+    return new Response(&quot;ok&quot;);
+  } catch {
+    return new Response(&quot;invalid signature&quot;, { status: 400 });
+  }
+}</code></pre><p><b>Python</b></p><pre><code class="language-python">import base64, hashlib, hmac, json, time
+
+def verify_webhook(payload: bytes, headers: dict, secret: str) -&gt; dict:
+    msg_id, ts = headers[&quot;webhook-id&quot;], headers[&quot;webhook-timestamp&quot;]
+    if abs(time.time() - int(ts)) &gt; 300:
+        raise ValueError(&quot;timestamp too old&quot;)
+    key = base64.b64decode(secret.removeprefix(&quot;whsec_&quot;))
+    expected = base64.b64encode(hmac.new(key, f&quot;{msg_id}.{ts}.&quot;.encode() + payload, hashlib.sha256).digest()).decode()
+    if not any(s.startswith(&quot;v1,&quot;) and hmac.compare_digest(s[3:], expected) for s in headers[&quot;webhook-signature&quot;].split()):
+        raise ValueError(&quot;invalid signature&quot;)
+    return json.loads(payload)</code></pre><p><b>PHP</b></p><pre><code class="language-php">function verify_webhook(string $payload, array $h, string $secret): array {
+    if (abs(time() - (int) $h[&#39;webhook-timestamp&#39;]) &gt; 300) throw new Exception(&#39;timestamp too old&#39;);
+    $key = base64_decode(preg_replace(&#39;/^whsec_/&#39;, &#39;&#39;, $secret));
+    $expected = base64_encode(hash_hmac(&#39;sha256&#39;, &quot;{$h[&#39;webhook-id&#39;]}.{$h[&#39;webhook-timestamp&#39;]}.$payload&quot;, $key, true));
+    foreach (explode(&#39; &#39;, $h[&#39;webhook-signature&#39;]) as $sig) {
+        if (str_starts_with($sig, &#39;v1,&#39;) &amp;&amp; hash_equals($expected, substr($sig, 3))) return json_decode($payload, true);
+    }
+    throw new Exception(&#39;invalid signature&#39;);
+}</code></pre>
+<p>Ruby, Go and Rust versions are in their guides: <a href="/docs/ruby">Ruby</a>, <a href="/docs/go">Go</a>, <a href="/docs/rust">Rust</a>. Standard Webhooks libraries (<code>standardwebhooks</code> on npm and PyPI, and others) also work with your <code>whsec_</code> secret.</p>
+<h2 id="respond-quickly">Respond quickly</h2>
+<p>Return any <code>2xx</code> status within 15 seconds. Do slow work (database writes, calling other APIs) in a background job after responding. Redirects aren&#39;t followed and count as failures.</p>
+<h2 id="retries">Retries</h2>
+<p>Failed deliveries (non-<code>2xx</code>, timeout, connection error) are retried with increasing gaps: after about 5 seconds, 5 minutes, 30 minutes, 2 hours, 5 hours, then every 10 hours, for up to 72 hours.</p>
+<ul><li>Events can arrive more than once and out of order. Use <code>webhook-id</code> to skip duplicates, and <code>created_at</code> to order them.</li><li>See every attempt, with the status code and response, on the endpoint&#39;s page in <a href="https://delivrie.io/webhooks" data-native>Webhooks</a> or with <code>GET /webhooks/:id/events</code>.</li><li>Resend any attempt with <b>Replay</b> or <code>POST /webhook-deliveries/:id/replay</code>.</li><li>Check your endpoint with <b>Send test event</b> or <code>POST /webhooks/:id/test</code>.</li></ul>
+<h2 id="test-locally">Test locally</h2>
+<p>Expose your local server with a tunnel such as <code>ngrok http 3000</code> or <code>cloudflared tunnel --url http://localhost:3000</code>, add the tunnel URL as an endpoint, then send to a <a href="/docs/test-mode">test address</a> to trigger real events.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

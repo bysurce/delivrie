@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Send an email · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="POST /emails sends one email. Body fields: from (required) &quot;Name &lt;you@yourdomain.com&gt;&quot; from a verified domain. to (required) one address or an array of up…">
+  <meta name="description" content="Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/send-email">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/send-email.md">
   <meta property="og:url" content="https://delivrie.io/docs/send-email">
   <meta property="og:title" content="Send an email · Delivrie Docs">
-  <meta property="og:description" content="POST /emails sends one email. Body fields: from (required) &quot;Name &lt;you@yourdomain.com&gt;&quot; from a verified domain. to (required) one address or an array of up…">
+  <meta property="og:description" content="Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,92 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Send an email", "description": "POST /emails sends one email. Body fields: from (required) \"Name <you@yourdomain.com>\" from a verified domain. to (required) one address or an array of up…", "url": "https://delivrie.io/docs/send-email", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Send an email", "item": "https://delivrie.io/docs/send-email"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Send an email", "description": "Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags…", "url": "https://delivrie.io/docs/send-email", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Send an email", "item": "https://delivrie.io/docs/send-email"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Send an email</h1><p>POST /emails sends one email. Body fields:<br>from (required) &quot;Name &lt;you@yourdomain.com&gt;&quot; from a verified domain.<br>to (required) one address or an array of up to 50.<br>subject (required unless you use a template).<br>html and/or text. If you only send html, Delivrie generates the plain-text part for you.<br>cc, bcc, reply_to: an address or array.<br>headers: an object of custom headers.<br>tags: [{ &quot;name&quot;: &quot;category&quot;, &quot;value&quot;: &quot;transactional&quot; }] (letters, numbers, _ and - only).<br>attachments: [{ &quot;filename&quot;: &quot;invoice.pdf&quot;, &quot;content&quot;: &quot;&lt;base64&gt;&quot; }] up to 40 MB total.<br>scheduled_at: an ISO 8601 date, or a phrase like &quot;in 1 hour&quot; or &quot;tomorrow at 9am&quot; (UTC), up to 30 days ahead.<br>template: { &quot;id&quot;: &quot;order-confirmation&quot;, &quot;variables&quot;: { &quot;first_name&quot;: &quot;Ada&quot; } } to send a published template by id or alias.</p><p>Send an Idempotency-Key header to make retries safe. The response is { &quot;id&quot;: &quot;&lt;email id&gt;&quot; }. POST /emails/batch takes an array of up to 100 emails.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Send an email</h1><p>Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags, custom headers, scheduling and batch sending.</p><p><code>POST https://delivrie.io/api/emails</code> sends one email. It returns as soon as the email is accepted, with its id; delivery happens in the background.</p>
+<p><b>cURL</b></p><pre><code class="language-bash">curl -X POST https://delivrie.io/api/emails \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: order-1042-receipt&quot; \
+  -d &#39;{
+    &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+    &quot;to&quot;: [&quot;ada@example.com&quot;],
+    &quot;subject&quot;: &quot;Your order is confirmed&quot;,
+    &quot;html&quot;: &quot;&lt;p&gt;Order &lt;b&gt;#1042&lt;/b&gt; is on its way.&lt;/p&gt;&quot;,
+    &quot;tags&quot;: [{ &quot;name&quot;: &quot;category&quot;, &quot;value&quot;: &quot;receipt&quot; }]
+  }&#39;</code></pre><p><b>Node.js</b></p><pre><code class="language-ts">const { data, error } = await delivrie.emails.send({
+  from: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+  to: [&quot;ada@example.com&quot;],
+  subject: &quot;Your order is confirmed&quot;,
+  html: &quot;&lt;p&gt;Order &lt;b&gt;#1042&lt;/b&gt; is on its way.&lt;/p&gt;&quot;,
+  tags: [{ name: &quot;category&quot;, value: &quot;receipt&quot; }],
+}, { idempotencyKey: &quot;order-1042-receipt&quot; });</code></pre><p><b>Python</b></p><pre><code class="language-python">res = requests.post(
+    &quot;https://delivrie.io/api/emails&quot;,
+    headers={&quot;Authorization&quot;: f&quot;Bearer {key}&quot;, &quot;Idempotency-Key&quot;: &quot;order-1042-receipt&quot;},
+    json={
+        &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+        &quot;to&quot;: [&quot;ada@example.com&quot;],
+        &quot;subject&quot;: &quot;Your order is confirmed&quot;,
+        &quot;html&quot;: &quot;&lt;p&gt;Order &lt;b&gt;#1042&lt;/b&gt; is on its way.&lt;/p&gt;&quot;,
+        &quot;tags&quot;: [{&quot;name&quot;: &quot;category&quot;, &quot;value&quot;: &quot;receipt&quot;}],
+    },
+)</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{ &quot;id&quot;: &quot;4ef9a417-02e9-4d39-ad75-9611e0fcc33c&quot; }</code></pre>
+<h2 id="fields">Fields</h2>
+<div class="d-table"><table><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Notes</th></tr></thead><tbody><tr><td><code>from</code></td><td>string</td><td>Yes</td><td><code>&quot;Name &lt;address@domain&gt;&quot;</code> or <code>&quot;address@domain&quot;</code>. The domain must be verified in your team.</td></tr><tr><td><code>to</code></td><td>string or string[]</td><td>Yes</td><td>Up to 50 addresses.</td></tr><tr><td><code>subject</code></td><td>string</td><td>Yes, unless you use <code>template</code></td><td></td></tr><tr><td><code>html</code></td><td>string</td><td>One of <code>html</code>, <code>text</code> or <code>template</code></td><td></td></tr><tr><td><code>text</code></td><td>string</td><td></td><td>Plain-text version. Generated from <code>html</code> when you leave it out.</td></tr><tr><td><code>cc</code>, <code>bcc</code></td><td>string or string[]</td><td></td><td></td></tr><tr><td><code>reply_to</code></td><td>string or string[]</td><td></td><td>Where replies go.</td></tr><tr><td><code>template</code></td><td>object</td><td></td><td><code>{ &quot;id&quot;: &quot;alias-or-id&quot;, &quot;variables&quot;: { ... } }</code>. See <a href="/docs/templates">Templates</a>.</td></tr><tr><td><code>scheduled_at</code></td><td>string</td><td></td><td>When to send. See <a href="#scheduling" data-native>Scheduling</a>.</td></tr><tr><td><code>tags</code></td><td>object[]</td><td></td><td><code>[{ &quot;name&quot;: &quot;...&quot;, &quot;value&quot;: &quot;...&quot; }]</code>. Returned in webhook events.</td></tr><tr><td><code>headers</code></td><td>object</td><td></td><td>Custom headers, like <code>{ &quot;X-Order-Id&quot;: &quot;1042&quot; }</code>.</td></tr><tr><td><code>attachments</code></td><td>object[]</td><td></td><td>See <a href="#attachments" data-native>Attachments</a>.</td></tr></tbody></table></div>
+<p>Send the <code>Idempotency-Key</code> header too, so a retried request never sends twice. See <a href="/docs/idempotency">Idempotency and retries</a>.</p>
+<h2 id="senders-and-display-names">Senders and display names</h2>
+<p><code>from</code> must use a domain you&#39;ve verified in <a href="https://delivrie.io/domains" data-native>Domains</a>, including any subdomain of it. Add a display name in angle-bracket form: <code>&quot;Acme Support &lt;support@mail.acme.com&gt;&quot;</code>. If the name has commas or other punctuation, wrap it in quotes: <code>&quot;\&quot;Acme, Inc.\&quot; &lt;hello@mail.acme.com&gt;&quot;</code>.</p>
+<p>Until your domain is verified, send from <code>onboarding@delivrie.io</code> to the <a href="/docs/test-mode">test addresses</a> and to members of your team.</p>
+<h2 id="recipients">Recipients</h2>
+<p>Each email can have up to 50 addresses in <code>to</code>. Everyone in <code>to</code> and <code>cc</code> sees each other; use <code>bcc</code> to hide recipients. To send different content to each person (a receipt per customer, say), send one email each, or up to 100 at a time with <a href="#batch-sending" data-native>batch sending</a>.</p>
+<p>Addresses on your <a href="/docs/suppressions">suppression list</a> are skipped automatically. If every recipient is suppressed, the email&#39;s status becomes <code>suppressed</code> and nothing is sent.</p>
+<h2 id="html-and-plain-text">HTML and plain text</h2>
+<p>Send <code>html</code>, <code>text</code>, or both. When you only send <code>html</code>, Delivrie builds the plain-text part for you, which helps deliverability. Inline your CSS (most email clients ignore <code>&lt;style&gt;</code> blocks), keep the width under about 600px, and use absolute <code>https://</code> URLs for images and links.</p>
+<h2 id="attachments">Attachments</h2>
+<p>Attach files as base64 <code>content</code>. The total size can be up to 40 MB per email.</p>
+<pre><code class="language-json">&quot;attachments&quot;: [
+  {
+    &quot;filename&quot;: &quot;invoice-1042.pdf&quot;,
+    &quot;content&quot;: &quot;JVBERi0xLjcKJc...&quot;,
+    &quot;content_type&quot;: &quot;application/pdf&quot;
+  }
+]</code></pre>
+<div class="d-table"><table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody><tr><td><code>filename</code></td><td>Required. Shown to the recipient.</td></tr><tr><td><code>content</code></td><td>Required. Base64-encoded file. (The Node.js SDK also accepts a <code>Buffer</code> or <code>Uint8Array</code>.)</td></tr><tr><td><code>content_type</code></td><td>Optional. Worked out from the filename when you leave it out.</td></tr><tr><td><code>content_id</code></td><td>Optional. Set it to show the file inline (see below).</td></tr></tbody></table></div>
+<p>Attachments by URL (<code>path</code>) aren&#39;t supported yet. Download the file and send its contents instead.</p>
+<h3 id="inline-images">Inline images</h3>
+<p>Give the attachment a <code>content_id</code> and reference it in your HTML with <code>cid:</code>:</p>
+<pre><code class="language-json">{
+  &quot;html&quot;: &quot;&lt;p&gt;Your QR code:&lt;/p&gt;&lt;img src=\&quot;cid:qr-1042\&quot; width=\&quot;200\&quot;&gt;&quot;,
+  &quot;attachments&quot;: [{ &quot;filename&quot;: &quot;qr.png&quot;, &quot;content&quot;: &quot;iVBORw0KGgo...&quot;, &quot;content_id&quot;: &quot;qr-1042&quot; }]
+}</code></pre>
+<h2 id="tags">Tags</h2>
+<p>Tags label emails so you can find them later and route webhook events. Names and values can use ASCII letters, numbers, <code>_</code> and <code>-</code>, up to 256 characters each.</p>
+<pre><code class="language-json">&quot;tags&quot;: [{ &quot;name&quot;: &quot;category&quot;, &quot;value&quot;: &quot;password_reset&quot; }, { &quot;name&quot;: &quot;user_id&quot;, &quot;value&quot;: &quot;u_8812&quot; }]</code></pre>
+<p>Tags come back in every webhook event as an object: <code>&quot;tags&quot;: { &quot;category&quot;: &quot;password_reset&quot;, &quot;user_id&quot;: &quot;u_8812&quot; }</code>.</p>
+<h2 id="custom-headers">Custom headers</h2>
+<pre><code class="language-json">&quot;headers&quot;: { &quot;X-Order-Id&quot;: &quot;1042&quot;, &quot;List-Unsubscribe&quot;: &quot;&lt;https://acme.com/unsubscribe?u=8812&gt;&quot; }</code></pre>
+<p>Delivrie builds <code>From</code>, <code>To</code>, <code>Cc</code>, <code>Bcc</code>, <code>Subject</code>, <code>Date</code>, <code>MIME-Version</code> and the content headers from your fields, and ignores those names in <code>headers</code>. Header values can&#39;t contain line breaks.</p>
+<h2 id="scheduling">Scheduling</h2>
+<p>Set <code>scheduled_at</code> to send later, up to 30 days ahead. It accepts:</p>
+<ul><li>an ISO 8601 date: <code>&quot;2026-12-01T09:00:00Z&quot;</code> or <code>&quot;2026-12-01T10:00:00+01:00&quot;</code></li><li>a phrase, read as UTC: <code>&quot;in 10 minutes&quot;</code>, <code>&quot;in 2 hours&quot;</code>, <code>&quot;tomorrow at 9am&quot;</code></li></ul>
+<p>The email gets status <code>scheduled</code>. Change the time with <code>PATCH /emails/:id</code> and <code>{ &quot;scheduled_at&quot;: &quot;...&quot; }</code>, or cancel it with <code>POST /emails/:id/cancel</code>, any time before it sends. Times less than 30 seconds away send right away.</p>
+<h2 id="batch-sending">Batch sending</h2>
+<p><code>POST /emails/batch</code> takes an array of up to 100 emails, each with its own recipients and content, and returns their ids in the same order:</p>
+<pre><code class="language-bash">curl -X POST https://delivrie.io/api/emails/batch \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: digest-2026-11-14&quot; \
+  -d &#39;[
+    { &quot;from&quot;: &quot;Acme &lt;hi@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;ada@example.com&quot;, &quot;subject&quot;: &quot;Your digest&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi Ada&lt;/p&gt;&quot; },
+    { &quot;from&quot;: &quot;Acme &lt;hi@mail.acme.com&gt;&quot;, &quot;to&quot;: &quot;tobi@example.com&quot;, &quot;subject&quot;: &quot;Your digest&quot;, &quot;html&quot;: &quot;&lt;p&gt;Hi Tobi&lt;/p&gt;&quot; }
+  ]&#39;</code></pre>
+<pre><code class="language-json">{ &quot;data&quot;: [{ &quot;id&quot;: &quot;4ef9a417-...&quot; }, { &quot;id&quot;: &quot;9a1c22b0-...&quot; }] }</code></pre>
+<p>Batch emails can&#39;t have attachments or <code>scheduled_at</code>. If any email in the batch is invalid, the whole batch is rejected and nothing is sent, so you can fix it and retry. To send the same email to a list of subscribers, use <a href="/docs/broadcasts">broadcasts</a> instead.</p>
+<h2 id="after-you-send">After you send</h2>
+<ul><li>Check status in <a href="https://delivrie.io/emails" data-native>Emails</a>, or with <code>GET /emails/:id</code>, which returns the email and its events. See <a href="/docs/email-status">Statuses and events</a>.</li><li>Get pushed updates with <a href="/docs/webhooks">webhooks</a>.</li><li>If a send fails, the response says why. See <a href="/docs/errors">Errors</a>.</li></ul><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

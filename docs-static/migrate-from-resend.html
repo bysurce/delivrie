@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Migrate from Resend · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to…">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/migrate-from-resend">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/migrate-from-resend.md">
+  <meta property="og:url" content="https://delivrie.io/docs/migrate-from-resend">
+  <meta property="og:title" content="Migrate from Resend · Delivrie Docs">
+  <meta property="og:description" content="Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to…">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Migrate from Resend", "description": "Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to…", "url": "https://delivrie.io/docs/migrate-from-resend", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Migrate from Resend", "item": "https://delivrie.io/docs/migrate-from-resend"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Migrate from Resend</h1><p>Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to the delivrie package.</p><p>Delivrie&#39;s API uses the same endpoints, field names and response shapes as Resend&#39;s, so most apps switch by changing two environment variables. Plan for about 30 minutes, most of it waiting for DNS.</p>
+<h2 id="1-add-your-domain-to-delivrie">1. Add your domain to Delivrie</h2>
+<p>Add the same sending domain in <a href="https://delivrie.io/domains/new" data-native>Domains</a>. Delivrie gives you a new DKIM record (its own selector, so it sits next to Resend&#39;s without conflict) and SPF records for a bounce subdomain.</p>
+<blockquote class="warn"><b>Important</b> Resend and Delivrie both use the <code>send</code> subdomain for bounces by default, and a name can only have one SPF record. To keep Resend working while you switch, set a different bounce subdomain when you add the domain: in the dashboard under <b>Advanced options</b>, or with <code>&quot;return_path&quot;: &quot;bounces&quot;</code> in [<code>POST /domains</code>](/docs/api/create-domain). You can remove Resend&#39;s records after the switch.</blockquote>
+<p>Leave out <code>region</code> when you create the domain, or use <code>eu-west-1</code>. Other regions aren&#39;t available yet.</p>
+<h2 id="2-create-a-delivrie-api-key">2. Create a Delivrie API key</h2>
+<p>Create one in <a href="https://delivrie.io/api-keys" data-native>API keys</a>. Delivrie keys start with <code>dlv_</code>. <code>full_access</code> and <code>sending_access</code> work the same way as in Resend.</p>
+<h2 id="3-point-your-code-at-delivrie">3. Point your code at Delivrie</h2>
+<h3 id="option-a-keep-the-resend-sdk">Option A: keep the Resend SDK</h3>
+<p>The official Resend SDKs can send to another API address. Set two environment variables and redeploy:</p>
+<div class="d-table"><table><thead><tr><th>SDK</th><th>Set these</th></tr></thead><tbody><tr><td>Node.js (<code>resend</code>)</td><td><code>RESEND_BASE_URL=https://delivrie.io/api</code> and <code>RESEND_API_KEY=dlv_...</code></td></tr><tr><td>Python (<code>resend</code>)</td><td><code>RESEND_API_URL=https://delivrie.io/api</code> and <code>RESEND_API_KEY=dlv_...</code></td></tr><tr><td>PHP (<code>resend/resend-php</code>, Laravel)</td><td><code>RESEND_BASE_URL=https://delivrie.io/api</code> and <code>RESEND_API_KEY=dlv_...</code></td></tr><tr><td>Go (<code>resend-go</code>)</td><td><code>RESEND_BASE_URL=https://delivrie.io/api/</code> (keep the trailing slash)</td></tr></tbody></table></div>
+<p>No code changes. <code>resend.emails.send</code>, <code>resend.batch.send</code>, <code>resend.emails.get</code>, scheduling, tags and idempotency keys behave the same. The Node SDK&#39;s <code>react</code> option keeps working too, because the SDK turns your React Email component into HTML before sending.</p>
+<h3 id="option-b-switch-to-the-delivrie-sdk-node-js">Option B: switch to the Delivrie SDK (Node.js)</h3>
+<pre><code class="language-bash">npm uninstall resend &amp;&amp; npm install delivrie</code></pre>
+<p><b>Before (Resend)</b></p><pre><code class="language-ts">import { Resend } from &quot;resend&quot;;
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const { data, error } = await resend.emails.send({
+  from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+  to: [&quot;ada@example.com&quot;],
+  subject: &quot;Welcome&quot;,
+  html: &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
+});</code></pre><p><b>After (Delivrie)</b></p><pre><code class="language-ts">import { Delivrie } from &quot;delivrie&quot;;
+
+const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
+const { data, error } = await delivrie.emails.send({
+  from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+  to: [&quot;ada@example.com&quot;],
+  subject: &quot;Welcome&quot;,
+  html: &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
+});</code></pre>
+<p>Same <code>{ data, error }</code> result, same field names. Using React Email? Render it yourself: <code>html: await render(&lt;Welcome /&gt;)</code> with <code>render</code> from <code>@react-email/render</code>.</p>
+<h3 id="option-c-plain-http">Option C: plain HTTP</h3>
+<p>Replace <code>https://api.resend.com</code> with <code>https://delivrie.io/api</code> and your <code>re_...</code> key with a <code>dlv_...</code> key. Paths and bodies stay the same.</p>
+<h2 id="4-update-webhooks">4. Update webhooks</h2>
+<p>Create a webhook in <a href="https://delivrie.io/webhooks" data-native>Webhooks</a> with the same events. Event names (<code>email.sent</code>, <code>email.delivered</code>, <code>email.bounced</code>, <code>email.complained</code>, <code>email.opened</code>, <code>email.clicked</code>, <code>email.received</code> and the rest) and the <code>{ type, created_at, data }</code> body are the same.</p>
+<p>Signatures use the same HMAC scheme, but the headers are named <code>webhook-id</code>, <code>webhook-timestamp</code> and <code>webhook-signature</code> (the <a href="https://www.standardwebhooks.com" target="_blank" rel="noopener" data-native>Standard Webhooks</a> names) instead of <code>svix-id</code>, <code>svix-timestamp</code> and <code>svix-signature</code>. Use <code>verifyWebhook</code> from the <code>delivrie</code> package, or any Standard Webhooks library, with your new <code>whsec_</code> secret. See <a href="/docs/webhooks">Webhooks</a> for code.</p>
+<h2 id="what-s-different">What&#39;s different</h2>
+<div class="d-table"><table><thead><tr><th>Resend</th><th>Delivrie</th></tr></thead><tbody><tr><td><code>https://api.resend.com</code></td><td><code>https://delivrie.io/api</code></td></tr><tr><td>Keys start with <code>re_</code></td><td>Keys start with <code>dlv_</code></td></tr><tr><td>Attachments by <code>path</code> (a URL)</td><td>Send base64 <code>content</code> instead; <code>path</code> isn&#39;t supported yet</td></tr><tr><td>Audiences (<code>/audiences/:id/contacts</code>)</td><td>Contacts live at <code>/contacts</code>; group them with <a href="/docs/contacts">segments</a></td></tr><tr><td>Broadcasts to an audience</td><td>Broadcasts go to a <code>segment_id</code></td></tr><tr><td><code>svix-*</code> webhook headers</td><td><code>webhook-*</code> headers, same signing</td></tr><tr><td>Several sending regions</td><td><code>eu-west-1</code> today</td></tr><tr><td><code>onboarding@resend.dev</code> for testing</td><td><code>onboarding@delivrie.io</code>, plus <a href="/docs/test-mode">test addresses</a></td></tr></tbody></table></div>
+<p>Things Delivrie adds: an <a href="/docs/smtp">SMTP relay</a> on ports 587 and 465, an <a href="/docs/inbox">inbox</a> for replies, <a href="/docs/automations">automations</a> triggered by events, an <a href="/docs/mcp">MCP server</a> for AI assistants, and billing in naira or dollars.</p>
+<h2 id="move-your-contacts-and-templates">Move your contacts and templates</h2>
+<ul><li><b>Contacts:</b> export a CSV from Resend and import it in <a href="https://delivrie.io/contacts/import" data-native>Contacts → Import</a>, or loop over them with [<code>POST /contacts</code>](/docs/api/create-contact).</li><li><b>Templates:</b> copy the HTML into a new <a href="/docs/templates">template</a>. Variables use the same <code>{{{name}}}</code> syntax, then publish and send with <code>template: { id: &quot;your-alias&quot;, variables: {...} }</code>. In broadcasts, <code>{{{RESEND_UNSUBSCRIBE_URL}}}</code> keeps working as an alias for <code>{{{unsubscribe_url}}}</code>.</li><li><b>Suppressions:</b> add addresses that bounced or complained on Resend with [<code>POST /suppressions</code>](/docs/api/add-suppression), so you don&#39;t email them again.</li></ul>
+<h2 id="switch-over-checklist">Switch-over checklist</h2>
+<ol><li>Domain verified in Delivrie, with a non-<code>send</code> bounce subdomain if Resend is still live.</li><li><code>dlv_</code> key stored in your production environment.</li><li>Send a test to <code>delivered@test.delivrie.io</code> from your production sender and check it in <a href="https://delivrie.io/emails" data-native>Emails</a>.</li><li>Webhook endpoint updated for the new header names and secret, and <b>Send test event</b> returns 200.</li><li>Deploy. Watch <a href="https://delivrie.io/emails" data-native>Emails</a> and <a href="https://delivrie.io/logs" data-native>Logs</a> for an hour.</li><li>Remove Resend&#39;s DNS records and keys when you&#39;re happy.</li></ol><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

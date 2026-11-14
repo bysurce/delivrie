@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Node.js SDK · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="The delivrie package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs, so the same code runs on…">
+  <meta name="description" content="The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/sdks">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/sdks.md">
   <meta property="og:url" content="https://delivrie.io/docs/sdks">
   <meta property="og:title" content="Node.js SDK · Delivrie Docs">
-  <meta property="og:description" content="The delivrie package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs, so the same code runs on…">
+  <meta property="og:description" content="The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,78 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Node.js SDK", "description": "The delivrie package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs, so the same code runs on…", "url": "https://delivrie.io/docs/sdks", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Node.js SDK", "item": "https://delivrie.io/docs/sdks"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Node.js SDK", "description": "The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook…", "url": "https://delivrie.io/docs/sdks", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Node.js SDK", "item": "https://delivrie.io/docs/sdks"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Node.js SDK</h1><p>The <code>delivrie</code> package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs, so the same code runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge. Install it with <code>npm install delivrie</code>.</p><p>Create a client with <code>new Delivrie(apiKey)</code>. Without a key it reads <code>DELIVRIE_API_KEY</code> from the environment. Keep the key on your server: never ship it to a browser.</p><p>Every call resolves to <code>{ data, error }</code>, and one of them is <code>null</code>. API errors don&#x27;t throw. <code>error</code> has <code>statusCode</code>, <code>name</code> and <code>message</code>, the same as the API&#x27;s errors; network problems and timeouts have <code>statusCode</code> 0 and the name <code>network_error</code> or <code>timeout</code>.</p><p>Reads and deletes are retried up to twice on server and network errors. Sends are only retried when you pass an <code>idempotencyKey</code>, so a retry never sends an email twice.</p><p>The client covers emails, domains, apiKeys, webhooks, contacts, segments, topics, broadcasts, templates, suppressions, events, automations, inbox, metrics, logs and usage, with types for every request and response. Attachments can be base64 strings, Buffers or Uint8Arrays.</p><p><code>verifyWebhook</code> checks a webhook&#x27;s Standard Webhooks signature against the raw request body and your <code>whsec_</code> secret, rejects replays older than five minutes, and returns the parsed event. It&#x27;s async because it uses Web Crypto.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Node.js SDK</h1><p>The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook verification.</p><p>The <code>delivrie</code> package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs (<code>fetch</code> and Web Crypto), so the same code runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge. Source: <a href="https://github.com/codeddesigner/delivrie/tree/main/sdk/node" target="_blank" rel="noopener" data-native>github.com/codeddesigner/delivrie</a>.</p>
+<p><b>npm</b></p><pre><code class="language-bash">npm install delivrie</code></pre><p><b>pnpm</b></p><pre><code class="language-bash">pnpm add delivrie</code></pre><p><b>yarn</b></p><pre><code class="language-bash">yarn add delivrie</code></pre><p><b>bun</b></p><pre><code class="language-bash">bun add delivrie</code></pre>
+<h2 id="create-a-client">Create a client</h2>
+<pre><code class="language-ts">import { Delivrie } from &quot;delivrie&quot;;
+
+const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);</code></pre>
+<p>If you leave out the key, the client reads <code>DELIVRIE_API_KEY</code> from the environment. On edge runtimes without <code>process.env</code> (Cloudflare Workers, for example), pass the key from your bindings: <code>new Delivrie(env.DELIVRIE_API_KEY)</code>.</p>
+<p>CommonJS works too: <code>const { Delivrie } = require(&quot;delivrie&quot;)</code>.</p>
+<div class="d-table"><table><thead><tr><th>Option</th><th>Default</th><th>What it does</th></tr></thead><tbody><tr><td><code>baseUrl</code></td><td><code>https://delivrie.io/api</code></td><td>API address</td></tr><tr><td><code>timeout</code></td><td><code>30000</code></td><td>Milliseconds before a request gives up</td></tr><tr><td><code>maxRetries</code></td><td><code>2</code></td><td>Retries for server errors and network failures</td></tr><tr><td><code>fetch</code></td><td>global <code>fetch</code></td><td>Your own fetch, for tests or older runtimes</td></tr><tr><td><code>headers</code></td><td>none</td><td>Extra headers on every request</td></tr></tbody></table></div>
+<pre><code class="language-ts">const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY, { timeout: 10_000, maxRetries: 3 });</code></pre>
+<h2 id="send-an-email">Send an email</h2>
+<pre><code class="language-ts">const { data, error } = await delivrie.emails.send({
+  from: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+  to: &quot;ada@example.com&quot;,
+  subject: &quot;Your order is confirmed&quot;,
+  html: &quot;&lt;p&gt;Order &lt;b&gt;#1042&lt;/b&gt; is on its way.&lt;/p&gt;&quot;,
+  replyTo: &quot;support@acme.com&quot;,
+  tags: [{ name: &quot;category&quot;, value: &quot;receipt&quot; }],
+}, { idempotencyKey: &quot;order-1042-receipt&quot; });</code></pre>
+<p>Field names match the API (<code>reply_to</code>, <code>scheduled_at</code>). <code>replyTo</code> and <code>scheduledAt</code> are accepted as aliases, and <code>scheduledAt</code> can be a <code>Date</code>. Every field is described in <a href="/docs/send-email">Send an email</a>.</p>
+<h2 id="results-and-errors">Results and errors</h2>
+<p>Every method resolves to <code>{ data, error }</code>, and exactly one of them is <code>null</code>. API errors never throw, so there&#39;s no <code>try</code>/<code>catch</code> to forget:</p>
+<pre><code class="language-ts">const { data, error } = await delivrie.emails.send(email);
+if (error) {
+  console.error(error.statusCode, error.name, error.message);
+  return;
+}
+console.log(data.id);</code></pre>
+<p><code>error.name</code> is the API&#39;s error name, like <code>validation_error</code> or <code>monthly_quota_exceeded</code> (see <a href="/docs/errors">Errors</a>). Problems that never reach the API come back with <code>statusCode: 0</code> and the name <code>network_error</code>, <code>timeout</code> or <code>aborted</code>.</p>
+<h2 id="retries-and-idempotency">Retries and idempotency</h2>
+<ul><li><code>GET</code> and <code>DELETE</code> requests are retried up to <code>maxRetries</code> times on <code>5xx</code> responses and network failures, with exponential backoff.</li><li>Sends (<code>POST</code>) are retried **only when you pass <code>idempotencyKey</code>**. The key makes the retry return the original email instead of sending a second one.</li></ul>
+<pre><code class="language-ts">await delivrie.emails.send(email, { idempotencyKey: `welcome-${user.id}` });</code></pre>
+<p>Cancel a request with an <code>AbortSignal</code>: <code>delivrie.emails.send(email, { signal: AbortSignal.timeout(5000) })</code>.</p>
+<h2 id="attachments">Attachments</h2>
+<p>Pass <code>content</code> as a base64 string, a Node.js <code>Buffer</code> or a <code>Uint8Array</code>; the SDK encodes bytes for you. Up to 40 MB per email.</p>
+<pre><code class="language-ts">import { readFile } from &quot;node:fs/promises&quot;;
+
+await delivrie.emails.send({
+  from: &quot;Billing &lt;billing@mail.acme.com&gt;&quot;,
+  to: &quot;ada@example.com&quot;,
+  subject: &quot;Your invoice&quot;,
+  text: &quot;Your invoice is attached.&quot;,
+  attachments: [{ filename: &quot;invoice-1042.pdf&quot;, content: await readFile(&quot;invoice-1042.pdf&quot;) }],
+});</code></pre>
+<h2 id="methods">Methods</h2>
+<div class="d-table"><table><thead><tr><th>Resource</th><th>Methods</th></tr></thead><tbody><tr><td><code>emails</code></td><td><code>send(email, opts?)</code>, <code>batch(emails, opts?)</code>, <code>get(id)</code>, <code>list({ limit, offset, direction })</code>, <code>listReceived()</code>, <code>update(id, { scheduled_at })</code>, <code>cancel(id)</code>, <code>forward(id, { to, from, note })</code></td></tr><tr><td><code>domains</code></td><td><code>create({ name })</code>, <code>get(id)</code>, <code>verify(id)</code>, <code>update(id, {...})</code>, <code>list()</code>, <code>remove(id)</code></td></tr><tr><td><code>apiKeys</code></td><td><code>create({ name, permission, domain_id })</code>, <code>list()</code>, <code>remove(id)</code></td></tr><tr><td><code>webhooks</code></td><td><code>create({ endpoint, events })</code>, <code>list()</code>, <code>deliveries(id)</code>, <code>test(id)</code>, <code>replay(deliveryId)</code>, <code>verify(opts)</code></td></tr><tr><td><code>contacts</code></td><td><code>create({...})</code>, <code>get(idOrEmail)</code>, <code>update(idOrEmail, {...})</code>, <code>list({...})</code>, <code>remove(idOrEmail)</code></td></tr><tr><td><code>segments</code></td><td><code>create({ name })</code>, <code>list()</code>, <code>remove(id)</code>, <code>addContacts(id, contacts)</code></td></tr><tr><td><code>topics</code>, <code>contactProperties</code></td><td><code>list()</code></td></tr><tr><td><code>broadcasts</code></td><td><code>create({...})</code>, <code>get(id)</code>, <code>list()</code>, <code>send(id, { scheduled_at })</code>, <code>cancel(id)</code>, <code>recipients(id)</code>, <code>remove(id)</code></td></tr><tr><td><code>templates</code></td><td><code>create({...})</code>, <code>get(idOrAlias)</code>, <code>list()</code>, <code>publish(id)</code></td></tr><tr><td><code>suppressions</code></td><td><code>add(email | emails)</code>, <code>list()</code>, <code>remove(email)</code></td></tr><tr><td><code>events</code></td><td><code>send({ event, email, data })</code>, <code>list()</code></td></tr><tr><td><code>automations</code></td><td><code>list()</code>, <code>get(id)</code>, <code>create({...})</code>, <code>runs(id)</code>, <code>publish(id)</code>, <code>pause(id)</code>, <code>resume(id)</code></td></tr><tr><td><code>inbox.threads</code></td><td><code>list({...})</code>, <code>get(id)</code>, <code>update(id, {...})</code>, <code>reply(id, { text | html })</code></td></tr><tr><td><code>inbox.labels</code></td><td><code>list()</code></td></tr><tr><td><code>metrics</code></td><td><code>get({ days, domain_id })</code></td></tr><tr><td><code>logs</code></td><td><code>list({ limit, offset })</code>, <code>get(id)</code></td></tr><tr><td><code>usage</code></td><td><code>get()</code></td></tr></tbody></table></div>
+<p>For anything not wrapped yet, call the API directly with the same auth, retries and error handling:</p>
+<pre><code class="language-ts">const { data, error } = await delivrie.request(&quot;GET&quot;, &quot;/emails/received&quot;, undefined, { query: { limit: 10 } });</code></pre>
+<h2 id="verify-webhooks">Verify webhooks</h2>
+<p><code>verifyWebhook</code> checks a webhook&#39;s signature against the raw request body and your <code>whsec_</code> secret, rejects requests older than five minutes, and returns the parsed event. It&#39;s <code>async</code> because it uses Web Crypto.</p>
+<pre><code class="language-ts">import { verifyWebhook } from &quot;delivrie&quot;;
+
+export async function POST(req: Request) {
+  try {
+    const event = await verifyWebhook({
+      payload: await req.text(),
+      headers: req.headers,
+      secret: process.env.DELIVRIE_WEBHOOK_SECRET!,
+    });
+    // event.type, event.data
+    return new Response(&quot;ok&quot;);
+  } catch {
+    return new Response(&quot;invalid signature&quot;, { status: 400 });
+  }
+}</code></pre>
+<p>With Express, read the raw body with <code>express.raw({ type: &quot;application/json&quot; })</code> and pass <code>req.body</code> and <code>req.headers</code>. More in <a href="/docs/webhooks">Webhooks</a>.</p>
+<h2 id="typescript">TypeScript</h2>
+<p>Types ship with the package: <code>SendEmailRequest</code>, <code>Email</code>, <code>Domain</code>, <code>Contact</code>, <code>WebhookEvent</code>, <code>DelivrieErrorResponse</code> and more.</p>
+<pre><code class="language-ts">import type { SendEmailRequest, WebhookEvent } from &quot;delivrie&quot;;</code></pre><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

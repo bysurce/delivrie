@@ -4,15 +4,16 @@
   <meta charset="utf-8">
   <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>How do I fix CORS errors? · Delivrie Docs</title>
+  <title>CORS and browser apps · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Never call the Delivrie API directly from a browser: it would expose your API key to anyone who opens the page. Call it from your server, a serverless…">
+  <meta name="description" content="Why you shouldn&#x27;t call the Delivrie API from the browser, and how to send email from React, Vue, mobile and no-code front ends through a small server…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/cors">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/cors.md">
   <meta property="og:url" content="https://delivrie.io/docs/cors">
-  <meta property="og:title" content="How do I fix CORS errors? · Delivrie Docs">
-  <meta property="og:description" content="Never call the Delivrie API directly from a browser: it would expose your API key to anyone who opens the page. Call it from your server, a serverless…">
+  <meta property="og:title" content="CORS and browser apps · Delivrie Docs">
+  <meta property="og:description" content="Why you shouldn&#x27;t call the Delivrie API from the browser, and how to send email from React, Vue, mobile and no-code front ends through a small server…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,39 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "How do I fix CORS errors?", "description": "Never call the Delivrie API directly from a browser: it would expose your API key to anyone who opens the page. Call it from your server, a serverless…", "url": "https://delivrie.io/docs/cors", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "How do I fix CORS errors?", "item": "https://delivrie.io/docs/cors"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "CORS and browser apps", "description": "Why you shouldn't call the Delivrie API from the browser, and how to send email from React, Vue, mobile and no-code front ends through a small server…", "url": "https://delivrie.io/docs/cors", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "CORS and browser apps", "item": "https://delivrie.io/docs/cors"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>How do I fix CORS errors?</h1><p>Never call the Delivrie API directly from a browser: it would expose your API key to anyone who opens the page. Call it from your server, a serverless function or an edge function, and keep the key in an environment variable.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>CORS and browser apps</h1><p>Why you shouldn&#x27;t call the Delivrie API from the browser, and how to send email from React, Vue, mobile and no-code front ends through a small server route instead.</p><p>If you call <code>https://delivrie.io/api</code> from code that runs in a browser or mobile app, anyone can open developer tools, copy your API key and send email as you. So keep the key on a server.</p>
+<h2 id="send-through-a-server-route">Send through a server route</h2>
+<p>Put the API call in code you control on the server, and have your front end call that:</p>
+<p><b>app/api/contact/route.ts (Next.js)</b></p><pre><code class="language-ts">import { Delivrie } from &quot;delivrie&quot;;
+
+const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
+
+export async function POST(req: Request) {
+  const { email, message } = await req.json();
+  if (!email || !message) return Response.json({ error: &quot;Missing fields&quot; }, { status: 400 });
+
+  const { error } = await delivrie.emails.send({
+    from: &quot;Website &lt;forms@mail.acme.com&gt;&quot;,
+    to: &quot;team@acme.com&quot;,
+    replyTo: email,
+    subject: &quot;New message from the website&quot;,
+    text: message,
+  });
+  return error ? Response.json({ error: error.message }, { status: 502 }) : Response.json({ ok: true });
+}</code></pre><p><b>Front end</b></p><pre><code class="language-ts">await fetch(&quot;/api/contact&quot;, {
+  method: &quot;POST&quot;,
+  headers: { &quot;Content-Type&quot;: &quot;application/json&quot; },
+  body: JSON.stringify({ email, message }),
+});</code></pre>
+<p>Good places for that server code: a Next.js route handler or Server Action, a <a href="/docs/supabase">Supabase Edge Function</a>, a <a href="/docs/cloudflare-workers">Cloudflare Worker</a>, a Vercel or Netlify function, Firebase Cloud Functions, or your own backend.</p>
+<h2 id="protect-the-route">Protect the route</h2>
+<p>A public route that sends email can be abused too. Before sending:</p>
+<ul><li>Send to fixed addresses you control (like your team inbox) rather than an address from the request, or only to the signed-in user&#39;s own address.</li><li>Rate-limit by IP or user.</li><li>Add a CAPTCHA (Turnstile, hCaptcha or reCAPTCHA) to public forms.</li><li>Use a <a href="/docs/api-keys">sending access key</a> limited to one domain.</li></ul>
+<h2 id="no-code-and-ai-app-builders">No-code and AI app builders</h2>
+<p>Lovable, Bolt, v0, Replit and similar tools can generate the server route for you. Ask them to &quot;send email from a server function using the Delivrie API, reading DELIVRIE_API_KEY from secrets, never from the browser&quot;. See <a href="/docs/build-with-ai">Build with AI</a> for prompts.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

@@ -91,21 +91,20 @@ def marketing():
 
 # ---------------------------------------------------------------- docs
 def docs_data():
+    """Guides (rendered with the same Markdown renderer as the docs site), API reference and MCP data."""
     js = r"""
-    const [{ DOCS }, { ALL_ENDPOINTS }] = await Promise.all([import('./app/js/lib/docs.js'), import('./app/js/lib/apiref.js')]);
+    const [{ DOCS, GROUPS }, { ALL_ENDPOINTS, samples }, { renderMarkdown }] = await Promise.all([
+      import('./app/js/lib/docs.js'), import('./app/js/lib/apiref.js'), import('./app/js/lib/md.js')]);
     const src = (await import('fs')).readFileSync('./app/js/pages/docs.js', 'utf8');
-    const guides = eval(src.slice(src.indexOf('const GUIDES = ') + 15, src.indexOf('];', src.indexOf('const GUIDES = ')) + 1));
-    console.log(JSON.stringify({ DOCS, ALL_ENDPOINTS, guides }));
+    const grab = (name) => { const a = src.indexOf(`const ${name} = [`); return src.slice(a + `const ${name} = `.length, src.indexOf('\n];', a) + 2); };
+    const MCP_URL = "https://delivrie.io/api/mcp";
+    const TOOLS = eval(grab('TOOLS')), CLIENTS = eval(grab('CLIENTS'));
+    const html = Object.fromEntries(DOCS.map((d) => [d.id, renderMarkdown(d.body).html]));
+    const curl = Object.fromEntries(ALL_ENDPOINTS.map((e) => [e.slug, samples(e, "https://delivrie.io/api").cURL]));
+    console.log(JSON.stringify({ DOCS, GROUPS, ALL_ENDPOINTS, TOOLS, CLIENTS, html, curl }));
     """
     out = subprocess.run(["node", "--input-type=module", "-e", js], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return json.loads(out)
-
-def para(text):
-    out = []
-    for block in re.split(r"\n\s*\n", text.strip()):
-        lines = [l for l in block.split("\n") if l.strip()]
-        out.append("<p>" + "<br>".join(re.sub(r"`([^`]+)`", r"<code>\1</code>", E(l)) for l in lines) + "</p>")
-    return "".join(out)
 
 def short(text, n=155):
     t = re.sub(r"\s+", " ", text.replace("`", "")).strip()
@@ -113,21 +112,89 @@ def short(text, n=155):
     cut = t[:n].rsplit(" ", 1)[0].rstrip(",;:")
     return cut + "…"
 
+def md_cell(v):
+    return str(v).replace("|", "\\|").replace("\n", " ")
+
+def api_md(e, curl):
+    """One API endpoint as Markdown, for /docs/api/<slug>.md and llms-full.txt."""
+    out = [f"# {e['title']}", "", f"`{e['m']} https://delivrie.io/api{e['path']}`", "", e.get("desc", ""), "", f"Access: {e.get('scope', 'Full access')}."]
+    if e.get("tool"): out[-1] += f" MCP tool: `{e['tool']}`."
+    def table(title, rows):
+        if not rows: return
+        out.extend(["", f"## {title}", "", "| Name | Type | Required | Description |", "| --- | --- | --- | --- |"])
+        for r in rows:
+            desc = md_cell(r[3] if len(r) > 3 else "") + (f" Default: `{r[4]}`." if len(r) > 4 and r[4] else "")
+            out.append(f"| `{md_cell(r[0])}` | {md_cell(r[1])} | {'Yes' if len(r) > 2 and r[2] else 'No'} | {desc} |")
+    table("Headers", e.get("headers") or [["Authorization", "string", True, "Bearer dlv_your_key"]])
+    table("Path parameters", e.get("params"))
+    table("Query parameters", e.get("query"))
+    table("Body", e.get("body"))
+    out.extend(["", "## Example request", "", "```bash", curl, "```"])
+    if e.get("response") is not None:
+        out.extend(["", "## Response", "", "```json", json.dumps(e["response"], indent=2, ensure_ascii=False), "```"])
+    errs = e.get("errors") or [["401", "missing_api_key", "No Authorization header was sent."], ["404", "not_found", "Nothing with that id on this team."]]
+    out.extend(["", "## Errors", "", "| Status | Name | When |", "| --- | --- | --- |"] + [f"| {a} | `{b}` | {md_cell(c)} |" for a, b, c in errs])
+    return "\n".join(out).strip() + "\n"
+
+def mcp_md(d):
+    out = ["# Delivrie MCP server", "",
+           "Connect AI assistants to Delivrie with the remote MCP server at `https://delivrie.io/api/mcp` (streamable HTTP).",
+           "Clients that support OAuth open a Delivrie page where you pick the team and approve scopes (`send`, `read`, `manage`); revoke access under Settings → Connected apps.",
+           "Clients without OAuth can send an API key as `Authorization: Bearer dlv_your_key`.", "", "## Install"]
+    for c in d["CLIENTS"]:
+        out.extend(["", f"### {c['name']} ({c['sub']})", "", f"{c['how']}. {c['file']}:", "", f"```{c['lang']}", c["code"], "```"])
+    out.extend(["", f"## Tools ({len(d['TOOLS'])})", "", "| Tool | What it does | Scope |", "| --- | --- | --- |"] + [f"| `{n}` | {md_cell(desc)} | {sc} |" for n, desc, sc in d["TOOLS"]])
+    return "\n".join(out) + "\n"
+
+def guide_md(g):
+    return f"# {g['title']}\n\n{g['description']}\n\n{g['body'].strip()}\n"
+
+def llms(d, api_mds, mcp):
+    """/llms.txt (index) and /llms-full.txt (everything), per llmstxt.org."""
+    by_id = {x["id"]: x for x in d["DOCS"]}
+    idx = ["# Delivrie", "",
+           "> Delivrie is an email API for developers: send transactional and marketing email from your own domain, receive replies, "
+           "and get delivery events as webhooks. REST API at https://delivrie.io/api (Bearer API keys), an official Node.js/TypeScript SDK "
+           "(`npm install delivrie`), an SMTP relay at smtp.delivrie.io, and a remote MCP server at https://delivrie.io/api/mcp. "
+           "The API matches Resend's request and response shapes.", "",
+           "Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bearer $DELIVRIE_API_KEY`, JSON `{ from, to, subject, html | text }`. "
+           "`from` must be on a verified domain (or onboarding@delivrie.io for tests to your team and *@test.delivrie.io). "
+           "Errors are JSON `{ statusCode, name, message }`. Send an Idempotency-Key header so retries never double-send. Never call the API from browser code.", ""]
+    for group, items in d["GROUPS"]:
+        idx.append(f"## {group}")
+        idx.append("")
+        for gid, title in items:
+            idx.append(f"- [{title}]({SITE}/docs/{gid}.md): {by_id[gid]['description']}")
+        idx.append("")
+    idx.extend(["## API reference", ""])
+    for e in d["ALL_ENDPOINTS"]:
+        idx.append(f"- [{e['title']}]({SITE}/docs/api/{e['slug']}.md): `{e['m']} {e['path']}`. {e.get('desc', '')}")
+    idx.extend(["", "## Optional", "", f"- [MCP server]({SITE}/docs/mcp.md): install in Claude, Cursor, Codex, v0, Antigravity and VS Code, and the full tool list",
+                f"- [Everything in one file]({SITE}/llms-full.txt): all guides and the full API reference", f"- [Pricing]({SITE}/pricing)", ""])
+    wr("llms.txt", "\n".join(idx))
+    full = ["\n".join(idx[:6]), ""]
+    for group, items in d["GROUPS"]:
+        for gid, _ in items:
+            full.append(guide_md(by_id[gid]))
+    full.append("# API reference\n\nBase URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv_your_key`.\n")
+    full.extend(api_mds)
+    full.append(mcp)
+    wr("llms-full.txt", "\n\n---\n\n".join(full))
+
 def docs():
+    import build_docs
+    build_docs.build()
     d = docs_data()
     shell = rd("app.html").replace('\n  <meta name="robots" content="noindex">', "")
     pages = []   # (slug_path, title, desc, body_html, crumbs)
-    nav = "".join(f'<li><a href="/docs/{gid}">{E(name)}</a></li>' for _, items in d["guides"] for gid, name in items)
+    nav = "".join(f'<li><a href="/docs/{gid}">{E(name)}</a></li>' for _, items in d["GROUPS"] for gid, name in items)
     api_nav = "".join(f'<li><a href="/docs/api/{e["slug"]}">{E(e["title"])}</a></li>' for e in d["ALL_ENDPOINTS"])
     by_id = {x["id"]: x for x in d["DOCS"]}
-    for _, items in d["guides"]:
+    for _, items in d["GROUPS"]:
         for gid, name in items:
-            g = by_id.get(gid)
-            if not g: continue
-            pages.append((f"/docs/{gid}" if gid != "getting-started" else "/docs", g["title"], short(g["body"]), f"<h1>{E(g['title'])}</h1>{para(g['body'])}", [("Docs", "/docs"), (g["title"], f"/docs/{gid}")]))
-    for gid, g in by_id.items():
-        if not any(gid == x for _, items in d["guides"] for x, _ in items) and gid not in ("getting-started",):
-            pages.append((f"/docs/{gid}", g["title"], short(g["body"]), f"<h1>{E(g['title'])}</h1>{para(g['body'])}", [("Docs", "/docs"), (g["title"], f"/docs/{gid}")]))
+            g = by_id[gid]
+            pages.append((f"/docs/{gid}" if gid != "getting-started" else "/docs", g["title"], short(g["description"]),
+                          f"<h1>{E(g['title'])}</h1><p>{E(g['description'])}</p>{d['html'][gid]}", [("Docs", "/docs"), (g["title"], f"/docs/{gid}")]))
     pages.append(("/docs/mcp", "MCP server", "Connect Claude, ChatGPT, Cursor, Codex, Antigravity or VS Code to Delivrie with the remote MCP server at https://delivrie.io/api/mcp: 64 tools, OAuth sign-in and scoped access.",
                   "<h1>Delivrie MCP server</h1><p>Server URL: <code>https://delivrie.io/api/mcp</code> (streamable HTTP). Sign in with OAuth or use an API key. 64 tools for sending email, broadcasts, automations, contacts, domains, metrics and inbox replies.</p>", [("Docs", "/docs"), ("MCP server", "/docs/mcp")]))
     pages.append(("/docs/api", "API reference", f"The Delivrie REST API: {len(d['ALL_ENDPOINTS'])} endpoints for emails, domains, contacts, broadcasts, templates, webhooks and more, with request and response examples.",
@@ -137,20 +204,19 @@ def docs():
         body = f"<h1>{E(e['title'])}</h1><p><code>{E(e['m'])} {E(e['path'])}</code></p><p>{E(e.get('desc', ''))}</p>" + (f"<table><thead><tr><th>Field</th><th>Type</th><th></th><th>Description</th></tr></thead><tbody>{fields}</tbody></table>" if fields else "")
         pages.append((f"/docs/api/{e['slug']}", f"{e['title']} API", short(f"{e['m']} {e['path']}: {e.get('desc', '')}"), body, [("Docs", "/docs"), ("API reference", "/docs/api"), (e["title"], f"/docs/api/{e['slug']}")]))
 
-    seen, uniq = set(), []
-    for pg in pages:
-        if pg[0] not in seen: seen.add(pg[0]); uniq.append(pg)
-    pages = uniq
     out_dir = os.path.join(ROOT, "docs-static")
-    if os.path.isdir(out_dir):
-        for dp, _, fs in os.walk(out_dir):
-            for f in fs: os.remove(os.path.join(dp, f))
+    for sub in ("docs-static", "docs-md"):
+        p_ = os.path.join(ROOT, sub)
+        if os.path.isdir(p_):
+            for dp, _, fs in os.walk(p_):
+                for f in fs: os.remove(os.path.join(dp, f))
     style = "max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"
     for path, title, desc, body, cr in pages:
         full_title = f"{title} · Delivrie Docs"
         doc = set_head(shell, title=full_title, desc=desc)
         canon = SITE + path
-        doc = doc.replace('<meta property="og:title"', f'<link rel="canonical" href="{canon}">\n  <meta property="og:url" content="{canon}">\n  <meta property="og:title"', 1)
+        md_alt = SITE + (path if path != "/docs" else "/docs/getting-started") + ".md"
+        doc = doc.replace('<meta property="og:title"', f'<link rel="canonical" href="{canon}">\n  <link rel="alternate" type="text/markdown" href="{md_alt}">\n  <meta property="og:url" content="{canon}">\n  <meta property="og:title"', 1)
         tech = {"@type": "TechArticle", "headline": title, "description": desc, "url": canon, "publisher": {"@id": f"{SITE}/#org"}, "dateModified": TODAY}
         doc = doc.replace("</head>", "  " + ld(tech, crumbs(("Home", "/"), *cr), ORG) + "\n</head>", 1)
         pre = f'<div data-prerender style="{style}"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav>{body}<h2>More guides</h2><ul>{nav}</ul></div>'
@@ -158,23 +224,45 @@ def docs():
         rel = "index" if path == "/docs" else path[len("/docs/"):]
         wr(f"docs-static/{rel}.html", doc)
         if path == "/docs": wr("docs-static/getting-started.html", doc)  # same guide; canonical stays /docs
+
+    # Markdown copies for AI tools: /docs/<guide>.md, /docs/api/<endpoint>.md, /docs/mcp.md, plus /llms.txt and /llms-full.txt
+    for g in d["DOCS"]:
+        wr(f"docs-md/{g['id']}.md", guide_md(g))
+    api_mds = []
+    for e in d["ALL_ENDPOINTS"]:
+        m = api_md(e, d["curl"][e["slug"]])
+        api_mds.append(m)
+        wr(f"docs-md/api/{e['slug']}.md", m)
+    wr("docs-md/api.md", "# Delivrie API reference\n\nBase URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv_your_key`. JSON in, JSON out; errors are `{ statusCode, name, message }`.\n\n"
+       + "\n".join(f"- [{e['title']}]({SITE}/docs/api/{e['slug']}.md): `{e['m']} {e['path']}`" for e in d["ALL_ENDPOINTS"]) + "\n")
+    mcp = mcp_md(d)
+    wr("docs-md/mcp.md", mcp)
+    llms(d, api_mds, mcp)
     return [p[0] for p in pages]
 
 # ---------------------------------------------------------------- routes, sitemap, robots
 def routes(doc_paths):
     vj = json.load(open(os.path.join(ROOT, "vercel.json")))
     # routes this script owns are recognised by their destination, so re-running replaces them
-    owned = lambda r: r["destination"].startswith(("/compare.html", "/docs-static/")) or (r["source"] in ("/compare", "/vs/resend", "/vs/brevo"))
+    owned = lambda r: r["destination"].startswith(("/compare.html", "/docs-static/", "/docs-md/")) or (r["source"] in ("/compare", "/vs/resend", "/vs/brevo"))
     rw = [r for r in vj["rewrites"] if not owned(r)]
     guide = sorted({p[len("/docs/"):] for p in doc_paths if p.count("/") == 2 and p != "/docs/api"} | {"getting-started"})
     api = sorted(p[len("/docs/api/"):] for p in doc_paths if p.startswith("/docs/api/"))
     vj["rewrites"] = [
         {"source": "/compare", "destination": "/compare.html"},
+        {"source": "/docs/api/:slug.md", "destination": "/docs-md/api/:slug.md"},
+        {"source": "/docs/:slug.md", "destination": "/docs-md/:slug.md"},
         {"source": "/docs", "destination": "/docs-static/index.html"},
         {"source": "/docs/api", "destination": "/docs-static/api.html"},
         {"source": f"/docs/api/:slug({'|'.join(api)})", "destination": "/docs-static/api/:slug.html"},
         {"source": f"/docs/:slug({'|'.join(guide)})", "destination": "/docs-static/:slug.html"},
     ] + rw
+    md_headers = [{"key": "Content-Type", "value": "text/markdown; charset=utf-8"}, {"key": "Access-Control-Allow-Origin", "value": "*"}, {"key": "Cache-Control", "value": "public, max-age=300"}]
+    md_sources = ("/docs-md/(.*)", "/docs/(.*).md", "/llms.txt", "/llms-full.txt")
+    vj["headers"] = [h for h in vj.get("headers", []) if h["source"] not in md_sources]
+    vj["headers"] = [{"source": "/docs-md/(.*)", "headers": md_headers}, {"source": "/docs/(.*).md", "headers": md_headers},
+                     {"source": "/llms.txt", "headers": [{"key": "Content-Type", "value": "text/plain; charset=utf-8"}] + md_headers[1:]},
+                     {"source": "/llms-full.txt", "headers": [{"key": "Content-Type", "value": "text/plain; charset=utf-8"}] + md_headers[1:]}] + vj["headers"]
     json.dump(vj, open(os.path.join(ROOT, "vercel.json"), "w"), indent=2); open(os.path.join(ROOT, "vercel.json"), "a").write("\n")
 
 def sitemap(doc_paths):

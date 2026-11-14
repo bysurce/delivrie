@@ -1,0 +1,130 @@
+# Delivrie
+
+> Delivrie is an email API for developers: send transactional and marketing email from your own domain, receive replies, and get delivery events as webhooks. REST API at https://delivrie.io/api (Bearer API keys), an official Node.js/TypeScript SDK (`npm install delivrie`), an SMTP relay at smtp.delivrie.io, and a remote MCP server at https://delivrie.io/api/mcp. The API matches Resend's request and response shapes.
+
+Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bearer $DELIVRIE_API_KEY`, JSON `{ from, to, subject, html | text }`. `from` must be on a verified domain (or onboarding@delivrie.io for tests to your team and *@test.delivrie.io). Errors are JSON `{ statusCode, name, message }`. Send an Idempotency-Key header so retries never double-send. Never call the API from browser code.
+
+## Get started
+
+- [Introduction](https://delivrie.io/docs/getting-started.md): What Delivrie is, how the API works, and where to start: base URL, authentication, SDKs, SMTP and the MCP server.
+- [Quickstart](https://delivrie.io/docs/quickstart.md): Send your first email in five minutes: create an account and API key, test with the shared sender, then verify your own domain.
+- [Build with AI](https://delivrie.io/docs/build-with-ai.md): Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and the MCP server.
+- [Migrate from Resend](https://delivrie.io/docs/migrate-from-resend.md): Move from Resend to Delivrie without rewriting your app: same request shapes, point the Resend SDK at Delivrie with one environment variable, or switch to the delivrie package.
+- [API keys](https://delivrie.io/docs/api-keys.md): Create, scope, store and rotate Delivrie API keys: full access vs sending access, domain-restricted keys, and what to do if a key leaks.
+- [Plans and limits](https://delivrie.io/docs/limits.md): Email allowances, daily limits, domains, webhooks, log retention and team seats on Free, Starter, Pro and Scale, plus what happens when you reach a limit.
+
+## SDKs and frameworks
+
+- [Node.js SDK](https://delivrie.io/docs/sdks.md): The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook verification.
+- [Next.js](https://delivrie.io/docs/nextjs.md): Send email from Next.js with Delivrie: App Router route handlers, Server Actions, React Email templates, webhooks and deploying on Vercel.
+- [Node.js and Express](https://delivrie.io/docs/express.md): Send email from Node.js, Express, Fastify, NestJS or Hono with Delivrie, and verify webhooks with the raw request body.
+- [Python](https://delivrie.io/docs/python.md): Send email from Python, Django, Flask and FastAPI with Delivrie using requests or httpx, verify webhooks, or use Django's SMTP backend.
+- [PHP and Laravel](https://delivrie.io/docs/php.md): Send email from PHP and Laravel with Delivrie: Laravel's SMTP mailer, Guzzle or curl, and webhook verification.
+- [Ruby and Rails](https://delivrie.io/docs/ruby.md): Send email from Ruby on Rails with Action Mailer over SMTP, or from any Ruby app with Net::HTTP, and verify Delivrie webhooks.
+- [Go](https://delivrie.io/docs/go.md): Send email from Go with Delivrie using net/http, with typed request and error structs, and verify webhooks.
+- [Rust](https://delivrie.io/docs/rust.md): Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.
+- [Supabase](https://delivrie.io/docs/supabase.md): Use Delivrie with Supabase: send Supabase Auth emails (sign-up, magic links, password resets) through custom SMTP, and send app email from Edge Functions.
+- [Cloudflare Workers](https://delivrie.io/docs/cloudflare-workers.md): Send email from Cloudflare Workers, Pages Functions, Deno and Bun with the Delivrie SDK, which runs on web-standard APIs with no Node.js dependencies.
+
+## Sending
+
+- [Send an email](https://delivrie.io/docs/send-email.md): Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags, custom headers, scheduling and batch sending.
+- [Idempotency and retries](https://delivrie.io/docs/idempotency.md): Make email sends safe to retry with the Idempotency-Key header, choose good keys, and know which errors to retry.
+- [Templates](https://delivrie.io/docs/templates.md): Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.
+- [Test addresses](https://delivrie.io/docs/test-mode.md): Test deliveries, bounces, complaints and suppressions with Delivrie's test addresses, without risking your sender reputation.
+- [Statuses and events](https://delivrie.io/docs/email-status.md): What each email status means (queued, sent, delivered, bounced, complained and more), how to read an email's event history, and how statuses map to webhook events.
+- [Errors](https://delivrie.io/docs/errors.md): Every Delivrie API error, what causes it and how to fix it, with the JSON error format and which errors are safe to retry.
+- [CORS and browser apps](https://delivrie.io/docs/cors.md): Why you shouldn't call the Delivrie API from the browser, and how to send email from React, Vue, mobile and no-code front ends through a small server route instead.
+- [SMTP](https://delivrie.io/docs/smtp.md): Send through Delivrie's SMTP relay from WordPress, Laravel, Django, Rails, Ghost, Supabase Auth, Nodemailer and anything else that speaks SMTP.
+
+## Receiving
+
+- [Receiving email](https://delivrie.io/docs/receiving.md): Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them.
+- [Inbox](https://delivrie.io/docs/inbox.md): A shared inbox for received email: conversations grouped into threads, labels, archiving, replies from the dashboard or API, and AI agents that answer through MCP.
+
+## Platform
+
+- [Domains and DNS](https://delivrie.io/docs/domains.md): Add and verify a sending domain: which DNS records Delivrie needs (DKIM, SPF return path, DMARC, MX for receiving), how to enter them at common DNS providers, tracking and TLS settings.
+- [Why isn't my domain verifying?](https://delivrie.io/docs/domain-not-verifying.md): Fix a Delivrie domain stuck on pending or failed: doubled record names, split DKIM values, duplicate SPF records, Cloudflare proxying, propagation, and how to check DNS yourself.
+- [DMARC](https://delivrie.io/docs/dmarc.md): Set up DMARC for your sending domain, roll it out safely from p=none to p=reject, and meet Gmail and Yahoo's bulk sender requirements.
+- [Deliverability guide](https://delivrie.io/docs/deliverability.md): How to keep Delivrie email out of spam: authentication, warming up a new domain, bounce and complaint thresholds, content, list hygiene and what to do when mail goes to spam.
+- [Suppression list](https://delivrie.io/docs/suppressions.md): How Delivrie's suppression list protects your reputation: which addresses are added automatically, and how to add, list and remove addresses with the dashboard or API.
+- [Webhooks](https://delivrie.io/docs/webhooks.md): Get Delivrie events (sent, delivered, bounced, complained, opened, clicked, received, contact and domain changes) pushed to your server, with payload examples, signature verification in every language, retries and replays.
+- [Broadcasts](https://delivrie.io/docs/broadcasts.md): Send newsletters and announcements to a segment of contacts with Delivrie broadcasts: personalisation, topics, unsubscribe links, test sends and scheduling, from the dashboard or the API.
+- [Contacts, segments and topics](https://delivrie.io/docs/contacts.md): Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular unsubscribes.
+- [Automations and events](https://delivrie.io/docs/automations.md): Send emails automatically when something happens: record events with POST /events, build automations with waits, conditions and branches, and create simple flows with the API.
+
+## Help
+
+- [Troubleshooting and FAQ](https://delivrie.io/docs/troubleshooting.md): Answers to the most common Delivrie questions: emails not arriving, going to spam, API errors, webhooks not firing, SMTP connection problems, limits and billing.
+
+## API reference
+
+- [Send email](https://delivrie.io/docs/api/send-email.md): `POST /emails`. Send a transactional email. Returns the email id immediately; delivery events arrive through webhooks and the Logs page.
+- [Send batch](https://delivrie.io/docs/api/send-batch.md): `POST /emails/batch`. Send up to 100 emails in one request, each with its own recipients and content. Batch emails can't have attachments or scheduled_at.
+- [Retrieve email](https://delivrie.io/docs/api/retrieve-email.md): `GET /emails/:id`. Get one email with its status and every delivery event.
+- [Update email](https://delivrie.io/docs/api/update-email.md): `PATCH /emails/:id`. Reschedule an email that hasn't been sent yet.
+- [Cancel email](https://delivrie.io/docs/api/cancel-email.md): `POST /emails/:id/cancel`. Cancel a scheduled email before it sends.
+- [List emails](https://delivrie.io/docs/api/list-emails.md): `GET /emails`. List sent emails, newest first.
+- [List received emails](https://delivrie.io/docs/api/list-received-emails.md): `GET /emails/received`. Emails that arrived on your receiving domains, newest first. Fetch one with Retrieve email for its HTML and text.
+- [Forward email](https://delivrie.io/docs/api/forward-email.md): `POST /emails/:id/forward`. Forward a sent or received email to other addresses, with an optional note above it.
+- [Send event](https://delivrie.io/docs/api/send-event.md): `POST /events`. Record a custom event for a contact. Live automations listening for the event start a run right away. The contact is created if it doesn’t exist.
+- [List events](https://delivrie.io/docs/api/list-events.md): `GET /events`. Without name: every event name your team has sent, with when it was first and last seen. With name: the most recent events with that name.
+- [List automations](https://delivrie.io/docs/api/list-automations.md): `GET /automations`. Automations with their trigger, status (draft, live or paused) and step count.
+- [Retrieve automation](https://delivrie.io/docs/api/retrieve-automation.md): `GET /automations/:id`. One automation with its steps and run counts.
+- [Create automation](https://delivrie.io/docs/api/create-automation.md): `POST /automations`. Create a straight-line automation: a trigger and up to 30 send and wait steps. Build branches and conditions in the dashboard.
+- [List runs](https://delivrie.io/docs/api/list-automation-runs.md): `GET /automations/:id/runs`. Runs, newest first, with their status, current step and log.
+- [Publish automation](https://delivrie.io/docs/api/publish-automation.md): `POST /automations/:id/publish`. Make the current version live. Pause with /pause and continue with /resume.
+- [List threads](https://delivrie.io/docs/api/list-inbox-threads.md): `GET /inbox/threads`. Conversations from received email, newest first.
+- [Retrieve thread](https://delivrie.io/docs/api/retrieve-inbox-thread.md): `GET /inbox/threads/:id`. A thread with up to 100 messages as text.
+- [Reply to thread](https://delivrie.io/docs/api/reply-to-thread.md): `POST /inbox/threads/:id/reply`. Reply in the thread. Threading headers and the Re: subject are set for you.
+- [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`. Archive or reopen, mark read or unread, or set labels.
+- [Create domain](https://delivrie.io/docs/api/create-domain.md): `POST /domains`. Add a sending domain. The response includes the DNS records to add at your DNS provider.
+- [Retrieve domain](https://delivrie.io/docs/api/retrieve-domain.md): `GET /domains/:id`. Get a domain with its DNS records and their status.
+- [Verify domain](https://delivrie.io/docs/api/verify-domain.md): `POST /domains/:id/verify`. Check the DNS records again. Verification usually completes within minutes of the records going live.
+- [Update domain](https://delivrie.io/docs/api/update-domain.md): `PATCH /domains/:id`. Change tracking, TLS, the return path or receiving settings.
+- [List domains](https://delivrie.io/docs/api/list-domains.md): `GET /domains`. List the team's domains.
+- [Delete domain](https://delivrie.io/docs/api/delete-domain.md): `DELETE /domains/:id`. Remove a domain. Emails can no longer be sent from it.
+- [Create API key](https://delivrie.io/docs/api/create-api-key.md): `POST /api-keys`. Create a key. The token is returned once, so store it somewhere safe.
+- [List API keys](https://delivrie.io/docs/api/list-api-keys.md): `GET /api-keys`. List keys. Tokens are never shown again.
+- [Delete API key](https://delivrie.io/docs/api/delete-api-key.md): `DELETE /api-keys/:id`. Revoke a key immediately.
+- [Create webhook](https://delivrie.io/docs/api/create-webhook.md): `POST /webhooks`. Send events to an HTTPS endpoint. Each payload is signed; failed deliveries are retried with backoff.
+- [List webhooks](https://delivrie.io/docs/api/list-webhooks.md): `GET /webhooks`. List webhook endpoints.
+- [List deliveries](https://delivrie.io/docs/api/webhook-events.md): `GET /webhooks/:id/events`. The last 100 delivery attempts for an endpoint, with status codes.
+- [Send test event](https://delivrie.io/docs/api/test-webhook.md): `POST /webhooks/:id/test`. Send a sample event to the endpoint and return the delivery attempt.
+- [Replay delivery](https://delivrie.io/docs/api/replay-delivery.md): `POST /webhook-deliveries/:id/replay`. Send a past delivery again and return the new attempt.
+- [Create contact](https://delivrie.io/docs/api/create-contact.md): `POST /contacts`. Create a contact, or update it if the email already exists.
+- [List contacts](https://delivrie.io/docs/api/list-contacts.md): `GET /contacts`. List contacts, newest first.
+- [Retrieve contact](https://delivrie.io/docs/api/retrieve-contact.md): `GET /contacts/:id`. Get a contact by id or email.
+- [Update contact](https://delivrie.io/docs/api/update-contact.md): `PATCH /contacts/:id`. Update names, properties or the unsubscribed flag.
+- [Delete contact](https://delivrie.io/docs/api/delete-contact.md): `DELETE /contacts/:id`. Delete a contact.
+- [Add to segment](https://delivrie.io/docs/api/add-to-segment.md): `POST /segments/:id/contacts`. Add contacts to a segment, creating any that don't exist.
+- [Create segment](https://delivrie.io/docs/api/create-segment.md): `POST /segments`. Create a segment to group contacts for broadcasts and automations.
+- [List segments](https://delivrie.io/docs/api/list-segments.md): `GET /segments`. List segments.
+- [Delete segment](https://delivrie.io/docs/api/delete-segment.md): `DELETE /segments/:id`. Delete a segment. Its contacts are kept.
+- [List topics](https://delivrie.io/docs/api/list-topics.md): `GET /topics`. Topics people can opt out of on the unsubscribe page.
+- [List contact properties](https://delivrie.io/docs/api/list-contact-properties.md): `GET /contact-properties`. Custom contact properties with their type and fallback.
+- [Create broadcast](https://delivrie.io/docs/api/create-broadcast.md): `POST /broadcasts`. Create a broadcast draft. Nothing sends until you call Send broadcast.
+- [Send broadcast](https://delivrie.io/docs/api/send-broadcast.md): `POST /broadcasts/:id/send`. Send now, or schedule with scheduled_at.
+- [Cancel broadcast](https://delivrie.io/docs/api/cancel-broadcast.md): `POST /broadcasts/:id/cancel`. Move a scheduled broadcast back to draft.
+- [List broadcasts](https://delivrie.io/docs/api/list-broadcasts.md): `GET /broadcasts`. List broadcasts.
+- [Retrieve broadcast](https://delivrie.io/docs/api/retrieve-broadcast.md): `GET /broadcasts/:id`. One broadcast with its status and delivery stats.
+- [Count recipients](https://delivrie.io/docs/api/broadcast-recipients.md): `GET /broadcasts/:id/recipients`. How many contacts a broadcast will reach: everyone in the segment, how many opted out of its topic, and how many remain after unsubscribes and suppressions.
+- [Delete broadcast](https://delivrie.io/docs/api/delete-broadcast.md): `DELETE /broadcasts/:id`. Delete a draft, scheduled or sent broadcast. A broadcast that's sending can't be deleted.
+- [Create template](https://delivrie.io/docs/api/create-template.md): `POST /templates`. Create a template. Publish it before sending it from the API.
+- [Publish template](https://delivrie.io/docs/api/publish-template.md): `POST /templates/:id/publish`. Make the current draft the live version. Every publish is kept in version history.
+- [Retrieve template](https://delivrie.io/docs/api/retrieve-template.md): `GET /templates/:id`. One template by id or alias, with its current draft and published version.
+- [List templates](https://delivrie.io/docs/api/list-templates.md): `GET /templates`. List templates.
+- [Add suppression](https://delivrie.io/docs/api/add-suppression.md): `POST /suppressions`. Stop sending to one or more addresses.
+- [List suppressions](https://delivrie.io/docs/api/list-suppressions.md): `GET /suppressions`. Up to 1,000 suppressed addresses with the reason.
+- [Remove suppression](https://delivrie.io/docs/api/delete-suppression.md): `DELETE /suppressions/:email`. Allow sending to an address again.
+- [Get usage](https://delivrie.io/docs/api/get-usage.md): `GET /usage`. Your plan, emails sent this month and today, the allowance and daily limit, and pay-as-you-go credits.
+- [Get metrics](https://delivrie.io/docs/api/metrics.md): `GET /metrics`. Daily totals and rates for delivery, opens, clicks, bounces and complaints.
+- [List logs](https://delivrie.io/docs/api/list-logs.md): `GET /logs`. Every API request, newest first.
+- [Retrieve log](https://delivrie.io/docs/api/retrieve-log.md): `GET /logs/:id`. One request with its request and response bodies.
+
+## Optional
+
+- [MCP server](https://delivrie.io/docs/mcp.md): install in Claude, Cursor, Codex, v0, Antigravity and VS Code, and the full tool list
+- [Everything in one file](https://delivrie.io/llms-full.txt): all guides and the full API reference
+- [Pricing](https://delivrie.io/pricing)

@@ -4,7 +4,7 @@ import type {
   CreateWebhookResponse, DelivrieErrorResponse, Domain, Email, EmailSummary, ForwardEmailRequest, InboxThread, List,
   ListContactsParams, ListEmailsParams, Log, LogSummary, Metrics, Pagination, ReplyToThreadRequest, RequestOptions, Result,
   Segment, SendEmailRequest, SendEventRequest, Suppression, Template, Topic, UpdateContactRequest, UpdateDomainRequest,
-  Usage, Webhook, WebhookDelivery, Deleted,
+  Usage, Webhook, WebhookDelivery, Deleted, BroadcastRecipientCount,
 } from "./types.js";
 import { verifyWebhook, type VerifyWebhookOptions } from "./webhooks.js";
 
@@ -181,7 +181,7 @@ export class Delivrie {
     create: (params: CreateContactRequest) => this.request<{ object: "contact"; id: string }>("POST", "/contacts", params),
     /** By id or email address. */
     get: (idOrEmail: string) => this.request<Contact>("GET", `/contacts/${enc(idOrEmail)}`),
-    update: (idOrEmail: string, params: UpdateContactRequest) => this.request<Contact>("PATCH", `/contacts/${enc(idOrEmail)}`, params),
+    update: (idOrEmail: string, params: UpdateContactRequest) => this.request<{ object: "contact"; id: string }>("PATCH", `/contacts/${enc(idOrEmail)}`, params),
     list: (params: ListContactsParams = {}) => this.request<List<Contact>>("GET", "/contacts", undefined, { query: { ...params } }),
     remove: (idOrEmail: string) => this.request<Deleted>("DELETE", `/contacts/${enc(idOrEmail)}`),
   };
@@ -206,7 +206,8 @@ export class Delivrie {
     send: (id: string, params: { scheduled_at?: string | Date } = {}) =>
       this.request<Broadcast>("POST", `/broadcasts/${enc(id)}/send`, params.scheduled_at === undefined ? {} : { scheduled_at: params.scheduled_at instanceof Date ? params.scheduled_at.toISOString() : params.scheduled_at }),
     cancel: (id: string) => this.request<Broadcast>("POST", `/broadcasts/${enc(id)}/cancel`),
-    recipients: (id: string) => this.request<List<Record<string, unknown>>>("GET", `/broadcasts/${enc(id)}/recipients`),
+    /** How many contacts the broadcast will reach. */
+    recipients: (id: string) => this.request<BroadcastRecipientCount>("GET", `/broadcasts/${enc(id)}/recipients`),
     remove: (id: string) => this.request<Deleted>("DELETE", `/broadcasts/${enc(id)}`),
   };
 

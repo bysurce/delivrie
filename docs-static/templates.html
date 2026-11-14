@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Templates · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Templates are reusable emails with variables. Write {{{first_name}}} in the subject or body; give each variable a type and a fallback used when the value…">
+  <meta name="description" content="Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/templates">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/templates.md">
   <meta property="og:url" content="https://delivrie.io/docs/templates">
   <meta property="og:title" content="Templates · Delivrie Docs">
-  <meta property="og:description" content="Templates are reusable emails with variables. Write {{{first_name}}} in the subject or body; give each variable a type and a fallback used when the value…">
+  <meta property="og:description" content="Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,56 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Templates", "description": "Templates are reusable emails with variables. Write {{{first_name}}} in the subject or body; give each variable a type and a fallback used when the value…", "url": "https://delivrie.io/docs/templates", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Templates", "item": "https://delivrie.io/docs/templates"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Templates", "description": "Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.", "url": "https://delivrie.io/docs/templates", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Templates", "item": "https://delivrie.io/docs/templates"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Templates</h1><p>Templates are reusable emails with variables. Write {{{first_name}}} in the subject or body; give each variable a type and a fallback used when the value is missing. Publish to make a version live for API sends, then send with template: { &quot;id&quot;: &quot;your-alias&quot;, &quot;variables&quot;: { ... } }. Every publish is kept in version history and reverting creates a new version.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Templates</h1><p>Create reusable email templates with variables and fallbacks, publish versions, and send them from the API by id or alias.</p><p>Templates keep email design out of your code. Build them in the dashboard&#39;s visual or HTML editor (or with the API), publish a version, and send by alias with just the data that changes.</p>
+<h2 id="create-and-publish">Create and publish</h2>
+<ol><li>Open <a href="https://delivrie.io/templates" data-native>Templates</a> and click <b>New template</b>.</li><li>Give it an <b>alias</b>, a stable name your code sends by, like <code>order-confirmation</code>.</li><li>Write the subject and body using variables (below), set a default From address, and click <b>Publish</b>.</li></ol>
+<p>Or with the API:</p>
+<pre><code class="language-bash">curl -X POST https://delivrie.io/api/templates \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;name&quot;: &quot;Order confirmation&quot;,
+    &quot;alias&quot;: &quot;order-confirmation&quot;,
+    &quot;from&quot;: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+    &quot;subject&quot;: &quot;Order {{order_id}} confirmed&quot;,
+    &quot;html&quot;: &quot;&lt;p&gt;Hi {{first_name|there}},&lt;/p&gt;&lt;p&gt;Order {{order_id}} is on its way.&lt;/p&gt;&quot;
+  }&#39;
+
+curl -X POST https://delivrie.io/api/templates/order-confirmation/publish \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre>
+<p>Only published versions can be sent. Editing a template doesn&#39;t change what&#39;s sent until you publish again, and every publish is kept in the version history so you can roll back.</p>
+<h2 id="send-a-template">Send a template</h2>
+<p>Pass <code>template</code> instead of <code>html</code>/<code>text</code>. <code>subject</code> and <code>from</code> are optional; the template&#39;s defaults are used when you leave them out.</p>
+<p><b>cURL</b></p><pre><code class="language-bash">curl -X POST https://delivrie.io/api/emails \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;to&quot;: &quot;ada@example.com&quot;,
+    &quot;template&quot;: {
+      &quot;id&quot;: &quot;order-confirmation&quot;,
+      &quot;variables&quot;: { &quot;first_name&quot;: &quot;Ada&quot;, &quot;order_id&quot;: &quot;#1042&quot; }
+    }
+  }&#39;</code></pre><p><b>Node.js</b></p><pre><code class="language-ts">await delivrie.emails.send({
+  from: &quot;Acme &lt;orders@mail.acme.com&gt;&quot;,
+  to: &quot;ada@example.com&quot;,
+  template: { id: &quot;order-confirmation&quot;, variables: { first_name: &quot;Ada&quot;, order_id: &quot;#1042&quot; } },
+}); // `subject` comes from the template</code></pre><p><b>Python</b></p><pre><code class="language-python">requests.post(&quot;https://delivrie.io/api/emails&quot;, headers=auth, json={
+    &quot;to&quot;: &quot;ada@example.com&quot;,
+    &quot;template&quot;: {&quot;id&quot;: &quot;order-confirmation&quot;, &quot;variables&quot;: {&quot;first_name&quot;: &quot;Ada&quot;, &quot;order_id&quot;: &quot;#1042&quot;}},
+})</code></pre>
+<p><code>template.id</code> takes the template&#39;s id or its alias.</p>
+<h2 id="variables">Variables</h2>
+<div class="d-table"><table><thead><tr><th>Syntax</th><th>Inserts</th><th>Use for</th></tr></thead><tbody><tr><td><code>{{first_name}}</code></td><td>The value, HTML-escaped</td><td>Anything a user typed: names, messages, addresses</td></tr><tr><td><code>{{{reset_url}}}</code></td><td>The value exactly as given</td><td>HTML snippets and URLs you build yourself</td></tr><tr><td><code>{{first_name|there}}</code></td><td>The value, or <code>there</code> if it&#39;s missing or empty</td><td>Friendly fallbacks</td></tr></tbody></table></div>
+<p>Variables work in the subject, the HTML and the text version. Missing variables without a fallback become an empty string. You can also set a default fallback for each variable in the template editor.</p>
+<blockquote class="warn"><b>Warning</b> Never put user input in a <code>{{{triple}}}</code> variable. It&#39;s inserted unescaped, so someone could inject HTML into your email.</blockquote>
+<h2 id="broadcast-and-automation-variables">Broadcast and automation variables</h2>
+<p>In <a href="/docs/broadcasts">broadcasts</a>, variables come from the contact: <code>{{first_name}}</code>, <code>{{last_name}}</code>, <code>{{email}}</code> and any <a href="/docs/contacts">contact property</a>, like <code>{{plan}}</code>. <code>{{{unsubscribe_url}}}</code> inserts the recipient&#39;s unsubscribe link.</p>
+<p>In <a href="/docs/automations">automations</a>, templates can also use the data sent with the triggering event.</p>
+<h2 id="list-and-fetch">List and fetch</h2>
+<ul><li><code>GET /templates</code> lists templates with their alias and status.</li><li><code>GET /templates/:id</code> (id or alias) returns one template.</li></ul><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

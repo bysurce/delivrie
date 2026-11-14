@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Supabase · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Use Delivrie with Supabase: send Supabase Auth emails (sign-up, magic links, password resets) through custom SMTP, and send app email from Edge Functions.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/supabase">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/supabase.md">
+  <meta property="og:url" content="https://delivrie.io/docs/supabase">
+  <meta property="og:title" content="Supabase · Delivrie Docs">
+  <meta property="og:description" content="Use Delivrie with Supabase: send Supabase Auth emails (sign-up, magic links, password resets) through custom SMTP, and send app email from Edge Functions.">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Supabase", "description": "Use Delivrie with Supabase: send Supabase Auth emails (sign-up, magic links, password resets) through custom SMTP, and send app email from Edge Functions.", "url": "https://delivrie.io/docs/supabase", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Supabase", "item": "https://delivrie.io/docs/supabase"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Supabase</h1><p>Use Delivrie with Supabase: send Supabase Auth emails (sign-up, magic links, password resets) through custom SMTP, and send app email from Edge Functions.</p><h2 id="send-supabase-auth-emails-through-delivrie">Send Supabase Auth emails through Delivrie</h2>
+<p>Supabase&#39;s built-in email service is rate-limited and meant for testing. Point Auth at the <a href="/docs/smtp">SMTP relay</a> so confirmation, magic-link and password-reset emails come from your own domain:</p>
+<ol><li>In the Supabase dashboard, open <b>Authentication → Emails → SMTP Settings</b> and turn on <b>Enable custom SMTP</b>.</li><li>Fill in:</li></ol>
+<div class="d-table"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>Sender email</td><td>An address on your verified domain, like <code>auth@mail.acme.com</code></td></tr><tr><td>Sender name</td><td>Your app&#39;s name</td></tr><tr><td>Host</td><td><code>smtp.delivrie.io</code></td></tr><tr><td>Port</td><td><code>587</code> (or <code>465</code>)</td></tr><tr><td>Username</td><td><code>delivrie</code></td></tr><tr><td>Password</td><td>A Delivrie API key (a sending access key is enough)</td></tr></tbody></table></div>
+<ol><li>Save, then raise the email rate limit under <b>Authentication → Rate Limits</b> to suit your app.</li></ol>
+<p>Every Auth email then shows up in <a href="https://delivrie.io/emails" data-native>Emails</a> with its delivery status.</p>
+<h2 id="send-from-an-edge-function">Send from an Edge Function</h2>
+<pre><code class="language-ts">import { Delivrie } from &quot;npm:delivrie&quot;;
+
+const delivrie = new Delivrie(Deno.env.get(&quot;DELIVRIE_API_KEY&quot;));
+
+Deno.serve(async (req) =&gt; {
+  const { email, name } = await req.json();
+  const { data, error } = await delivrie.emails.send({
+    from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+    to: email,
+    subject: `Welcome, ${name}`,
+    html: `&lt;p&gt;Thanks for joining Acme.&lt;/p&gt;`,
+  }, { idempotencyKey: `welcome-${email}` });
+
+  if (error) return Response.json({ error: error.message }, { status: 502 });
+  return Response.json({ id: data.id });
+});</code></pre>
+<p>Set the secret and deploy:</p>
+<pre><code class="language-bash">supabase secrets set DELIVRIE_API_KEY=dlv_your_key
+supabase functions deploy send-welcome</code></pre>
+<h2 id="send-when-a-row-changes">Send when a row changes</h2>
+<p>To email users when something happens in your database (a new order, say), create a Database Webhook in <b>Database → Webhooks</b> that calls your Edge Function on <code>INSERT</code>. The function receives <code>{ type, table, record }</code> and sends the email with <code>record</code> fields.</p>
+<h2 id="webhooks-into-supabase">Webhooks into Supabase</h2>
+<p>Receive Delivrie events in an Edge Function with <code>verifyWebhook</code> from <code>npm:delivrie</code>, then write bounces or opens to a table. Deploy it with <code>--no-verify-jwt</code>, because Delivrie authenticates with its signature rather than a Supabase JWT:</p>
+<pre><code class="language-bash">supabase functions deploy delivrie-webhooks --no-verify-jwt</code></pre><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

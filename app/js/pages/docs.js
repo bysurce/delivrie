@@ -2,48 +2,15 @@
 // Routes: /docs, /docs/:guide, /docs/api, /docs/api/:endpoint, /docs/mcp, /docs/changelog
 import { state, api } from "../lib/sb.js";
 import { esc, icon, toast, on, copyText } from "../lib/ui.js";
-import { DOCS } from "../lib/docs.js";
+import { DOCS, GROUPS } from "../lib/docs.js";
+import { renderMarkdown, mdToText } from "../lib/md.js";
 import { themeSwitch } from "../lib/theme.js";
 import { API, ALL_ENDPOINTS, METHOD_COLOR, samples } from "../lib/apiref.js";
 
 const BASE = "https://delivrie.io/api";
 const MCP_URL = "https://delivrie.io/api/mcp";
 const doc = (id) => DOCS.find((d) => d.id === id);
-const GUIDES = [
-  ["Get started", [["getting-started", "Introduction"], ["sdks", "Node.js SDK"], ["api-keys", "API keys"], ["limits", "Plans and limits"]]],
-  ["Sending", [["send-email", "Send an email"], ["test-mode", "Test addresses"], ["email-status", "Statuses and events"], ["templates", "Templates"], ["errors", "Errors"], ["cors", "CORS"], ["smtp", "SMTP"]]],
-  ["Platform", [["domains", "Domains and DNS"], ["domain-not-verifying", "Domain not verifying"], ["dmarc", "DMARC"], ["deliverability", "Deliverability"], ["suppressions", "Suppressions"], ["webhooks", "Webhooks"], ["broadcasts", "Broadcasts"], ["contacts", "Contacts and segments"]]],
-];
-const SDK_SEND = `import { Delivrie } from "delivrie";
-
-const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
-
-const { data, error } = await delivrie.emails.send({
-  from: "Kora <orders@mail.kora.ng>",
-  to: "ada@example.com",
-  subject: "Your order is on its way",
-  html: "<p>Thanks for your order!</p>",
-}, { idempotencyKey: "order-1042" });
-
-if (error) console.error(error.name, error.message);
-else console.log("Sent", data.id);`;
-const SDK_WEBHOOK = `import { verifyWebhook } from "delivrie";
-
-export async function POST(req: Request) {
-  try {
-    const event = await verifyWebhook({
-      payload: await req.text(),
-      headers: req.headers,
-      secret: process.env.DELIVRIE_WEBHOOK_SECRET!,
-    });
-    if (event.type === "email.bounced") {
-      // mark the address as bad
-    }
-    return new Response("ok");
-  } catch {
-    return new Response("invalid signature", { status: 400 });
-  }
-}`;
+const GUIDES = GROUPS;
 const GUIDE_ORDER = GUIDES.flatMap(([, items]) => items);
 const LEGACY = { "api-reference": "/docs/api", mcp: "/docs/mcp", "getting-started": "/docs" };
 
@@ -234,21 +201,28 @@ function guidePage(body, id, ctx) {
   const idx = GUIDE_ORDER.findIndex(([k]) => k === id);
   const prev = idx > 0 ? [`/docs/${GUIDE_ORDER[idx - 1][0]}`, GUIDE_ORDER[idx - 1][1]] : null;
   const next = idx >= 0 && idx < GUIDE_ORDER.length - 1 ? [`/docs/${GUIDE_ORDER[idx + 1][0]}`, GUIDE_ORDER[idx + 1][1]] : ["/docs/api", "API reference"];
-  const group = GUIDES.find(([, items]) => items.some(([k]) => k === id))?.[0] || "Guides";
+  const group = d.group || GUIDES.find(([, items]) => items.some(([k]) => k === id))?.[0] || "Guides";
   const title = d.title;
-  const extra = id === "send-email" ? `<h2 id="example">Example</h2>${codeTabs(samples(ALL_ENDPOINTS[0], BASE))}<p>See the full field list in the <a href="/docs/api/send-email">API reference</a>.</p>`
-    : id === "getting-started" ? `<h2 id="next">Next steps</h2><div class="d-cards three">${[["/docs/send-email", "send", "Send your first email", "One POST request with from, to, subject and html."], ["/docs/domains", "globe", "Verify a domain", "Add DKIM and SPF records so mail lands in the inbox."], ["/docs/mcp", "sparkle", "Connect an agent", "Let Claude or Cursor send through the MCP server."]].map(([h, ic, t, p]) => `<a class="d-card" href="${h}"><span class="d-ic">${icon(ic, 14)}</span><b>${t}</b><span class="dim">${p}</span></a>`).join("")}</div>`
-    : id === "sdks" ? `<h2 id="example">Example</h2>${codeCard("npm install delivrie", "bash", "terminal")}${codeCard(SDK_SEND, "ts", "send.ts")}<h2 id="webhooks">Verify webhooks</h2>${codeCard(SDK_WEBHOOK, "ts", "app/api/webhooks/route.ts")}<p>With Express, use <code>express.raw({ type: "application/json" })</code> on the route and pass <code>req.body</code> and <code>req.headers</code>. Source and changelog on <a href="https://github.com/codeddesigner/delivrie/tree/main/sdk/node" target="_blank" rel="noopener" data-native>GitHub</a> and <a href="https://www.npmjs.com/package/delivrie" target="_blank" rel="noopener" data-native>npm</a>.</p>`
-    : id === "test-mode" ? codeTabs(samples({ ...ALL_ENDPOINTS[0], example: { from: "Kora <orders@kora.ng>", to: ["bounced@test.delivrie.io"], subject: "Bounce test", html: "<p>Testing</p>" } }, BASE)) : "";
+  const { html, headings } = renderMarkdown(d.body, {
+    code: (src, lang, label) => codeCard(src, lang || "text", label),
+    tabs: (items) => codeTabs(Object.fromEntries(items.map((t) => [t.label, { src: t.src, lang: t.lang }]))),
+    callout: (kind, t, inner) => callout(kind, t, inner),
+  });
+  const cards = id === "getting-started" ? `<h2 id="next">Next steps</h2><div class="d-cards three">${[["/docs/quickstart", "send", "Quickstart", "Send your first email in five minutes."], ["/docs/build-with-ai", "sparkle", "Build with AI", "Prompts, a rules file and MCP for Claude, Cursor, Codex and v0."], ["/docs/migrate-from-resend", "refresh", "Migrate from Resend", "Switch with one environment variable."]].map(([h, ic, t, p]) => `<a class="d-card" href="${h}"><span class="d-ic">${icon(ic, 14)}</span><b>${t}</b><span class="dim">${p}</span></a>`).join("")}</div>` : "";
+  const tocItems = [["top", title], ...headings.filter(([, , l]) => l === 2).map(([hid, text]) => [hid, text]), ...(cards ? [["next", "Next steps"]] : [])];
+  const ask = encodeURIComponent(`Read ${location.origin}/docs/${id}.md and help me with Delivrie.`);
   body.innerHTML = `${sidebar([...GUIDES.map(([g, items]) => [g, items.map(([k, l]) => ({ key: k, label: l, href: `/docs/${k}` }))]), ["Agents", [{ key: "mcp", label: "MCP server", href: "/docs/mcp" }]]], id)}
     <main class="d-main"><article class="d-art">
       <div class="d-crumb">${esc(group)} ${icon("chevron-right", 11)} <span>${esc(title)}</span></div>
       <div class="d-h1"><h1>${esc(title)}</h1><button class="d-chip" data-copy-page>${icon("copy", 12)} Copy page</button></div>
-      <div class="d-prose">${prose(d.body)}</div>${extra}
+      ${d.description ? `<p class="d-lead">${esc(d.description)}</p>` : ""}
+      <div class="d-prose d-md">${html}</div>${cards}
       ${helpful(prev, next)}</article></main>
-    ${toc([["top", title], ...(extra ? [[id === "getting-started" ? "next" : "example", id === "getting-started" ? "Next steps" : "Example"]] : []), ...(id === "sdks" ? [["webhooks", "Verify webhooks"]] : [])], `<div class="d-toc-act"><a href="https://claude.ai/new?q=${encodeURIComponent(`Read ${location.origin}/docs/${id} and help me with Delivrie.`)}" target="_blank" rel="noopener" data-native>${icon("sparkle", 12)} Open in Claude</a></div>`)}`;
+    ${toc(tocItems, `<div class="d-toc-act"><a href="https://claude.ai/new?q=${ask}" target="_blank" rel="noopener" data-native>${icon("sparkle", 12)} Open in Claude</a><a href="https://chatgpt.com/?q=${ask}" target="_blank" rel="noopener" data-native>${icon("sparkle", 12)} Open in ChatGPT</a><a href="/docs/${id}.md" target="_blank" rel="noopener" data-native>${icon("code", 12)} View as Markdown</a></div>`)}`;
   body.querySelector(".d-art").id = "top";
-  body.dataset.md = `# ${title}\n\n${d.body}`;
+  const side = body.querySelector(".d-side"), on = side?.querySelector("a.on");
+  if (side && on && on.offsetTop > side.clientHeight - 120) side.scrollTop = on.offsetTop - side.clientHeight / 2;
+  body.dataset.md = `# ${title}\n\n${d.description ? d.description + "\n\n" : ""}${d.body}`;
 }
 
 // ---------------------------------------------------------------- API reference
@@ -353,7 +327,7 @@ function bindCommon(root) {
 function bindSearch(root, ctx) {
   const q = root.querySelector("[data-q]"), out = root.querySelector("[data-results]");
   const index = [
-    ...DOCS.map((d) => ({ kind: "Guide", title: d.title, text: d.body, href: `/docs/${d.id}` })),
+    ...DOCS.map((d) => ({ kind: "Guide", title: d.title, text: `${d.description} ${mdToText(d.body)}`, href: `/docs/${d.id}` })),
     ...ALL_ENDPOINTS.map((e) => ({ kind: e.m, title: e.title, text: `${e.path} ${e.desc} ${(e.body || []).map((b) => b[0]).join(" ")}`, href: `/docs/api/${e.slug}`, sub: e.path })),
     ...TOOLS.map(([n, d]) => ({ kind: "Tool", title: n, text: d, href: "/docs/mcp#tools", sub: d })),
     ...CLIENTS.map((c) => ({ kind: "MCP", title: `Install in ${c.name}`, text: c.sub, href: `/docs/mcp#c-${c.id}` })),

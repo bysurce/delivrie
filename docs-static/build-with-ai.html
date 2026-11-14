@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build with AI · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and…">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/build-with-ai">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/build-with-ai.md">
+  <meta property="og:url" content="https://delivrie.io/docs/build-with-ai">
+  <meta property="og:title" content="Build with AI · Delivrie Docs">
+  <meta property="og:description" content="Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and…">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Build with AI", "description": "Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and…", "url": "https://delivrie.io/docs/build-with-ai", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Build with AI", "item": "https://delivrie.io/docs/build-with-ai"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Build with AI</h1><p>Use Delivrie with Claude, Cursor, Codex, v0, Lovable, Bolt and other AI tools: llms.txt, Markdown docs, a rules file for your repo, prompts to paste and the MCP server.</p><p>AI coding tools write better email code when they read the right docs. Delivrie publishes everything in formats they understand, and gives your assistant a way to act on your account directly.</p>
+<h2 id="give-your-assistant-the-docs">Give your assistant the docs</h2>
+<div class="d-table"><table><thead><tr><th>URL</th><th>What it is</th></tr></thead><tbody><tr><td><a href="https://delivrie.io/llms.txt" data-native>delivrie.io/llms.txt</a></td><td>An index of every guide and API endpoint, with links to Markdown versions</td></tr><tr><td><a href="https://delivrie.io/llms-full.txt" data-native>delivrie.io/llms-full.txt</a></td><td>All guides and the full API reference in one Markdown file</td></tr><tr><td><code>https://delivrie.io/docs/&lt;page&gt;.md</code></td><td>Any docs page as Markdown, for example <a href="https://delivrie.io/docs/quickstart.md" data-native>/docs/quickstart.md</a> or <a href="https://delivrie.io/docs/api/send-email.md" data-native>/docs/api/send-email.md</a></td></tr></tbody></table></div>
+<p>Every docs page also has <b>Copy page</b> (Markdown for your clipboard) and <b>Open in Claude</b> buttons.</p>
+<p>In Cursor, add <code>https://delivrie.io/llms-full.txt</code> under <b>Settings → Indexing &amp; Docs → Add Doc</b>, then type <code>@Docs</code> in chat and pick Delivrie. In Claude, ChatGPT or v0, paste the link into your message and ask the assistant to read it.</p>
+<h2 id="add-a-rules-file-to-your-project">Add a rules file to your project</h2>
+<p>Assistants follow project rules on every request. Save this as <code>AGENTS.md</code> (Codex, Cursor, Copilot, Jules and most agents), <code>CLAUDE.md</code> (Claude Code) or <code>.cursor/rules/delivrie.mdc</code> (Cursor):</p>
+<pre><code class="language-markdown">## Email: Delivrie
+
+- Send email with Delivrie. Docs: https://delivrie.io/llms.txt (Markdown: append .md to any docs URL).
+- Node/TypeScript: use the `delivrie` npm package. `new Delivrie(process.env.DELIVRIE_API_KEY)`.
+  Calls return `{ data, error }` and never throw for API errors: always check `error`.
+- Other languages: POST https://delivrie.io/api/emails with `Authorization: Bearer $DELIVRIE_API_KEY`
+  and JSON `{ from, to, subject, html | text }`.
+- Read the key from the DELIVRIE_API_KEY environment variable. Never hard-code it and never call
+  Delivrie from browser code: send from a server route, server action or edge function.
+- `from` must be on a verified domain, as &quot;Name &lt;address@domain&gt;&quot;. Ours is: mail.example.com
+- Pass an idempotency key derived from the business event (e.g. `order-${order.id}-receipt`)
+  so retries never send twice.
+- In tests and local development, send to delivered@test.delivrie.io (or bounced@ / complained@).
+- Delivery results arrive as signed webhooks (Standard Webhooks). Verify with `verifyWebhook`
+  from the `delivrie` package before trusting a payload.</code></pre>
+<p>Change <code>mail.example.com</code> to your verified domain.</p>
+<h2 id="prompts-to-paste">Prompts to paste</h2>
+<p>Start a new chat with one of these, filling in the brackets.</p>
+<p><b>Add email</b></p><pre><code class="language-text">Add transactional email to this app with Delivrie (https://delivrie.io/llms-full.txt).
+Send a [welcome email] when [a user signs up]. Use the `delivrie` npm package
+(or plain fetch to https://delivrie.io/api/emails if this isn&#39;t a JS project),
+read DELIVRIE_API_KEY from the environment, send only from server code,
+use &quot;[App name] &lt;[hello@mail.example.com]&gt;&quot; as the sender, and pass an
+idempotency key based on the user id. Show me where to add the env var.</code></pre><p><b>Webhooks</b></p><pre><code class="language-text">Using Delivrie webhooks (https://delivrie.io/docs/webhooks.md), add an endpoint at
+[/api/webhooks/delivrie] that verifies the signature with `verifyWebhook` from the
+`delivrie` package using DELIVRIE_WEBHOOK_SECRET, reads the raw request body before
+parsing it, and [marks the user&#39;s email as invalid] on email.bounced and
+email.complained. Return 200 quickly and 400 when the signature is wrong.</code></pre><p><b>Migrate</b></p><pre><code class="language-text">Migrate this project from Resend to Delivrie following
+https://delivrie.io/docs/migrate-from-resend.md. Keep behaviour the same,
+change only what the guide says, and list the environment variables I need to set.</code></pre><p><b>v0 / Lovable / Bolt</b></p><pre><code class="language-text">Add a contact form that emails me through Delivrie. Create a server route
+(never call Delivrie from the browser) that POSTs to https://delivrie.io/api/emails
+with Authorization: Bearer ${DELIVRIE_API_KEY}, from &quot;[Site] &lt;[forms@mail.example.com]&gt;&quot;,
+to &quot;[me@example.com]&quot;, reply_to the visitor&#39;s email, and the message as text.
+Show a success state, and an error state using the API&#39;s error message.</code></pre>
+<h2 id="let-the-assistant-use-your-account-mcp">Let the assistant use your account (MCP)</h2>
+<p>The <a href="/docs/mcp">MCP server</a> at <code>https://delivrie.io/api/mcp</code> gives assistants 64 tools: send email, check delivery, add domains, manage contacts, broadcasts and templates, read logs and reply to inbox threads. You approve which team and scopes it can use, and you can revoke it under Settings → Connected apps.</p>
+<p><b>Claude Code</b></p><pre><code class="language-bash">claude mcp add --transport http delivrie https://delivrie.io/api/mcp</code></pre><p><b>Cursor</b></p><pre><code class="language-json">// ~/.cursor/mcp.json
+{
+  &quot;mcpServers&quot;: {
+    &quot;delivrie&quot;: { &quot;url&quot;: &quot;https://delivrie.io/api/mcp&quot; }
+  }
+}</code></pre><p><b>Codex</b></p><pre><code class="language-toml"># ~/.codex/config.toml
+[mcp_servers.delivrie]
+command = &quot;npx&quot;
+args = [&quot;-y&quot;, &quot;mcp-remote&quot;, &quot;https://delivrie.io/api/mcp&quot;]</code></pre><p><b>v0</b></p><pre><code class="language-text">v0 → Settings → MCP connections → Add custom connection
+Name     Delivrie
+URL      https://delivrie.io/api/mcp
+Header   Authorization: Bearer dlv_your_key</code></pre>
+<p>Then ask things like &quot;Send a test email to delivered@test.delivrie.io from onboarding@delivrie.io&quot;, &quot;Why did my last email to ada@example.com bounce?&quot; or &quot;Add mail.example.com and tell me which DNS records to create&quot;. <a href="/docs/mcp">MCP server</a> has setup for Claude Desktop, ChatGPT, Antigravity and VS Code, plus the full tool list.</p>
+<h2 id="check-your-assistant-s-work">Check your assistant&#39;s work</h2>
+<p>AI-written email code usually fails in one of these ways:</p>
+<ul><li><b>The key is in client code.</b> Search the project for <code>dlv_</code> and for <code>delivrie.io/api</code> in files that run in the browser. Move those calls to the server.</li><li><b>Errors are ignored.</b> With the SDK, check <code>error</code> on every call. With <code>fetch</code>, check <code>res.ok</code>; the body&#39;s <code>message</code> explains the problem.</li><li><b>No idempotency key,</b> so a retried request sends the email twice.</li><li><b>Webhook body parsed before verification.</b> Signature checks need the raw body exactly as received.</li><li><b>Unverified sender.</b> <code>from</code> must use a domain verified in your Delivrie team, or <code>onboarding@delivrie.io</code> while testing.</li></ul><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

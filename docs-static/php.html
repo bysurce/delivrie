@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PHP and Laravel · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Send email from PHP and Laravel with Delivrie: Laravel&#x27;s SMTP mailer, Guzzle or curl, and webhook verification.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/php">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/php.md">
+  <meta property="og:url" content="https://delivrie.io/docs/php">
+  <meta property="og:title" content="PHP and Laravel · Delivrie Docs">
+  <meta property="og:description" content="Send email from PHP and Laravel with Delivrie: Laravel&#x27;s SMTP mailer, Guzzle or curl, and webhook verification.">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "PHP and Laravel", "description": "Send email from PHP and Laravel with Delivrie: Laravel's SMTP mailer, Guzzle or curl, and webhook verification.", "url": "https://delivrie.io/docs/php", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "PHP and Laravel", "item": "https://delivrie.io/docs/php"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>PHP and Laravel</h1><p>Send email from PHP and Laravel with Delivrie: Laravel&#x27;s SMTP mailer, Guzzle or curl, and webhook verification.</p><h2 id="laravel">Laravel</h2>
+<p>Laravel&#39;s mail system works with the <a href="/docs/smtp">SMTP relay</a> out of the box, so <code>Mail::to(...)-&gt;send(...)</code>, notifications and password resets all go through Delivrie. Update <code>.env</code>:</p>
+<pre><code class="language-bash">MAIL_MAILER=smtp
+MAIL_HOST=smtp.delivrie.io
+MAIL_PORT=587
+MAIL_ENCRYPTION=tls
+MAIL_USERNAME=delivrie
+MAIL_PASSWORD=dlv_your_key
+MAIL_FROM_ADDRESS=hello@mail.acme.com
+MAIL_FROM_NAME=&quot;Acme&quot;</code></pre>
+<p>Then clear the config cache (<code>php artisan config:clear</code>) and send as usual:</p>
+<pre><code class="language-php">use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderShipped;
+
+Mail::to($user)-&gt;send(new OrderShipped($order));</code></pre>
+<p>Already on Laravel&#39;s <code>resend</code> mailer? Set <code>RESEND_BASE_URL=https://delivrie.io/api</code> and <code>RESEND_API_KEY=dlv_your_key</code> instead; see <a href="/docs/migrate-from-resend">Migrate from Resend</a>.</p>
+<h2 id="plain-php-with-the-http-api">Plain PHP with the HTTP API</h2>
+<pre><code class="language-php">&lt;?php
+$ch = curl_init(&#39;https://delivrie.io/api/emails&#39;);
+curl_setopt_array($ch, [
+    CURLOPT_POST =&gt; true,
+    CURLOPT_RETURNTRANSFER =&gt; true,
+    CURLOPT_HTTPHEADER =&gt; [
+        &#39;Authorization: Bearer &#39; . getenv(&#39;DELIVRIE_API_KEY&#39;),
+        &#39;Content-Type: application/json&#39;,
+        &#39;Idempotency-Key: order-1042-receipt&#39;,
+    ],
+    CURLOPT_POSTFIELDS =&gt; json_encode([
+        &#39;from&#39; =&gt; &#39;Acme &lt;orders@mail.acme.com&gt;&#39;,
+        &#39;to&#39; =&gt; &#39;ada@example.com&#39;,
+        &#39;subject&#39; =&gt; &#39;Your receipt&#39;,
+        &#39;html&#39; =&gt; &#39;&lt;p&gt;Thanks for your order.&lt;/p&gt;&#39;,
+    ]),
+]);
+$body = json_decode(curl_exec($ch), true);
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($status &gt;= 400) {
+    throw new RuntimeException(&quot;{$body[&#39;name&#39;]}: {$body[&#39;message&#39;]}&quot;);
+}
+echo $body[&#39;id&#39;];</code></pre>
+<p>With Guzzle:</p>
+<pre><code class="language-php">$client = new GuzzleHttp\Client([&#39;base_uri&#39; =&gt; &#39;https://delivrie.io/api/&#39;]);
+$res = $client-&gt;post(&#39;emails&#39;, [
+    &#39;headers&#39; =&gt; [&#39;Authorization&#39; =&gt; &#39;Bearer &#39; . getenv(&#39;DELIVRIE_API_KEY&#39;)],
+    &#39;json&#39; =&gt; [&#39;from&#39; =&gt; &#39;Acme &lt;hello@mail.acme.com&gt;&#39;, &#39;to&#39; =&gt; &#39;ada@example.com&#39;, &#39;subject&#39; =&gt; &#39;Hi&#39;, &#39;text&#39; =&gt; &#39;Hello&#39;],
+]);
+$id = json_decode($res-&gt;getBody(), true)[&#39;id&#39;];</code></pre>
+<h2 id="wordpress">WordPress</h2>
+<p>Use any SMTP plugin (WP Mail SMTP, FluentSMTP, Post SMTP) with host <code>smtp.delivrie.io</code>, port <code>587</code>, encryption TLS, username <code>delivrie</code> and an API key as the password. See <a href="/docs/smtp">SMTP</a>.</p>
+<h2 id="verify-webhooks">Verify webhooks</h2>
+<pre><code class="language-php">&lt;?php
+function verify_delivrie_webhook(string $payload, array $headers, string $secret, int $tolerance = 300): array {
+    $id = $headers[&#39;webhook-id&#39;] ?? &#39;&#39;;
+    $ts = $headers[&#39;webhook-timestamp&#39;] ?? &#39;&#39;;
+    if (abs(time() - (int) $ts) &gt; $tolerance) throw new Exception(&#39;timestamp too old&#39;);
+    $key = base64_decode(preg_replace(&#39;/^whsec_/&#39;, &#39;&#39;, $secret));
+    $expected = base64_encode(hash_hmac(&#39;sha256&#39;, &quot;$id.$ts.$payload&quot;, $key, true));
+    foreach (explode(&#39; &#39;, $headers[&#39;webhook-signature&#39;] ?? &#39;&#39;) as $sig) {
+        [$version, $value] = array_pad(explode(&#39;,&#39;, $sig, 2), 2, &#39;&#39;);
+        if ($version === &#39;v1&#39; &amp;&amp; hash_equals($expected, $value)) return json_decode($payload, true);
+    }
+    throw new Exception(&#39;invalid signature&#39;);
+}
+
+$event = verify_delivrie_webhook(
+    file_get_contents(&#39;php://input&#39;),
+    array_change_key_case(getallheaders(), CASE_LOWER),
+    getenv(&#39;DELIVRIE_WEBHOOK_SECRET&#39;),
+);</code></pre>
+<p>In Laravel, use <code>$request-&gt;getContent()</code> for the payload and <code>collect($request-&gt;headers-&gt;all())-&gt;map(fn ($v) =&gt; $v[0])-&gt;all()</code> for the headers, and exclude the route from CSRF protection.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

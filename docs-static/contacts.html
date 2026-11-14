@@ -6,13 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Contacts, segments and topics · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Contacts belong to your team and can be added by hand, imported from CSV or created with POST /contacts. Properties store custom data like plan or city.…">
+  <meta name="description" content="Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/contacts">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/contacts.md">
   <meta property="og:url" content="https://delivrie.io/docs/contacts">
   <meta property="og:title" content="Contacts, segments and topics · Delivrie Docs">
-  <meta property="og:description" content="Contacts belong to your team and can be added by hand, imported from CSV or created with POST /contacts. Properties store custom data like plan or city.…">
+  <meta property="og:description" content="Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,10 +29,40 @@
   <link rel="stylesheet" href="/app/css/app.css">
   <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Contacts, segments and topics", "description": "Contacts belong to your team and can be added by hand, imported from CSV or created with POST /contacts. Properties store custom data like plan or city.…", "url": "https://delivrie.io/docs/contacts", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Contacts, segments and topics", "item": "https://delivrie.io/docs/contacts"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Contacts, segments and topics", "description": "Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular…", "url": "https://delivrie.io/docs/contacts", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Contacts, segments and topics", "item": "https://delivrie.io/docs/contacts"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Contacts, segments and topics</h1><p>Contacts belong to your team and can be added by hand, imported from CSV or created with POST /contacts. Properties store custom data like plan or city. Segments group contacts for broadcasts. Topics power the hosted unsubscribe page so people can opt out of one kind of email without leaving entirely.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Domain not verifying</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability</a></li><li><a href="/docs/suppressions">Suppressions</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts and segments</a></li></ul></div></div>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Contacts, segments and topics</h1><p>Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular unsubscribes.</p><p>Contacts are the people you send broadcasts and automations to. They belong to your team, and each email address appears once.</p>
+<h2 id="create-or-update-a-contact">Create or update a contact</h2>
+<p><code>POST /contacts</code> creates a contact, or updates it if the email already exists, so it&#39;s safe to call on every sign-up:</p>
+<pre><code class="language-bash">curl -X POST https://delivrie.io/api/contacts \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;email&quot;: &quot;ada@example.com&quot;,
+    &quot;first_name&quot;: &quot;Ada&quot;,
+    &quot;last_name&quot;: &quot;Lovelace&quot;,
+    &quot;properties&quot;: { &quot;plan&quot;: &quot;pro&quot;, &quot;city&quot;: &quot;Lagos&quot; },
+    &quot;segments&quot;: [&quot;SEGMENT_ID&quot;]
+  }&#39;</code></pre>
+<pre><code class="language-ts">await delivrie.contacts.create({ email: &quot;ada@example.com&quot;, first_name: &quot;Ada&quot;, properties: { plan: &quot;pro&quot; } });</code></pre>
+<p>Get, update or delete a contact by id <b>or</b> email address:</p>
+<pre><code class="language-bash">curl https://delivrie.io/api/contacts/ada@example.com -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;
+
+curl -X PATCH https://delivrie.io/api/contacts/ada@example.com \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{ &quot;properties&quot;: { &quot;plan&quot;: &quot;scale&quot; }, &quot;unsubscribed&quot;: false }&#39;</code></pre>
+<p><code>properties</code> in an update are merged into the existing ones; other properties are kept.</p>
+<h2 id="import">Import</h2>
+<p>Upload a CSV in <a href="https://delivrie.io/contacts/import" data-native>Contacts → Import</a>. Map columns to email, first name, last name and properties, and choose a segment to add everyone to. Only import people who agreed to hear from you.</p>
+<h2 id="properties">Properties</h2>
+<p>Properties hold anything you want to personalise or filter by: plan, city, signup date. Define them, with a type and fallback value, in <a href="https://delivrie.io/contacts/properties" data-native>Contacts → Properties</a>. <code>GET /contact-properties</code> lists them. Use them in broadcasts as <code>{{plan}}</code>.</p>
+<h2 id="segments">Segments</h2>
+<p>Segments are named groups of contacts. Broadcasts go to a segment, and automations can start when someone joins one.</p>
+<div class="d-table"><table><thead><tr><th>Request</th><th>What it does</th></tr></thead><tbody><tr><td><code>POST /segments</code> with <code>{ &quot;name&quot;: &quot;Beta users&quot; }</code></td><td>Create a segment</td></tr><tr><td><code>GET /segments</code></td><td>List segments</td></tr><tr><td><code>POST /segments/:id/contacts</code> with <code>{ &quot;contacts&quot;: [&quot;ada@example.com&quot;, { &quot;email&quot;: &quot;tobi@example.com&quot;, &quot;first_name&quot;: &quot;Tobi&quot; }] }</code></td><td>Add contacts, creating any that don&#39;t exist</td></tr><tr><td><code>DELETE /segments/:id</code></td><td>Delete the segment (the contacts stay)</td></tr></tbody></table></div>
+<h2 id="topics">Topics</h2>
+<p>Topics let people opt out of one kind of email (say, product updates) without leaving everything. Create them in <a href="https://delivrie.io/contacts/topics" data-native>Contacts → Topics</a> with a default of opt-in or opt-out, then pick a topic when you create a broadcast. The unsubscribe page shows each topic as its own switch. <code>GET /topics</code> lists them.</p>
+<h2 id="unsubscribed-contacts">Unsubscribed contacts</h2>
+<p>A contact with <code>unsubscribed: true</code> gets no broadcasts. It happens when they click unsubscribe, when they mark a broadcast as spam, or when you set it. Transactional emails sent with <code>POST /emails</code> aren&#39;t affected; they&#39;re for messages the person needs, like receipts.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>

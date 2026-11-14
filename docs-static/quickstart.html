@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quickstart · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Send your first email in five minutes: create an account and API key, test with the shared sender, then verify your own domain.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/quickstart">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/quickstart.md">
+  <meta property="og:url" content="https://delivrie.io/docs/quickstart">
+  <meta property="og:title" content="Quickstart · Delivrie Docs">
+  <meta property="og:description" content="Send your first email in five minutes: create an account and API key, test with the shared sender, then verify your own domain.">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Quickstart", "description": "Send your first email in five minutes: create an account and API key, test with the shared sender, then verify your own domain.", "url": "https://delivrie.io/docs/quickstart", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Quickstart", "item": "https://delivrie.io/docs/quickstart"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Quickstart</h1><p>Send your first email in five minutes: create an account and API key, test with the shared sender, then verify your own domain.</p><p>This takes about five minutes. You&#39;ll send a test email right away, then set up your own domain so you can email anyone.</p>
+<h2 id="1-create-an-account">1. Create an account</h2>
+<p>Sign up at <a href="https://delivrie.io/signup" data-native>delivrie.io/signup</a>. The Free plan includes 6,000 emails a month (up to 200 a day), so you don&#39;t need a card.</p>
+<h2 id="2-create-an-api-key">2. Create an API key</h2>
+<p>Open <a href="https://delivrie.io/api-keys" data-native>API keys</a> in the dashboard and click <b>Create API key</b>.</p>
+<ul><li><b>Full access</b> keys can call every endpoint. Use them for scripts and back-office tools.</li><li><b>Sending access</b> keys can only send email, optionally from one domain. Use them in production apps.</li></ul>
+<p>Keys start with <code>dlv_</code> and are shown once. Store the key in an environment variable, never in your code:</p>
+<pre><code class="language-bash">DELIVRIE_API_KEY=dlv_your_key</code></pre>
+<h2 id="3-send-a-test-email">3. Send a test email</h2>
+<p>You can send before you verify a domain. Use the shared sender <code>onboarding@delivrie.io</code> as the <code>from</code> address, and send to either:</p>
+<ul><li>the <b>test addresses</b> <code>delivered@test.delivrie.io</code>, <code>bounced@test.delivrie.io</code> and <code>complained@test.delivrie.io</code>. They behave like real inboxes and fire real events. See <a href="/docs/test-mode">Test addresses</a>.</li><li><b>yourself and your teammates</b>: the email addresses of people on your Delivrie team.</li></ul>
+<p><b>cURL</b></p><pre><code class="language-bash">curl -X POST https://delivrie.io/api/emails \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Idempotency-Key: quickstart-1&quot; \
+  -d &#39;{
+    &quot;from&quot;: &quot;Acme &lt;onboarding@delivrie.io&gt;&quot;,
+    &quot;to&quot;: &quot;delivered@test.delivrie.io&quot;,
+    &quot;subject&quot;: &quot;My first Delivrie email&quot;,
+    &quot;html&quot;: &quot;&lt;h1&gt;It works&lt;/h1&gt;&lt;p&gt;Sent with Delivrie.&lt;/p&gt;&quot;
+  }&#39;</code></pre><p><b>Node.js</b></p><pre><code class="language-ts">// npm install delivrie
+import { Delivrie } from &quot;delivrie&quot;;
+
+const delivrie = new Delivrie(process.env.DELIVRIE_API_KEY);
+
+const { data, error } = await delivrie.emails.send(
+  {
+    from: &quot;Acme &lt;onboarding@delivrie.io&gt;&quot;,
+    to: &quot;delivered@test.delivrie.io&quot;,
+    subject: &quot;My first Delivrie email&quot;,
+    html: &quot;&lt;h1&gt;It works&lt;/h1&gt;&lt;p&gt;Sent with Delivrie.&lt;/p&gt;&quot;,
+  },
+  { idempotencyKey: &quot;quickstart-1&quot; },
+);
+
+if (error) throw new Error(`${error.name}: ${error.message}`);
+console.log(&quot;Sent&quot;, data.id);</code></pre><p><b>Python</b></p><pre><code class="language-python">import os, requests
+
+res = requests.post(
+    &quot;https://delivrie.io/api/emails&quot;,
+    headers={
+        &quot;Authorization&quot;: f&quot;Bearer {os.environ[&#39;DELIVRIE_API_KEY&#39;]}&quot;,
+        &quot;Idempotency-Key&quot;: &quot;quickstart-1&quot;,
+    },
+    json={
+        &quot;from&quot;: &quot;Acme &lt;onboarding@delivrie.io&gt;&quot;,
+        &quot;to&quot;: &quot;delivered@test.delivrie.io&quot;,
+        &quot;subject&quot;: &quot;My first Delivrie email&quot;,
+        &quot;html&quot;: &quot;&lt;h1&gt;It works&lt;/h1&gt;&lt;p&gt;Sent with Delivrie.&lt;/p&gt;&quot;,
+    },
+)
+res.raise_for_status()
+print(&quot;Sent&quot;, res.json()[&quot;id&quot;])</code></pre>
+<p>A successful send returns <code>200</code> with <code>{ &quot;id&quot;: &quot;...&quot; }</code>. Open <a href="https://delivrie.io/emails" data-native>Emails</a> in the dashboard to watch it move from queued to sent to delivered.</p>
+<blockquote class="info"><b>Note</b> If you get <code>422 validation_error</code>, read the <code>message</code>. It says exactly what&#39;s wrong, for example a missing field or a <code>from</code> domain that isn&#39;t verified yet.</blockquote>
+<h2 id="4-verify-your-domain">4. Verify your domain</h2>
+<p>To send to anyone, add a domain you own.</p>
+<ol><li>Open <a href="https://delivrie.io/domains/new" data-native>Domains</a> and add a subdomain such as <code>mail.acme.com</code>. A subdomain keeps your main domain&#39;s reputation separate from your app&#39;s email.</li><li>Add the DNS records Delivrie shows you at your DNS provider: a DKIM <code>TXT</code> record, and an <code>MX</code> and <code>TXT</code> record on the <code>send</code> subdomain for SPF and bounces.</li><li>Click <b>Verify DNS records</b>. Most providers update within minutes.</li></ol>
+<p>Then send from any address on that domain, like <code>orders@mail.acme.com</code>, to anyone. <a href="/docs/domains">Domains and DNS</a> explains each record, and <a href="/docs/domain-not-verifying">Why isn&#39;t my domain verifying?</a> covers the usual fixes.</p>
+<h2 id="5-next-steps">5. Next steps</h2>
+<ul><li>Track deliveries, bounces and opens with <a href="/docs/webhooks">webhooks</a>.</li><li>Reuse designs with <a href="/docs/templates">templates</a>.</li><li>Find your framework under SDKs and frameworks: <a href="/docs/nextjs">Next.js</a>, <a href="/docs/express">Express</a>, <a href="/docs/python">Python</a>, <a href="/docs/php">PHP and Laravel</a>, <a href="/docs/ruby">Ruby and Rails</a>, <a href="/docs/go">Go</a>, <a href="/docs/rust">Rust</a>, <a href="/docs/supabase">Supabase</a>, <a href="/docs/cloudflare-workers">Cloudflare Workers</a>.</li><li>Before you go live, read the <a href="/docs/deliverability">Deliverability guide</a>.</li></ul><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

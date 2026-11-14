@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Troubleshooting and FAQ · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Answers to the most common Delivrie questions: emails not arriving, going to spam, API errors, webhooks not firing, SMTP connection problems, limits and…">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/troubleshooting">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/troubleshooting.md">
+  <meta property="og:url" content="https://delivrie.io/docs/troubleshooting">
+  <meta property="og:title" content="Troubleshooting and FAQ · Delivrie Docs">
+  <meta property="og:description" content="Answers to the most common Delivrie questions: emails not arriving, going to spam, API errors, webhooks not firing, SMTP connection problems, limits and…">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="https://esm.sh/@supabase/supabase-js@2.49.1">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Troubleshooting and FAQ", "description": "Answers to the most common Delivrie questions: emails not arriving, going to spam, API errors, webhooks not firing, SMTP connection problems, limits and…", "url": "https://delivrie.io/docs/troubleshooting", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-14"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Troubleshooting and FAQ", "item": "https://delivrie.io/docs/troubleshooting"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Troubleshooting and FAQ</h1><p>Answers to the most common Delivrie questions: emails not arriving, going to spam, API errors, webhooks not firing, SMTP connection problems, limits and billing.</p><h2 id="sending">Sending</h2>
+<p><b>My request returns 200 but the email never arrives.</b> Open the email in <a href="https://delivrie.io/emails" data-native>Emails</a> (or <code>GET /emails/:id</code>) and check its status:</p>
+<ul><li><code>suppressed</code>: every recipient is on your <a href="/docs/suppressions">suppression list</a>.</li><li><code>bounced</code>: the event says why; usually the address doesn&#39;t exist.</li><li><code>failed</code>: the <code>error</code> field says why, often that the sending domain stopped being verified.</li><li><code>delivered</code>: the recipient&#39;s server accepted it. Ask them to check spam and any filters; see the <a href="/docs/deliverability">Deliverability guide</a>.</li><li><code>queued</code> or <code>sent</code> for more than a few minutes: check <a href="https://delivrie.io/status" data-native>status</a>, then contact us.</li></ul>
+<p><b>I get &quot;The from domain ... is not verified&quot;.</b> The domain in <code>from</code> must be verified in this team. Check for typos (<code>mail.acme.com</code> vs <code>acme.com</code>), check the key belongs to the right team, and see <a href="/docs/domain-not-verifying">Why isn&#39;t my domain verifying?</a> While testing, use <code>onboarding@delivrie.io</code>.</p>
+<p><b>I get &quot;... can only send to members of your team&quot;.</b> You&#39;re sending from <code>onboarding@delivrie.io</code>, which can only email your teammates and the <a href="/docs/test-mode">test addresses</a>. Verify your own domain to email anyone.</p>
+<p><b>Can I send from Gmail, Yahoo or Outlook addresses?</b> No. You can only send from domains you own and verify. Those providers&#39; DMARC policies would send such mail to spam anyway.</p>
+<p><b>Emails go to spam.</b> Follow <a href="/docs/deliverability">If mail goes to spam</a>. Most often it&#39;s a new domain with no history, missing DMARC, or content that looks promotional.</p>
+<p><b>How do I send to many people at once?</b> For different content per person, use <a href="/docs/send-email">batch sending</a> (100 per request). For the same message to a list, use <a href="/docs/broadcasts">broadcasts</a>. Don&#39;t put many recipients in one email&#39;s <code>to</code>: they&#39;d all see each other.</p>
+<p><b>Is there a request rate limit?</b> There&#39;s no fixed per-second limit today. Plan limits are on emails per day and month: see <a href="/docs/limits">Plans and limits</a>. For large sends, use batches or broadcasts rather than thousands of parallel requests.</p>
+<h2 id="api-and-code">API and code</h2>
+<p><b>401 errors.</b> <code>missing_api_key</code>: the <code>Authorization</code> header is missing, often because the environment variable isn&#39;t set where the code runs. <code>invalid_api_key</code>: the key was deleted, mistyped, or has extra spaces or quotes around it.</p>
+<p><b>403 restricted_api_key.</b> A sending access key can only send. Use a full access key for other endpoints, or check the key&#39;s domain restriction.</p>
+<p><b>CORS errors in the browser.</b> Don&#39;t call the API from the browser; your key would be public. See <a href="/docs/cors">CORS and browser apps</a>.</p>
+<p><b>&quot;Request body must be valid JSON&quot;.</b> Send <code>Content-Type: application/json</code> and a JSON body. In cURL, check your quotes; in code, use <code>JSON.stringify</code> or your client&#39;s JSON option.</p>
+<p><b>Where can I see exactly what I sent?</b> <a href="https://delivrie.io/logs" data-native>Logs</a> has every API request with its request and response bodies, including failures.</p>
+<h2 id="webhooks">Webhooks</h2>
+<p><b>My endpoint isn&#39;t receiving events.</b> Check the endpoint is subscribed to those events and enabled, uses <code>https://</code>, is publicly reachable (not <code>localhost</code>), and returns <code>2xx</code> within 15 seconds without redirecting. The endpoint&#39;s page in <a href="https://delivrie.io/webhooks" data-native>Webhooks</a> shows each attempt with its status code and response. Use <b>Send test event</b> to try it.</p>
+<p><b>Signature verification fails.</b> You&#39;re almost certainly verifying a parsed and re-serialised body. Verify the raw body, exactly as received, and use the right endpoint&#39;s <code>whsec_</code> secret. See <a href="/docs/webhooks">Verify signatures</a>.</p>
+<p><b>I get the same event twice.</b> Retries can deliver an event more than once. Skip events whose <code>webhook-id</code> you&#39;ve already handled.</p>
+<h2 id="smtp">SMTP</h2>
+<p><b>Connection times out.</b> Your host probably blocks port 587 or 465. Use <code>2587</code> or <code>2465</code>. See <a href="/docs/smtp">SMTP</a>.</p>
+<p><b>535 authentication failed.</b> The username must be <code>delivrie</code> and the password a valid API key.</p>
+<h2 id="account-and-billing">Account and billing</h2>
+<p><b>What happens when I reach my limit?</b> See <a href="/docs/limits">When you reach a limit</a>.</p>
+<p><b>Can I change plans any time?</b> Yes, in <a href="https://delivrie.io/billing" data-native>Billing</a>. You can pay in naira or US dollars.</p>
+<p><b>How long are emails and logs kept?</b> 1 day on Free, 3 days on Starter and Pro, 7 days on Scale. Use <a href="/docs/webhooks">webhooks</a> to keep your own records.</p>
+<p><b>Can several people use one account?</b> Yes: invite teammates in Settings. Free includes one member; Starter and Pro five; Scale unlimited.</p>
+<h2 id="still-stuck">Still stuck?</h2>
+<ul><li>Ask in the chat in the bottom corner of the dashboard. Replies arrive there and by email.</li><li>Email <a href="mailto:support@delivrie.io" data-native>support@delivrie.io</a> with the email id or request id from <a href="https://delivrie.io/logs" data-native>Logs</a>, so we can find it quickly.</li><li>Check <a href="https://delivrie.io/status" data-native>status</a> for anything affecting everyone.</li></ul><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

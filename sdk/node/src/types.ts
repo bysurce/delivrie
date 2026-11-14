@@ -56,8 +56,8 @@ export interface TemplateRef {
 }
 
 export interface SendEmailRequest {
-  /** Sender on a verified domain. `"Name <email@domain>"` sets a display name. */
-  from: string;
+  /** Sender on a verified domain. `"Name <email@domain>"` sets a display name. Optional when the template has a default sender. */
+  from?: string;
   /** One address or up to 50. */
   to: string | string[];
   /** Required unless you send a template. */
@@ -433,6 +433,15 @@ export interface ReplyToThreadRequest {
   /** Plain text; it's wrapped in simple HTML for you. Provide text or html. */
   text?: string;
   html?: string;
+}
+
+export interface BroadcastRecipientCount {
+  /** Contacts in the segment. */
+  total: number;
+  /** Contacts who opted out of the broadcast's topic. */
+  topic_opt_out: number;
+  /** Contacts it will be sent to, after unsubscribes, topic opt-outs and suppressions. */
+  recipients: number;
 }
 
 export interface Deleted {
