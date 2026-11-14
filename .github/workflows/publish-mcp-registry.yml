@@ -1,0 +1,53 @@
+name: Publish to MCP Registry
+
+# Lists the Delivrie MCP server (server.json) in the official MCP Registry, so MCP clients and directories can find it.
+# Run it from the Actions tab (or `gh workflow run publish-mcp-registry.yml`) after changing server.json.
+# Authenticates with GitHub OIDC, which owns the io.github.codeddesigner/* namespace: no secret needed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [server.json]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install mcp-publisher
+        run: |
+          curl -sSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --help | head -5
+
+      - name: Check the MCP endpoint answers
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST https://delivrie.io/api/mcp \
+            -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"registry-check","version":"1"}}}')
+          echo "initialize returned HTTP $code"
+          # 200 (open initialize) or 401 (asks for OAuth) both mean the server is up.
+          [ "$code" = "200" ] || [ "$code" = "401" ]
+
+      - name: Validate server.json
+        continue-on-error: true
+        run: ./mcp-publisher validate server.json || ./mcp-publisher validate
+
+      - name: Authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
+
+      - name: Confirm the listing
+        run: |
+          for i in 1 2 3 4 5 6; do
+            out=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.codeddesigner/delivrie")
+            echo "$out" | grep -q '"io.github.codeddesigner/delivrie"' && { echo "$out" | head -c 1500; exit 0; }
+            sleep 10
+          done
+          echo "Published, but the search index hasn't picked it up yet."
