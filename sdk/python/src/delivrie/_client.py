@@ -1,4 +1,4 @@
-"""The Delivrie client. Standard library only: works anywhere Python 3.9+ runs."""
+"""The Delivrie client. Standard library only: works anywhere Python 3.10+ runs."""
 from __future__ import annotations
 
 import base64

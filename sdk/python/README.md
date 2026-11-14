@@ -3,7 +3,7 @@
 The official Python SDK for [Delivrie](https://delivrie.io), the email API for transactional email, broadcasts, automations and a shared inbox.
 
 - No dependencies: the standard library only
-- Python 3.9+, sync and async (`AsyncDelivrie`)
+- Python 3.10+, sync and async (`AsyncDelivrie`)
 - Safe retries: rate limits, server errors and network errors are retried, and sends only with an idempotency key, so an email is never sent twice
 - Webhook signature verification built in
 
