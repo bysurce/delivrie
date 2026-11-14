@@ -102,5 +102,6 @@ jobs:
       - name: Tag the release
         if: github.ref_type != 'tag'
         run: |
+          if git ls-remote --exit-code --tags origin "sdk-node-v$VERSION" >/dev/null; then echo "Tag already exists"; exit 0; fi
           git tag "sdk-node-v$VERSION"
           git push origin "sdk-node-v$VERSION"
