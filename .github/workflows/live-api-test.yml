@@ -1,0 +1,31 @@
+# Sends real emails to Delivrie's test addresses after every API deploy (and once a day) to prove sending,
+# idempotent retries and Resend SDK compatibility work end to end. See tools/live-test.mjs.
+# Needs one repository secret: DELIVRIE_TEST_KEY (a sending access key). About 12 emails per run.
+name: Live API test
+
+on:
+  workflow_run:
+    workflows: ["Deploy Supabase functions"]
+    types: [completed]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency: live-api-test
+
+jobs:
+  test:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      DELIVRIE_TEST_KEY: ${{ secrets.DELIVRIE_TEST_KEY }}
+      RESEND_BASE_URL: https://delivrie.io/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the published SDKs
+        run: npm install --no-save --prefix tools delivrie@latest resend@latest
+      - name: Run the live test
+        run: node tools/live-test.mjs
