@@ -84,9 +84,14 @@ const CHECKS: Record<string, () => Promise<Result>> = {
     return { state: "operational" };
   },
   async mcp() {
-    const [r, ms] = await timed(() => fetch(`${APP_URL}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) }));
-    await r.body?.cancel();
-    const ok = r.status === 401 && /resource_metadata/.test(r.headers.get("www-authenticate") || "");
+    const probe = async () => {
+      const [r, ms] = await timed(() => fetch(`${APP_URL}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) }));
+      await r.body?.cancel();
+      return { ok: r.status === 401 && /resource_metadata/.test(r.headers.get("www-authenticate") || ""), ms };
+    };
+    let { ok, ms } = await probe();
+    // A slow first answer is usually a cold start; only call it degraded if a second, warm request is slow too.
+    if (ok && ms > 4000) ({ ok, ms } = await probe());
     return ok ? { state: ms > 4000 ? "degraded" : "operational", latency_ms: ms } : { state: "down", latency_ms: ms, detail: "The MCP server isn't responding" };
   },
   async dashboard() {
