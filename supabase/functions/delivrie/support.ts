@@ -15,8 +15,9 @@ const msgOut = (m: Any) => ({ id: m.id, author: m.author, author_name: m.author 
 function needDashboard(c: Any) { if (c.via !== "dashboard" || !c.userId) throw forbidden("Support chat is only available from the dashboard"); }
 async function isAdmin(userId: string | null) {
   if (!userId) return false;
-  const { data } = await db.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
-  return !!data;
+  // Support conversations are for owners and admins; usage viewers only see the admin dashboard's numbers.
+  const { data } = await db.from("platform_admins").select("role").eq("user_id", userId).maybeSingle();
+  return data?.role === "owner" || data?.role === "admin";
 }
 async function needAdmin(c: Any) { needDashboard(c); if (!(await isAdmin(c.userId))) throw forbidden("Platform admins only"); }
 async function userEmail(id: string | null) {
@@ -144,7 +145,7 @@ export function registerSupport(route: Route) {
     // Email the platform admins, at most once every 10 minutes per conversation.
     const last = t.support_notified_at ? new Date(t.support_notified_at).getTime() : 0;
     if (Date.now() - last > 10 * 60_000) {
-      const { data: admins } = await db.from("platform_admins").select("user_id");
+      const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
       const to = (await Promise.all((admins || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
       const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
       const link = `${APP_URL}/admin/support?t=${t.id}`;

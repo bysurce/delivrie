@@ -4,7 +4,13 @@ import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, num, fmtDate, fmtDateTime, ago, badge, toast, errToast, on, debounce, confirmModal, formModal, fieldHtml, emptyState, initials } from "../lib/ui.js";
 import { lineChart } from "../lib/chart.js";
 
-const TABS = [["overview", "Overview"], ["users", "Users"], ["teams", "Teams"], ["revenue", "Revenue"], ["support", "Support"], ["inbox", "Inbox"], ["website", "Website"]];
+// Roles: owner (everything, manages admins), admin (everything else), viewer (read-only usage oversight).
+// The database enforces this; the page only hides what a role can't use.
+const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["revenue", "Revenue", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
+const RANK = { viewer: 1, admin: 2, owner: 3 };
+const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
+let ROLE = null;
+const can = (min) => (RANK[ROLE] || 0) >= RANK[min];
 const money = (amount, currency) => new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format((amount || 0) / 100);
 const moneyMap = (m) => Object.keys(m || {}).length ? Object.entries(m).map(([c, a]) => money(a, c)).join(" · ") : "—";
 const pct = (a, b, d = 1) => b ? `${((a / b) * 100).toFixed(d)}%` : "0%";
@@ -19,19 +25,20 @@ async function rpc(name, args) {
 export default async function admin(ctx) {
   const root = ctx.root;
   const tab = ctx.params.tab || "overview";
+  ROLE = await rpc("platform_role").catch(() => null);
   root.innerHTML = `<div class="admin">
-    <header class="admin-top"><a href="/emails" class="row-flex" style="gap:10px"><img src="/assets/logo.svg" width="122" height="22" alt="Delivrie"></a>${badge("Admin", "yellow")}<span class="grow"></span><span class="dim" style="font-size:12.5px">${esc(state.user?.email || "")}</span><a class="btn btn-ghost btn-sm" href="/emails">Back to app ${icon("arrow-right", 12)}</a></header>
-    <div class="page wide"><div class="ul-tabs">${TABS.map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="/admin/${k === "overview" ? "" : k}">${l}</a>`).join("")}</div><div data-body><div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div></div></div></div>`;
+    <header class="admin-top"><a href="/emails" class="row-flex" style="gap:10px"><img src="/assets/logo.svg" width="122" height="22" alt="Delivrie"></a>${badge(ROLE_LABEL[ROLE] || "Admin", "yellow")}<span class="grow"></span><span class="dim" style="font-size:12.5px">${esc(state.user?.email || "")}</span><a class="btn btn-ghost btn-sm" href="/emails">Back to app ${icon("arrow-right", 12)}</a></header>
+    <div class="page wide"><div class="ul-tabs">${TABS.filter((t) => can(t[2])).map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="/admin/${k === "overview" ? "" : k}">${l}</a>`).join("")}</div><div data-body><div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div></div></div></div>`;
   const body = root.querySelector("[data-body]");
 
-  const ok = await rpc("is_platform_admin").catch(() => false);
-  if (!ok) {
+  if (!ROLE) {
     body.innerHTML = `<div class="card">${emptyState({ icon: "shield", title: "Admins only", desc: "This account isn't a Delivrie platform admin. Ask an existing admin to add you." })}</div>`;
     return;
   }
-  api("GET", "/support/admin/unread").then((r) => { const a = root.querySelector('.ul-tab[href="/admin/support"]'); if (a && r.unread_threads) a.insertAdjacentHTML("beforeend", ` <span class="badge yellow" style="margin-left:4px">${r.unread_threads}</span>`); }).catch(() => {});
-  const fn = { overview, users, teams, revenue, support, inbox, website }[tab];
-  if (!fn) return ctx.navigate("/admin", { replace: true });
+  if (can("admin")) api("GET", "/support/admin/unread").then((r) => { const a = root.querySelector('.ul-tab[href="/admin/support"]'); if (a && r.unread_threads) a.insertAdjacentHTML("beforeend", ` <span class="badge yellow" style="margin-left:4px">${r.unread_threads}</span>`); }).catch(() => {});
+  const fn = { overview, users, teams, revenue, support, inbox, website, admins }[tab];
+  const need = TABS.find((t) => t[0] === tab)?.[2];
+  if (!fn || !need || !can(need)) return ctx.navigate("/admin", { replace: true });
   try { await fn(body, ctx); } catch (e) { errToast(e); body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; }
 }
 
@@ -137,7 +144,7 @@ async function teams(body) {
         <td>${t.paused ? `<span title="${esc(t.paused.sending_paused_reason || "")}">${badge("Sending paused", "red")}</span> ` : ""}${planBadge(t.plan)} ${t.plan_marketing && t.plan_marketing !== "free" ? badge("Mkt " + t.plan_marketing, "gray") : ""} ${t.billing_status === "past_due" ? badge("Past due", "red") : t.billing_status === "cancelling" ? badge("Cancelling", "orange") : ""}</td>
         <td class="r">${num(t.emails_30d)}</td><td class="r">${num(t.members)}</td><td class="r">${num(t.domains)}</td><td class="r">${num(t.credits)}</td>
         <td class="muted">${fmtDate(t.created_at)}</td>
-        <td class="act"><button class="ibtn" data-team="${t.id}" title="Manage">${icon("more")}</button></td></tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No teams found" })}</div>`;
+        <td class="act">${can("admin") ? `<button class="ibtn" data-team="${t.id}" title="Manage">${icon("more")}</button>` : ""}</td></tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No teams found" })}</div>`;
   };
   on(body, "input", "[data-q]", debounce(() => { q = body.querySelector("[data-q]").value.trim(); page = 0; load().catch(errToast); }, 300));
   on(body, "click", "[data-page]", (_e, b) => { page = Number(b.dataset.page); load().catch(errToast); });
@@ -162,6 +169,40 @@ async function teams(body) {
         async onSubmit(v) { const left = await rpc("admin_grant_credits", { p_team: t.id, p_emails: Number(v.n) }); toast(`${t.name} now has ${num(left)} credits`); load(); } }) },
     ], { align: "right", width: 220 });
   });
+  await load();
+}
+
+// ---------------------------------------------------------------- admins (owners only)
+async function admins(body) {
+  const ROLES = [["viewer", "Usage viewer", "Sees the overview, users, teams, usage and revenue. Can’t change anything or read support conversations."],
+    ["admin", "Admin", "Everything except managing admins: plans, credits, pausing sending, support and website settings."],
+    ["owner", "Owner", "Everything, including adding and removing admins."]];
+  const roleOpts = (cur) => ROLES.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`).join("");
+  let rows = [];
+  const load = async () => {
+    rows = await rpc("admin_list_admins");
+    body.innerHTML = `<div class="row-flex" style="margin-bottom:14px"><div><h3 style="margin:0;font-size:15px">Admins</h3><p class="dim" style="margin:4px 0 0;font-size:12.5px">People who can open this admin area, and what they can do.</p></div><span class="grow"></span><button class="btn btn-primary btn-sm" data-add>${icon("plus", 12)} Add admin</button></div>
+      <div class="table-wrap"><table class="t"><thead><tr><th>Person</th><th>Role</th><th>Added</th><th></th></tr></thead><tbody>${rows.map((a) => `<tr>
+        <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:10.5px">${esc(initials(a.full_name || a.email))}</span><div><div>${esc(a.full_name || a.email)}${a.user_id === state.user?.id ? ' <span class="dim">(you)</span>' : ""}</div>${a.full_name ? `<div class="dim" style="font-size:12px">${esc(a.email)}</div>` : ""}</div></div></td>
+        <td><select class="input" data-role="${a.user_id}" style="height:30px;width:auto;min-width:150px">${roleOpts(a.role)}</select></td>
+        <td class="muted">${fmtDate(a.created_at)}${a.added_by_email ? `<div class="dim" style="font-size:12px">by ${esc(a.added_by_email)}</div>` : ""}</td>
+        <td class="act"><button class="ibtn" data-remove="${a.user_id}" title="Remove admin access">${icon("trash")}</button></td></tr>`).join("")}</tbody></table></div>
+      <div class="card card-pad" style="margin-top:16px"><h3 style="margin:0 0 10px;font-size:14px">What each role can do</h3>${ROLES.map(([, l, d]) => `<div style="display:flex;gap:10px;padding:6px 0"><b style="min-width:110px">${l}</b><span class="muted">${d}</span></div>`).join("")}</div>`;
+  };
+  on(body, "change", "[data-role]", async (_e, sel) => {
+      const a = rows.find((x) => x.user_id === sel.dataset.role);
+      try { await rpc("admin_set_admin_role", { p_user: a.user_id, p_role: sel.value }); toast(`${a.full_name || a.email} is now ${ROLE_LABEL[sel.value]}`); if (a.user_id === state.user?.id) return location.reload(); await load(); }
+      catch (e) { errToast(e); sel.value = a.role; }
+    });
+    on(body, "click", "[data-remove]", async (_e, b) => {
+      const a = rows.find((x) => x.user_id === b.dataset.remove);
+      if (!(await confirmModal({ title: "Remove admin access", desc: `<b>${esc(a.full_name || a.email)}</b> will no longer be able to open the admin area. Their own Delivrie account and teams aren’t affected.`, confirm: "Remove access" }))) return;
+      try { await rpc("admin_remove_admin", { p_user: a.user_id }); toast("Admin access removed"); if (a.user_id === state.user?.id) return location.assign("/emails"); await load(); } catch (e) { errToast(e); }
+    });
+    on(body, "click", "[data-add]", () => formModal({ title: "Add admin", desc: "They need a Delivrie account first. Ask them to sign up at delivrie.io, then add them here with the email they used.",
+      fields: [{ name: "email", label: "Email", type: "email", placeholder: "teammate@company.com" }, { name: "role", label: "Role", type: "select", value: "viewer", options: ROLES.map(([value, label]) => ({ value, label })) }],
+      submit: "Add admin", validate: (v) => /@/.test(v.email || ""),
+      async onSubmit(v) { await rpc("admin_add_admin", { p_email: v.email.trim(), p_role: v.role }); toast(`${v.email.trim()} added as ${ROLE_LABEL[v.role]}`); await load(); } }));
   await load();
 }
 
