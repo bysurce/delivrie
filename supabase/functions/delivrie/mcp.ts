@@ -135,8 +135,9 @@ const SUPPORTED = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
 export async function handleMcp(req: Request, call: Call): Promise<Response> {
   const headers = { "content-type": "application/json", ...CORS };
-  if (req.method === "GET") return new Response(JSON.stringify({ error: "This server answers POST requests (Streamable HTTP with JSON responses)." }), { status: 405, headers: { ...headers, allow: "POST, DELETE" } });
+  if (req.method === "GET" || req.method === "HEAD") return new Response(req.method === "HEAD" ? null : JSON.stringify({ error: "This server answers POST requests (Streamable HTTP with JSON responses)." }), { status: 405, headers: { ...headers, allow: "POST, DELETE" } });
   if (req.method === "DELETE") return new Response(null, { status: 204, headers: CORS });
+  if (req.method !== "POST") return new Response(null, { status: 405, headers: { ...CORS, allow: "POST, DELETE" } });
   const msg = await req.json().catch(() => null);
   if (!msg) return new Response(JSON.stringify(rpcErr(null, -32700, "Parse error")), { status: 400, headers });
   const handle = async (m: Any) => {

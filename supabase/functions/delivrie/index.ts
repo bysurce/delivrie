@@ -927,7 +927,13 @@ Deno.serve(async (req) => {
         if (/^sns\.[a-z0-9-]+\.amazonaws\.com$/.test(sub.hostname)) await fetch(sub.toString());
         return json({ confirmed: true });
       }
-      if (msg.Type === "Notification") await handleSesEvent(JSON.parse(msg.Message));
+      if (msg.Type === "Notification") {
+        // SES also sends plain-text notices (e.g. "Successfully validated SNS topic ..." when a region is set up).
+        // They aren't events: acknowledge them, or SNS keeps retrying a 500.
+        let ev: Any = null;
+        try { ev = JSON.parse(msg.Message); } catch { console.log("ses notice", String(msg.Message).slice(0, 200)); }
+        if (ev && typeof ev === "object") await handleSesEvent(ev);
+      }
       return json({ ok: true });
     }
     if (path === "/status/run" && req.method === "POST") {
@@ -955,7 +961,8 @@ Deno.serve(async (req) => {
           return json({ statusCode: err.status, name: err.name, message: err.message }, err.status, { "www-authenticate": `Bearer realm="delivrie", resource_metadata="${APP_URL}/.well-known/oauth-protected-resource"` });
         }
       }
-      return await handleMcp(req, async (method, p, body) => dispatch(req, c!, method, p, body, new URL("https://x" + p)));
+      // Tools pass paths like "/emails?limit=5": routes match the path alone, handlers read the query from the URL.
+      return await handleMcp(req, async (method, p, body) => { const u = new URL("https://x" + p); return dispatch(req, c!, method, u.pathname, body, u); });
     }
 
     const c = await authenticate(req);

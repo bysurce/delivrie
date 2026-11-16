@@ -85,7 +85,8 @@ const CHECKS: Record<string, () => Promise<Result>> = {
   },
   async mcp() {
     const probe = async () => {
-      const [r, ms] = await timed(() => fetch(`${APP_URL}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) }));
+      // 15s: this request goes out through delivrie.io and back, and can land on a cold worker.
+      const [r, ms] = await timed(() => fetch(`${APP_URL}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) }), 15000);
       await r.body?.cancel();
       return { ok: r.status === 401 && /resource_metadata/.test(r.headers.get("www-authenticate") || ""), ms };
     };
@@ -110,7 +111,8 @@ const CHECKS: Record<string, () => Promise<Result>> = {
   },
   async billing() {
     const secret = String(await setting("cron_secret"));
-    const [r, ms] = await timed(() => fetch(`${SUPABASE_URL}/functions/v1/billing/cron/health`, { method: "POST", headers: { "x-cron-secret": secret } }));
+    // 15s: the billing function often starts cold for this check, then calls Paystack.
+    const [r, ms] = await timed(() => fetch(`${SUPABASE_URL}/functions/v1/billing/cron/health`, { method: "POST", headers: { "x-cron-secret": secret } }), 15000);
     const j: Any = await r.json().catch(() => ({}));
     if (!j.configured) return { state: "degraded", latency_ms: ms, detail: "Payments aren't available right now" };
     return j.ok ? { state: "operational", latency_ms: ms } : { state: "degraded", latency_ms: ms, detail: "Checkout may be unavailable" };
@@ -119,8 +121,12 @@ const CHECKS: Record<string, () => Promise<Result>> = {
 
 export async function runStatusChecks() {
   const results = await Promise.all(COMPONENTS.map(async (c) => {
-    let r: Result;
-    try { r = await CHECKS[c.id](); } catch (e) { console.error("status check", c.id, e); r = { state: "down", detail: `${c.name} isn't responding` }; }
+    const once = async (): Promise<Result> => {
+      try { return await CHECKS[c.id](); } catch (e) { console.error("status check", c.id, e); return { state: "down", detail: `${c.name} isn't responding` }; }
+    };
+    // One failed check isn't an outage (a cold start or a dropped request): only report "down" if a retry fails too.
+    let r = await once();
+    if (r.state === "down") { await new Promise((ok) => setTimeout(ok, 3000)); r = await once(); }
     return { component: c.id, state: r.state, latency_ms: r.latency_ms ?? null, detail: r.detail ?? null };
   }));
   await db.from("status_checks").insert(results);
