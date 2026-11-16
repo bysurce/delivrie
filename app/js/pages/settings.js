@@ -28,6 +28,7 @@ async function usage(body) {
   const [{ data: u, error }, status] = await Promise.all([sb.rpc("team_usage", { p_team: T() }), api("GET", "/dashboard/status").catch(() => null)]);
   if (error) throw error;
   const L = status?.limits || { month: 4000, day: 133, contacts: 1000, segments: 3, domains: 5 };
+  const aws = status?.aws; // platform sending health, shown to platform admins below
   // Figma 9.1 Usage: one card per area, plan on the left, limits on the right.
   const tPlan = state.team?.plan_transactional || status?.plan || "free", mPlan = state.team?.plan_marketing || "free";
   const cap = (x) => String(x || "free").replace(/^./, (c) => c.toUpperCase());
