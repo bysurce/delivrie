@@ -4,11 +4,20 @@
   "title": "Delivrie",
   "description": "Send email, run broadcasts and automations, and answer your inbox from any AI agent.",
   "websiteUrl": "https://delivrie.io/docs/mcp",
+  "icons": [
+    {
+      "src": "https://delivrie.io/assets/delivrie-icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/codeddesigner/delivrie",
     "source": "github"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "remotes": [
     {
       "type": "streamable-http",

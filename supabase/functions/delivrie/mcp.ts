@@ -144,7 +144,7 @@ export async function handleMcp(req: Request, call: Call): Promise<Response> {
     switch (m.method) {
       case "initialize": {
         const want = m.params?.protocolVersion;
-        return rpc(m.id, { protocolVersion: SUPPORTED.includes(want) ? want : SUPPORTED[0], capabilities: { tools: { listChanged: false } }, serverInfo: { name: "delivrie", title: "Delivrie", version: "1.1.0", websiteUrl: "https://delivrie.io" }, instructions: INSTRUCTIONS });
+        return rpc(m.id, { protocolVersion: SUPPORTED.includes(want) ? want : SUPPORTED[0], capabilities: { tools: { listChanged: false } }, serverInfo: { name: "delivrie", title: "Delivrie", version: "1.1.1", websiteUrl: "https://delivrie.io" }, instructions: INSTRUCTIONS });
       }
       case "ping": return rpc(m.id, {});
       case "tools/list": return rpc(m.id, { tools: TOOLS.map(({ name, title, description, inputSchema, annotations }) => ({ name, title, description, inputSchema, annotations: { title, ...annotations } })) });
