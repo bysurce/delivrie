@@ -125,7 +125,7 @@ export const API = [
     { slug: "replay-delivery", m: "POST", path: "/webhook-deliveries/:id/replay", title: "Replay delivery", scope: FULL, desc: "Send a past delivery again and return the new attempt.", params: ID("delivery"), response: { id: "wd_5…", status_code: 200, attempts: 2, delivered: true } },
   ]},
   { group: "Contacts", items: [
-    { slug: "create-contact", m: "POST", path: "/contacts", title: "Create contact", tool: "create_contact", scope: FULL, desc: "Create a contact, or update it if the email already exists.",
+    { slug: "create-contact", m: "POST", path: "/contacts", title: "Create contact", tool: "create_contact", scope: FULL, desc: "Create a contact, or update it if the email already exists. Only the fields you send change; properties are merged.",
       body: [["email", "string", true, "Contact email."], ["first_name", "string", false, "First name."], ["last_name", "string", false, "Last name."], ["properties", "object", false, "Custom properties."], ["segments", "string[]", false, "Segment ids to add the contact to."]],
       example: { email: "ada@example.com", first_name: "Ada", properties: { plan: "pro" } }, response: { object: "contact", id: "c_12…" } },
     { slug: "list-contacts", m: "GET", path: "/contacts", title: "List contacts", tool: "list_contacts", scope: FULL, desc: "List contacts, newest first.", query: [...PAGE, ["created_after", "string", false, "ISO date, or today."]], response: { object: "list", data: [{ id: "c_12…", email: "ada@example.com" }], has_more: false } },

@@ -2,7 +2,7 @@
 
 `POST https://delivrie.io/api/contacts`
 
-Create a contact, or update it if the email already exists.
+Create a contact, or update it if the email already exists. Only the fields you send change; properties are merged.
 
 Access: Needs a full access key.. MCP tool: `create_contact`.
 

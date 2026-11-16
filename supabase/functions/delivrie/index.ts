@@ -243,16 +243,56 @@ async function getEmail(c: Ctx, id: string) {
 }
 
 // ---------------------------------------------------------------- contacts
+// Create contacts that don't exist yet; for ones that do, change only the fields that were passed. Properties are
+// merged, and a contact's subscription only changes when `unsubscribed` is passed, so adding someone who
+// unsubscribed to a segment never quietly re-subscribes them.
 async function upsertContacts(c: Ctx, list: Any[], segmentIds: string[] = []) {
-  const rows = list.map((x) => {
-    const email = String(x.email || "").trim().toLowerCase();
-    if (!EMAIL_RE.test(email)) throw bad(`Invalid email: ${x.email}`);
-    return { team_id: c.teamId, email, first_name: x.first_name ?? null, last_name: x.last_name ?? null, unsubscribed: !!x.unsubscribed, properties: x.properties || {} };
+  const byEmail = new Map<string, Any>();
+  for (const x of list) {
+    const email = String(x?.email || "").trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) throw bad(`Invalid email: ${x?.email}`);
+    byEmail.set(email, { ...(byEmail.get(email) || {}), ...x, email });
+  }
+  const emails = [...byEmail.keys()];
+  const existing = new Map<string, Any>();
+  for (let i = 0; i < emails.length; i += 200) {
+    const { data, error } = await db.from("contacts").select("*").eq("team_id", c.teamId).in("email", emails.slice(i, i + 200));
+    if (error) throw bad(error.message);
+    for (const ct of data || []) existing.set(ct.email, ct);
+  }
+  const fresh = emails.filter((e) => !existing.has(e)).map((email) => {
+    const x = byEmail.get(email);
+    return { team_id: c.teamId, email, first_name: x.first_name ?? null, last_name: x.last_name ?? null, unsubscribed: x.unsubscribed === true, properties: x.properties || {} };
   });
-  const { data, error } = await db.from("contacts").upsert(rows, { onConflict: "team_id,email" }).select("*");
-  if (error) throw bad(error.message);
-  if (segmentIds.length) await db.from("segment_contacts").upsert(data!.flatMap((ct: Any) => segmentIds.map((s) => ({ segment_id: s, contact_id: ct.id, team_id: c.teamId }))), { onConflict: "segment_id,contact_id", ignoreDuplicates: true });
-  for (const ct of data || []) await emit(c.teamId, "contact.created", { id: ct.id, email: ct.email, first_name: ct.first_name, last_name: ct.last_name, unsubscribed: ct.unsubscribed, created_at: ct.created_at });
+  let created: Any[] = [];
+  if (fresh.length) {
+    // ignoreDuplicates: a contact created by a concurrent request since the lookup is left untouched.
+    const { data, error } = await db.from("contacts").upsert(fresh, { onConflict: "team_id,email", ignoreDuplicates: true }).select("*");
+    if (error) throw bad(error.message);
+    created = data || [];
+  }
+  const updated: Any[] = [];
+  for (const [email, ct] of existing) {
+    const x = byEmail.get(email), patch: Any = {};
+    if (x.first_name !== undefined) patch.first_name = x.first_name;
+    if (x.last_name !== undefined) patch.last_name = x.last_name;
+    if (typeof x.unsubscribed === "boolean") patch.unsubscribed = x.unsubscribed;
+    if (x.properties && typeof x.properties === "object") patch.properties = { ...(ct.properties || {}), ...x.properties };
+    if (!Object.keys(patch).length) { updated.push(ct); continue; }
+    const { data, error } = await db.from("contacts").update(patch).eq("id", ct.id).select("*").single();
+    if (error) throw bad(error.message);
+    updated.push(data);
+    await emit(c.teamId, "contact.updated", { id: data.id, email: data.email, unsubscribed: data.unsubscribed });
+  }
+  // Anything created concurrently (skipped by ignoreDuplicates) still needs its row for the response and segments.
+  const have = new Set([...created, ...updated].map((ct) => ct.email));
+  const missing = emails.filter((e) => !have.has(e));
+  let raced: Any[] = [];
+  if (missing.length) raced = (await db.from("contacts").select("*").eq("team_id", c.teamId).in("email", missing)).data || [];
+  const all = new Map([...created, ...updated, ...raced].map((ct) => [ct.email, ct]));
+  const data = emails.map((e) => all.get(e)).filter(Boolean);
+  if (segmentIds.length && data.length) await db.from("segment_contacts").upsert(data.flatMap((ct: Any) => segmentIds.map((sid) => ({ segment_id: sid, contact_id: ct.id, team_id: c.teamId }))), { onConflict: "segment_id,contact_id", ignoreDuplicates: true });
+  for (const ct of created) await emit(c.teamId, "contact.created", { id: ct.id, email: ct.email, first_name: ct.first_name, last_name: ct.last_name, unsubscribed: ct.unsubscribed, created_at: ct.created_at });
   return data;
 }
 async function findContact(c: Ctx, idOrEmail: string) {

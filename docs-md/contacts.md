@@ -6,7 +6,7 @@ Contacts are the people you send broadcasts and automations to. They belong to y
 
 ## Create or update a contact
 
-`POST /contacts` creates a contact, or updates it if the email already exists, so it's safe to call on every sign-up:
+`POST /contacts` creates a contact, or updates it if the email already exists, so it's safe to call on every sign-up. For an existing contact, only the fields you send change: names and `unsubscribed` are replaced, `properties` are merged, and anything you leave out is kept. Someone who unsubscribed stays unsubscribed unless you send `"unsubscribed": false`:
 
 ```bash
 curl -X POST https://delivrie.io/api/contacts \

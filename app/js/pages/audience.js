@@ -92,7 +92,7 @@ function addModal(segs, done, preset = "") {
       on(m, "click", "[data-m]", (_e, b) => { mode = b.dataset.m; m.querySelectorAll("[data-m]").forEach((x) => x.classList.toggle("on", x === b)); m.querySelector("[data-one]").classList.toggle("hidden", mode !== "one"); m.querySelector("[data-many]").classList.toggle("hidden", mode !== "many"); });
       m.querySelector("[data-ok]").onclick = async (e) => {
         let list;
-        if (mode === "one") { const em = m.querySelector("[name=email]").value.trim().toLowerCase(); if (!EMAIL_RE.test(em)) return toast("Enter a valid email", "err"); list = [{ email: em, first_name: m.querySelector("[name=first]").value.trim() || null, last_name: m.querySelector("[name=last]").value.trim() || null }]; }
+        if (mode === "one") { const em = m.querySelector("[name=email]").value.trim().toLowerCase(); if (!EMAIL_RE.test(em)) return toast("Enter a valid email", "err"); const fn = m.querySelector("[name=first]").value.trim(), ln = m.querySelector("[name=last]").value.trim(); list = [{ email: em, ...(fn ? { first_name: fn } : {}), ...(ln ? { last_name: ln } : {}) }]; } // blank names leave an existing contact's names alone
         else { const all = m.querySelector("textarea").value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean); const bad = all.filter((x) => !EMAIL_RE.test(x)); if (bad.length) return toast(`Not valid: ${bad.slice(0, 3).join(", ")}`, "err"); list = [...new Set(all)].slice(0, 1000).map((email) => ({ email })); if (!list.length) return toast("Paste at least one email", "err"); }
         e.currentTarget.disabled = true;
         const { data, error } = await sb.from("contacts").upsert(list.map((c) => ({ ...c, team_id: T() })), { onConflict: "team_id,email" }).select("id");

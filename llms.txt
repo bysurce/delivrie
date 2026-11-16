@@ -93,7 +93,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [List deliveries](https://delivrie.io/docs/api/webhook-events.md): `GET /webhooks/:id/events`. The last 100 delivery attempts for an endpoint, with status codes.
 - [Send test event](https://delivrie.io/docs/api/test-webhook.md): `POST /webhooks/:id/test`. Send a sample event to the endpoint and return the delivery attempt.
 - [Replay delivery](https://delivrie.io/docs/api/replay-delivery.md): `POST /webhook-deliveries/:id/replay`. Send a past delivery again and return the new attempt.
-- [Create contact](https://delivrie.io/docs/api/create-contact.md): `POST /contacts`. Create a contact, or update it if the email already exists.
+- [Create contact](https://delivrie.io/docs/api/create-contact.md): `POST /contacts`. Create a contact, or update it if the email already exists. Only the fields you send change; properties are merged.
 - [List contacts](https://delivrie.io/docs/api/list-contacts.md): `GET /contacts`. List contacts, newest first.
 - [Retrieve contact](https://delivrie.io/docs/api/retrieve-contact.md): `GET /contacts/:id`. Get a contact by id or email.
 - [Update contact](https://delivrie.io/docs/api/update-contact.md): `PATCH /contacts/:id`. Update names, properties or the unsubscribed flag.
