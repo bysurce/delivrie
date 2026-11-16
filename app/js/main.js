@@ -300,6 +300,13 @@ async function safeRun(fn, ctx, root) {
   try { await fn(ctx); }
   catch (e) {
     console.error(e);
+    // A malformed id in the URL (22P02) or a record that no longer exists (.single() found no row: PGRST116)
+    // is a missing page, not a crash: say so instead of showing the database error.
+    if (e?.code === "22P02" || e?.code === "PGRST116") {
+      const back = "/" + (location.pathname.split("/")[1] || "emails");
+      root.innerHTML = `<div class="page narrow"><div class="empty"><div class="head-ico">${icon("search", 16)}</div><h3>Not found</h3><p>This item doesn’t exist, or it was deleted.</p><a class="btn btn-secondary" href="${esc(back)}">Go back</a></div></div>`;
+      return;
+    }
     root.innerHTML = `<div class="page narrow"><div class="empty"><div class="head-ico">${icon("alert", 16)}</div><h3>Something went wrong</h3><p>${esc(e?.message || e)}</p><button class="btn btn-secondary" onclick="location.reload()">Reload</button></div></div>`;
   }
 }
