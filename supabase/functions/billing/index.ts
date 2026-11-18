@@ -1,28 +1,32 @@
-// Delivrie billing on Stripe, in US dollars: Starter/Pro/Scale (monthly or yearly), the marketing add-on,
-// pay-as-you-go credits and month-end overage. Stripe Tax adds sales tax/VAT where it applies.
+// Delivrie billing: Starter/Pro/Scale (monthly or yearly), the marketing add-on, pay-as-you-go credits and
+// month-end overage. Two payment providers, chosen per team:
+//   - Teams in Nigeria pay in Naira through Paystack (card, bank transfer, USSD).
+//   - Everyone else pays in US dollars through Stripe (card, with Stripe Tax).
+// A team stays on the provider it first paid with, so its currency never changes under it. Before that, the
+// country of the request decides (x-dlv-country, set by middleware.js from Vercel's geolocation).
 //
 // Routes (served at https://delivrie.io/api/billing/* via a Vercel rewrite):
 //   GET  /summary         plan, prices, subscription and invoices for the current team
-//   POST /checkout        { plan, interval, kind? } -> Stripe Checkout URL; with a Stripe subscription already
-//                         running, the plan changes in place (the difference is charged or credited now)
-//   POST /topup           { pack | amount, method: card|checkout, auto? } -> credits (saved card is charged
-//                         directly through an invoice; otherwise a Checkout URL). /credits is an alias.
-//   POST /verify          { session_id } -> applies a finished Checkout (the webhook does the same)
-//   POST /portal          { flow?: "card" } -> Stripe customer portal (card, receipts, billing details)
+//   POST /checkout        { plan, interval, kind? } -> checkout URL (Stripe or Paystack). A live Stripe plan changes
+//                         in place instead (the difference is charged or credited now).
+//   POST /topup           { pack | amount, method, auto? } -> credits. method: card (saved card, charged now),
+//                         checkout, and for Naira also bank_transfer or ussd. /credits is an alias.
+//   POST /verify          { session_id } (Stripe) or { reference } (Paystack) -> applies a finished payment
+//   POST /portal          { flow?: "card" } -> Stripe customer portal, or Paystack's card update page. /card too.
 //   POST /cancel          { kind? } -> stop renewing; the plan stays until the paid period ends
 //   POST /settings        { auto_topup?: { enabled, pack, threshold }, alerts?: { p80, p100, credits_low } }
-//   POST /cap             { amount } -> monthly overage spending cap in USD (empty clears it)
-//   POST /details         { email } -> billing email (also set on the Stripe customer)
+//   POST /cap             { amount } -> monthly overage spending cap in the team's currency (empty clears it)
+//   POST /details         { email, and for Naira teams name, country, state, address, city, postal_code, tax_id… }
 //   POST /stripe/webhook  Stripe events (Stripe-Signature, STRIPE_WEBHOOK_SECRET)
+//   POST /webhook         Paystack events (x-paystack-signature, signed with PAYSTACK_SECRET_KEY)
 //   POST /cron/watch      auto top-ups and usage alert emails (pg_cron every 15 minutes, x-cron-secret)
 //   POST /cron/overage    month-end overage charges (pg_cron, x-cron-secret)
-//   POST /cron/health     can we reach Stripe? (status page, x-cron-secret)
-//   POST /webhook         Paystack events: only to wind down subscriptions that started on Paystack in naira
+//   POST /cron/health     can we reach Stripe and Paystack? (status page, x-cron-secret)
 //
-// Secrets: STRIPE_SECRET_KEY (sk_test_… or sk_live_…), STRIPE_WEBHOOK_SECRET (whsec_…), APP_URL, SYSTEM_FROM,
-// PAYSTACK_SECRET_KEY (legacy, until the last naira subscription has ended).
+// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYSTACK_SECRET_KEY, APP_URL, SYSTEM_FROM, VAT_RATE (optional
+// percent added to Naira top-ups and overage; Stripe Tax handles tax on dollar payments).
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-import { cardLabel, formEncode, periodEnd, priceKey, subState, trialEndFor, verifyStripeSignature } from "./stripe.ts";
+import { cardLabel, formEncode, periodEnd, priceKey, subState, verifyStripeSignature } from "./stripe.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -32,38 +36,39 @@ const SK = env("STRIPE_SECRET_KEY");
 const WHSEC = env("STRIPE_WEBHOOK_SECRET");
 const MODE = SK.startsWith("sk_live") ? "live" : SK ? "test" : null;
 const PSK = env("PAYSTACK_SECRET_KEY");
+const PS_MODE = PSK.startsWith("sk_live") ? "live" : PSK ? "test" : null;
 const APP_URL = (env("APP_URL") || "https://delivrie.io").replace(/\/$/, "");
 const STRIPE_VERSION = "2024-06-20";
 
-// Prices follow the pricing page, in cents. Objects keep a currency key so the dashboard reads p.monthly.USD.
+// Prices follow the pricing page, in the smallest unit: cents for USD, kobo for NGN.
 type Price = Record<string, number>;
 export const PLANS: Record<string, { name: string; emails: number; monthly: Price; yearly: Price; overage: Price }> = {
-  starter: { name: "Starter", emails: 20_000, monthly: { USD: 10_00 }, yearly: { USD: 100_00 }, overage: { USD: 45 } },
-  pro: { name: "Pro", emails: 60_000, monthly: { USD: 20_00 }, yearly: { USD: 200_00 }, overage: { USD: 45 } },
-  scale: { name: "Scale", emails: 100_000, monthly: { USD: 45_00 }, yearly: { USD: 450_00 }, overage: { USD: 40 } },
+  starter: { name: "Starter", emails: 20_000, monthly: { USD: 10_00, NGN: 10_000_00 }, yearly: { USD: 100_00, NGN: 100_000_00 }, overage: { USD: 45, NGN: 450_00 } },
+  pro: { name: "Pro", emails: 60_000, monthly: { USD: 20_00, NGN: 27_000_00 }, yearly: { USD: 200_00, NGN: 270_000_00 }, overage: { USD: 45, NGN: 450_00 } },
+  scale: { name: "Scale", emails: 100_000, monthly: { USD: 45_00, NGN: 45_000_00 }, yearly: { USD: 450_00, NGN: 450_000_00 }, overage: { USD: 40, NGN: 400_00 } },
 };
 // Marketing add-on, priced by contacts. "free" (Starter, 1,000 contacts) needs no subscription.
 export const MARKETING: Record<string, { name: string; contacts: number; monthly: Price; yearly: Price; extra?: Price }> = {
-  growth: { name: "Growth", contacts: 5_000, monthly: { USD: 20_00 }, yearly: { USD: 200_00 } },
-  pro: { name: "Pro marketing", contacts: 10_000, monthly: { USD: 40_00 }, yearly: { USD: 400_00 }, extra: { USD: 3_50 } },
+  growth: { name: "Growth", contacts: 5_000, monthly: { USD: 20_00, NGN: 20_000_00 }, yearly: { USD: 200_00, NGN: 200_000_00 } },
+  pro: { name: "Pro marketing", contacts: 10_000, monthly: { USD: 40_00, NGN: 40_000_00 }, yearly: { USD: 400_00, NGN: 400_000_00 }, extra: { USD: 3_50, NGN: 3_500_00 } },
 };
 // Pay-as-you-go credit packs: one credit sends one email. Credits never expire.
 export const PACKS: { emails: number; price: Price; note?: string }[] = [
-  { emails: 8_300, price: { USD: 5_00 }, note: "Minimum" },
-  { emails: 41_600, price: { USD: 25_00 } },
-  { emails: 172_400, price: { USD: 100_00 }, note: "Save 3%" },
-  { emails: 925_900, price: { USD: 500_00 }, note: "Save 10%" },
+  { emails: 8_300, price: { USD: 5_00, NGN: 5_000_00 }, note: "Minimum" },
+  { emails: 41_600, price: { USD: 25_00, NGN: 25_000_00 } },
+  { emails: 172_400, price: { USD: 100_00, NGN: 100_000_00 }, note: "Save 3%" },
+  { emails: 925_900, price: { USD: 500_00, NGN: 500_000_00 }, note: "Save 10%" },
 ];
-// What naira subscribers who started on Paystack pay until they move to USD (shown on their billing page only).
-const LEGACY_NGN: Record<string, { monthly: number; yearly: number }> = {
-  starter: { monthly: 10_000_00, yearly: 100_000_00 }, pro: { monthly: 27_000_00, yearly: 270_000_00 }, scale: { monthly: 45_000_00, yearly: 450_000_00 },
-  growth: { monthly: 20_000_00, yearly: 200_000_00 },
-};
-// Credits are stored as emails; their value uses the pay-as-you-go rate of $0.60 per 1,000 emails.
-const CREDIT_RATE = 0.06; // cents per email
-const creditValue = (emails: number) => Math.floor(emails * CREDIT_RATE);
-const emailsFor = (amount: number) => Math.floor(amount / CREDIT_RATE);
-const MIN_TOPUP = 5_00, MAX_TOPUP = 10_000_00, DEFAULT_THRESHOLD = 2_00;
+// Credits are stored as emails. Their money value uses the pay-as-you-go rate: $0.60 / ₦600 per 1,000 emails.
+const CREDIT_RATE: Price = { USD: 0.06, NGN: 60 }; // smallest unit per email
+const creditValue = (emails: number, cur: string) => Math.floor(emails * CREDIT_RATE[cur]);
+const emailsFor = (amount: number, cur: string) => Math.floor(amount / CREDIT_RATE[cur]);
+const MIN_TOPUP: Price = { USD: 5_00, NGN: 5_000_00 };
+const MAX_TOPUP: Price = { USD: 10_000_00, NGN: 10_000_000_00 };
+const DEFAULT_THRESHOLD: Price = { USD: 2_00, NGN: 2_000_00 };
+// Naira payments: VAT is off unless VAT_RATE is set (a percent, e.g. 7.5). Dollar payments use Stripe Tax.
+const VAT_RATE = Math.max(0, Number(env("VAT_RATE") || 0)) || 0;
+const vatOf = (amount: number) => Math.round(amount * VAT_RATE / 100);
 const PLAN_LIMITS: Record<string, { domains: number; members: number; retention_days: number; day: number }> = {
   free: { domains: 1, members: 1, retention_days: 30, day: 133 },
   starter: { domains: 10, members: 5, retention_days: 30, day: 0 },
@@ -73,7 +78,22 @@ const PLAN_LIMITS: Record<string, { domains: number; members: number; retention_
 const MARKETING_CONTACTS: Record<string, number> = { free: 1_000, growth: 5_000, pro: 10_000 };
 const INTERVALS = ["monthly", "yearly"];
 const catalog = (kind: string) => (kind === "marketing" ? MARKETING : PLANS) as Record<string, { name: string; monthly: Price; yearly: Price }>;
-const usd = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: n % 100 ? 2 : 0 }).format(n / 100);
+const fmt = (n: number, cur: string) => new Intl.NumberFormat(cur === "NGN" ? "en-NG" : "en-US", { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n / 100);
+type Provider = "stripe" | "paystack";
+const CUR: Record<Provider, string> = { stripe: "USD", paystack: "NGN" };
+
+// Which provider a team pays with: the one behind its running plan, else the one it first paid with, else the
+// request's country (Nigeria: Paystack in Naira; anywhere else: Stripe in US dollars).
+function providerOf(t: Any, country?: string | null): Provider {
+  const b = t?.billing || {};
+  const running = (x: Any) => x?.provider && x.plan && x.plan !== "free" && ["active", "cancelling", "past_due"].includes(x.status);
+  if (running(b)) return b.provider;
+  if (running(b.marketing)) return b.marketing.provider;
+  if (b.payment_provider === "stripe" || b.payment_provider === "paystack") return b.payment_provider;
+  const cc = (country || "").toUpperCase();
+  if (cc) return cc === "NG" ? "paystack" : "stripe";
+  return b.details?.country === "Nigeria" || b.currency === "NGN" ? "paystack" : "stripe";
+}
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -200,15 +220,16 @@ async function recordInvoice(row: { team_id: string; reference: string; kind: st
 // Credits are applied once per payment reference, however many times the webhook or /verify sees it.
 async function applyCredits(teamId: string, reference: string, emails: number, amount: number, opts: { auto?: boolean; url?: string | null; tax?: number; card?: string | null; status?: string }) {
   const ok = (opts.status || "success") === "success";
-  const done = await recordInvoice({ team_id: teamId, reference, kind: "credits", plan: null, description: `${opts.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails`, amount, status: ok ? "success" : "failed", card: opts.card, url: opts.url, tax: opts.tax });
+  const done = await recordInvoice({ team_id: teamId, reference, kind: "credits", plan: null, description: `${opts.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails`, amount, currency: "USD", status: ok ? "success" : "failed", card: opts.card, url: opts.url, tax: opts.tax });
   if (ok && !done && emails > 0) await db.rpc("add_credits", { p_team: teamId, p_n: emails });
+  if (ok) await saveBilling(teamId, { payment_provider: "stripe" });
 }
 
 // Make the card from a payment the default for invoices (auto top-ups, overage, renewals).
 async function rememberCard(teamId: string, customer: string, pm: Any) {
   if (!pm?.id) return;
   await stripe("POST", `/customers/${customer}`, { invoice_settings: { default_payment_method: pm.id } }).catch((e) => console.error("default card", e.message));
-  await saveBilling(teamId, { stripe_pm: pm.id, card: cardLabel(pm.card) || "Card", provider_card: "stripe" });
+  await saveBilling(teamId, { stripe_pm: pm.id, card: cardLabel(pm.card) || "Card", payment_provider: "stripe" });
 }
 
 // Mirrors a Stripe subscription onto the team (plan, status, renewal date). Called from webhooks and Checkout.
@@ -229,7 +250,7 @@ async function syncSubscription(subOrId: Any) {
   if (state === "incomplete") return teamId;
   const end = periodEnd(sub);
   const fields: Any = {
-    provider: "stripe", stripe_subscription: sub.id, plan: state === "canceled" ? "free" : plan, interval, currency: "USD",
+    provider: "stripe", payment_provider: "stripe", stripe_subscription: sub.id, plan: state === "canceled" ? "free" : plan, interval, currency: "USD",
     status: state, next_payment_date: end, cancel_at: state === "cancelling" ? (sub.cancel_at ? new Date(sub.cancel_at * 1000).toISOString() : end) : null,
     trial_end: sub.status === "trialing" && sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
   };
@@ -240,11 +261,6 @@ async function syncSubscription(subOrId: Any) {
   } else {
     const newPlan = state === "canceled" ? "free" : plan;
     fields.plan_since = t.plan_transactional === newPlan && b.plan_since ? b.plan_since : new Date().toISOString();
-    // Moving off Paystack: stop the naira subscription so it never renews.
-    if (b.provider === "paystack" && b.subscription_code && b.email_token && state !== "canceled") {
-      await ps("POST", "/subscription/disable", { code: b.subscription_code, token: b.email_token }).catch((e) => console.error("paystack disable", e.message));
-      Object.assign(fields, { subscription_code: null, email_token: null, authorization_code: null, plan_code: null });
-    }
     await saveBilling(teamId, fields, newPlan);
   }
   return teamId;
@@ -346,15 +362,31 @@ async function chargeCredits(teamId: string, emails: number, amount: number, aut
   return "failed";
 }
 
-// ---------------------------------------------------------------- Paystack (legacy: naira subscriptions only)
+// ---------------------------------------------------------------- Paystack (Naira, for teams in Nigeria)
 async function ps(method: string, path: string, body?: unknown): Promise<Any> {
-  if (!PSK) throw new HttpError(503, "Paystack isn't configured.");
+  if (!PSK) throw new HttpError(503, "Naira payments aren't connected yet. Add PAYSTACK_SECRET_KEY to the billing function's secrets.");
   const r = await fetch("https://api.paystack.co" + path, { method, headers: { authorization: `Bearer ${PSK}`, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.status === false) throw new HttpError(r.status >= 500 ? 502 : 400, String(j.message || `Paystack returned ${r.status}`));
   return j.data;
 }
-async function paystackPlan(code?: string | null) {
+
+// One Paystack plan per (kind, plan, interval, price). Changing a price creates a new plan; subscribers keep theirs.
+async function planCode(kind: string, plan: string, interval: string) {
+  const p = catalog(kind)[plan] as Any;
+  const amount = p[interval].NGN;
+  const key = `paystack_plan:${PS_MODE}:${kind}:${plan}:${interval}:NGN:${amount}`;
+  const existing = await setting(key);
+  if (existing) return existing;
+  const d = await ps("POST", "/plan", {
+    name: `Delivrie ${p.name} ${interval} (NGN)`, interval: interval === "yearly" ? "annually" : "monthly", amount, currency: "NGN",
+    description: kind === "marketing" ? `Marketing up to ${p.contacts.toLocaleString("en-US")} contacts` : `${p.emails.toLocaleString("en-US")} emails a month`,
+  });
+  await setSetting(key, d.plan_code);
+  await setSetting(`paystack_code:${d.plan_code}`, `${kind}:${plan}:${interval}:NGN`);
+  return d.plan_code as string;
+}
+async function planFromCode(code?: string | null): Promise<{ kind: string; plan: string; interval: string } | null> {
   if (!code) return null;
   const v = await setting(`paystack_code:${code}`);
   if (!v) return null;
@@ -362,36 +394,164 @@ async function paystackPlan(code?: string | null) {
   if (parts.length === 2) return { kind: "transactional", plan: parts[0], interval: "monthly" };
   return { kind: parts[0], plan: parts[1], interval: parts[2] };
 }
-// Renewals of naira subscriptions that haven't moved to Stripe yet are still recorded.
-async function paystackCharge(tx: Any) {
-  const code = tx.plan_object?.plan_code || tx.plan?.plan_code || (typeof tx.plan === "string" && tx.plan ? tx.plan : null);
-  const info = await paystackPlan(code);
-  if (!info) return;
-  const { data } = await db.from("teams").select("id,billing").eq("billing->>customer_code", tx.customer?.customer_code || "-").limit(1);
-  const teamId = data?.[0]?.id;
-  if (!teamId) return;
-  await recordInvoice({ team_id: teamId, reference: tx.reference, kind: info.kind, plan: info.plan, description: `${catalog(info.kind)[info.plan]?.name || info.plan} · ${info.interval}`, amount: tx.amount, currency: tx.currency, status: tx.status === "success" ? "success" : "failed", card: tx.authorization?.last4 ? `${tx.authorization.brand || "Card"} •••• ${tx.authorization.last4}` : null, paid_at: tx.paid_at });
+
+const cardOf = (a: Any) => a?.last4 ? `${(a.brand || a.card_type || "Card").trim().replace(/^\w/, (c: string) => c.toUpperCase())} •••• ${a.last4}` : null;
+const parseMeta = (m: Any) => typeof m === "string" ? (() => { try { return JSON.parse(m); } catch { return {}; } })() : (m || {});
+
+async function teamForPaystack(customerCode: string, planCodeHint?: string) {
+  const { data } = await db.from("teams").select("id,billing").eq("billing->>customer_code", customerCode);
+  const rows = data || [];
+  return (rows.find((r: Any) => planCodeHint && r.billing?.plan_code === planCodeHint) || rows[0])?.id as string | undefined;
 }
+
+const psRecord = (teamId: string, tx: Any, kind: string, plan: string | null, description: string) => recordInvoice({
+  team_id: teamId, reference: tx.reference, kind, plan, description, amount: tx.amount, currency: tx.currency || "NGN",
+  status: tx.status === "success" ? "success" : "failed", card: cardOf(tx.authorization), paid_at: tx.paid_at || tx.paidAt || undefined,
+});
+
+// Keep the reusable card so auto top-ups and month-end overage can be charged without the customer present.
+function cardPatch(tx: Any, old: Any) {
+  const a = tx.authorization || {};
+  return {
+    card: cardOf(a) || old.card,
+    ...(a.reusable && a.authorization_code ? { authorization_code: a.authorization_code } : {}),
+    customer_code: tx.customer?.customer_code || old.customer_code, customer_id: tx.customer?.id || old.customer_id, email: tx.customer?.email || old.email,
+    payment_provider: "paystack",
+  };
+}
+
+async function findSub(customerId: number | undefined, code: string | null) {
+  if (!customerId || !code) return null;
+  try {
+    const subs: Any[] = await ps("GET", `/subscription?customer=${customerId}&perPage=50`);
+    return subs.filter((x) => x.plan?.plan_code === code && x.status === "active").sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+  } catch (e) { console.error("subscription lookup failed", e); return null; }
+}
+
+// A successful (or failed) Paystack charge: plan payments, renewals, credits and overage.
+async function applyCharge(tx: Any) {
+  const code = tx.plan_object?.plan_code || tx.plan?.plan_code || (typeof tx.plan === "string" && tx.plan ? tx.plan : null);
+  const meta = parseMeta(tx.metadata);
+  const fromCode = await planFromCode(code);
+  const kind = meta.kind || fromCode?.kind || "transactional";
+  const teamId = meta.team_id || (tx.customer?.customer_code ? await teamForPaystack(tx.customer.customer_code, code) : undefined);
+  if (!teamId) return null;
+  const before = await team(teamId);
+  const old = before.billing || {};
+
+  if (kind === "credits") {
+    const emails = Number(meta.emails || 0);
+    const done = await psRecord(teamId, tx, "credits", null, `${meta.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails`);
+    if (tx.status === "success" && !done && emails > 0) {
+      await db.rpc("add_credits", { p_team: teamId, p_n: emails });
+      await saveBilling(teamId, { ...cardPatch(tx, old), currency: "NGN" });
+    }
+    return teamId;
+  }
+  if (kind === "overage") {
+    await psRecord(teamId, tx, "overage", before.plan_transactional, meta.description || "Overage");
+    if (tx.status !== "success") await saveBilling(teamId, { status: "past_due" });
+    return teamId;
+  }
+
+  const plan = meta.plan || fromCode?.plan;
+  const interval = meta.interval || fromCode?.interval || "monthly";
+  if (!plan || !catalog(kind)[plan]) return null;
+  await psRecord(teamId, tx, kind, plan, `${catalog(kind)[plan].name} · ${interval}`);
+  if (tx.status !== "success") return teamId;
+  const sub = await findSub(tx.customer?.id, code);
+  const subFields = sub ? { subscription_code: sub.subscription_code, email_token: sub.email_token, next_payment_date: sub.next_payment_date } : {};
+
+  if (kind === "marketing") {
+    const m = old.marketing || {};
+    if (m.subscription_code && sub && m.subscription_code !== sub.subscription_code && m.email_token) {
+      await ps("POST", "/subscription/disable", { code: m.subscription_code, token: m.email_token }).catch((e) => console.error("old marketing subscription disable failed", e));
+    }
+    await saveBilling(teamId, { ...cardPatch(tx, old), marketing: { ...m, provider: "paystack", plan, interval, currency: "NGN", plan_code: code, status: "active", cancel_at: null, ...subFields } });
+    await db.from("teams").update({ plan_marketing: plan }).eq("id", teamId);
+    return teamId;
+  }
+
+  const patch: Any = {
+    ...cardPatch(tx, old), provider: "paystack", plan, interval, currency: "NGN", plan_code: code, status: "active", cancel_at: null,
+    last_payment_at: tx.paid_at || new Date().toISOString(),
+    plan_since: before.plan_transactional === plan && old.plan_since ? old.plan_since : (tx.paid_at || new Date().toISOString()),
+    ...subFields,
+  };
+  // Switching plans: stop the previous subscription so the customer isn't charged twice.
+  if (old.subscription_code && patch.subscription_code && old.subscription_code !== patch.subscription_code && old.email_token) {
+    await ps("POST", "/subscription/disable", { code: old.subscription_code, token: old.email_token }).catch((e) => console.error("old subscription disable failed", e));
+  }
+  await saveBilling(teamId, patch, plan);
+  return teamId;
+}
+
+// Charge the saved Paystack card for credits (auto top-up and "Pay with saved card"). VAT is added if set.
+async function paystackCredits(teamId: string, emails: number, amount: number, auto: boolean) {
+  const t = await team(teamId);
+  const b = t.billing || {};
+  if (!b.authorization_code || !b.email) throw new HttpError(400, "There's no saved card. Pay with checkout instead.");
+  const vat = vatOf(amount);
+  const reference = `top_${auto ? "auto_" : ""}${teamId.slice(0, 8)}_${Date.now().toString(36)}`;
+  const metadata = { team_id: teamId, kind: "credits", emails, currency: "NGN", vat, auto };
+  const tx = await ps("POST", "/transaction/charge_authorization", { email: b.email, amount: amount + vat, currency: "NGN", authorization_code: b.authorization_code, reference, metadata });
+  await applyCharge({ ...tx, reference, currency: "NGN", amount: amount + vat, metadata });
+  return tx.status === "success" ? "success" : "failed";
+}
+
 async function paystackWebhook(req: Request) {
   const raw = await req.text();
   const sig = req.headers.get("x-paystack-signature") || "";
   if (!PSK || !sig) return json({ error: "invalid signature" }, 401);
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(PSK), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
   const mac = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(raw)))).map((x) => x.toString(16).padStart(2, "0")).join("");
-  if (mac !== sig) return json({ error: "invalid signature" }, 401);
+  if (mac.length !== sig.length || mac !== sig) return json({ error: "invalid signature" }, 401);
   const evt = JSON.parse(raw), d = evt.data || {};
   try {
-    if (evt.event === "charge.success") await paystackCharge(d);
-    if (evt.event === "invoice.update" || evt.event === "invoice.create") {
-      const { data } = await db.from("teams").select("id").eq("billing->>subscription_code", d.subscription?.subscription_code || "-");
-      for (const r of data || []) if (d.subscription?.next_payment_date) await saveBilling(r.id, { next_payment_date: d.subscription.next_payment_date });
-    }
-    if (evt.event === "subscription.not_renew" || evt.event === "subscription.disable") {
-      const { data: rows } = await db.from("teams").select("id,billing").eq("billing->>subscription_code", d.subscription_code || "-");
-      for (const r of rows || []) {
-        const end = r.billing?.next_payment_date || d.next_payment_date;
-        if (end && new Date(end) > new Date()) await saveBilling(r.id, { status: "cancelling", cancel_at: end });
-        else await saveBilling(r.id, { status: "canceled", plan: "free" }, "free");
+    switch (evt.event) {
+      case "charge.success":
+        await applyCharge(d);
+        break;
+      case "subscription.create": {
+        const teamId = d.customer?.customer_code ? await teamForPaystack(d.customer.customer_code, d.plan?.plan_code) : undefined;
+        const info = await planFromCode(d.plan?.plan_code);
+        const sub = { subscription_code: d.subscription_code, email_token: d.email_token, next_payment_date: d.next_payment_date, plan_code: d.plan?.plan_code };
+        if (teamId && info?.kind === "marketing") await saveBilling(teamId, { marketing: { ...((await team(teamId)).billing?.marketing || {}), ...sub } });
+        else if (teamId) await saveBilling(teamId, sub);
+        break;
+      }
+      case "invoice.create":
+      case "invoice.update": {
+        const code = d.subscription?.subscription_code;
+        const next = d.subscription?.next_payment_date;
+        if (!code || !next) break;
+        const { data: rows } = await db.from("teams").select("id,billing").eq("billing->>subscription_code", code);
+        for (const r of rows || []) await saveBilling(r.id, { next_payment_date: next });
+        const { data: mk } = await db.from("teams").select("id,billing").eq("billing->marketing->>subscription_code", code);
+        for (const r of mk || []) await saveBilling(r.id, { marketing: { ...(r.billing?.marketing || {}), next_payment_date: next } });
+        break;
+      }
+      case "invoice.payment_failed": {
+        const teamId = d.customer?.customer_code ? await teamForPaystack(d.customer.customer_code) : undefined;
+        if (teamId) await saveBilling(teamId, { status: "past_due" });
+        break;
+      }
+      case "subscription.not_renew":
+      case "subscription.disable": {
+        const { data: mk } = await db.from("teams").select("id,billing").eq("billing->marketing->>subscription_code", d.subscription_code || "-");
+        for (const r of mk || []) {
+          const m = r.billing?.marketing || {};
+          const end = m.next_payment_date || d.next_payment_date;
+          if (end && new Date(end) > new Date()) await saveBilling(r.id, { marketing: { ...m, status: "cancelling", cancel_at: end } });
+          else { await saveBilling(r.id, { marketing: { ...m, status: "canceled", plan: "free" } }); await db.from("teams").update({ plan_marketing: "free" }).eq("id", r.id); }
+        }
+        const { data: rows } = await db.from("teams").select("id,billing").eq("billing->>subscription_code", d.subscription_code || "-");
+        for (const r of rows || []) {
+          const end = r.billing?.next_payment_date || d.next_payment_date;
+          if (end && new Date(end) > new Date()) await saveBilling(r.id, { status: "cancelling", cancel_at: end });
+          else await saveBilling(r.id, { status: "canceled", plan: "free" }, "free");
+        }
+        break;
       }
     }
   } catch (e) {
@@ -407,31 +567,31 @@ async function usage(teamId: string, from: Date, to = new Date()) {
   const { data } = await db.rpc("team_usage", { p_team: teamId, p_from: from.toISOString(), p_to: to.toISOString() });
   return Number(data || 0);
 }
-const overageCost = (plan: string, used: number) => {
+const overageCost = (plan: string, used: number, cur: string) => {
   const p = PLANS[plan];
   if (!p) return { over: 0, cost: 0 };
   const over = Math.max(0, used - p.emails);
-  return { over, cost: Math.ceil(over / 1000) * p.overage.USD };
+  return { over, cost: Math.ceil(over / 1000) * p.overage[cur] };
 };
 
 // ---------------------------------------------------------------- summary
 function subView(b: Any, kind: string) {
   if (!b?.plan || b.plan === "free") return null;
-  const legacy = b.provider === "paystack";
-  const L = legacy ? LEGACY_NGN[b.plan] : null;
+  const cur = b.provider === "paystack" ? "NGN" : "USD";
   const p = catalog(kind)[b.plan];
-  const yearly = b.interval === "yearly";
   return {
-    plan: b.plan, interval: b.interval || "monthly", provider: b.provider || null, status: b.status, card: b.card || null,
-    currency: legacy ? (b.currency || "NGN") : "USD",
-    price: legacy && L ? (yearly ? L.yearly : L.monthly) : p ? p[yearly ? "yearly" : "monthly"].USD : 0,
+    plan: b.plan, interval: b.interval || "monthly", provider: b.provider || null, status: b.status, card: b.card || null, currency: cur,
+    price: p ? p[b.interval === "yearly" ? "yearly" : "monthly"][cur] : 0,
     next_payment_date: b.next_payment_date || null, cancel_at: b.cancel_at || null, trial_end: b.trial_end || null,
     can_manage: !!(b.stripe_subscription || b.subscription_code),
   };
 }
 
-async function summary(teamId: string, admin: boolean) {
+async function summary(teamId: string, admin: boolean, country?: string | null) {
   const t = await team(teamId);
+  const provider = providerOf(t, country);
+  const cur = CUR[provider];
+  const onStripe = provider === "stripe";
   const { data: invoices } = await db.from("billing_invoices").select("reference,plan,kind,description,amount,currency,status,card,url,tax,paid_at").eq("team_id", teamId).order("created_at", { ascending: false }).limit(50);
   const b = t.billing || {};
   const plan = t.plan_transactional || "free";
@@ -445,40 +605,41 @@ async function summary(teamId: string, admin: boolean) {
     db.from("contacts").select("id", { count: "exact", head: true }).eq("team_id", teamId),
     db.from("domains").select("id", { count: "exact", head: true }).eq("team_id", teamId),
     db.from("team_members").select("user_id", { count: "exact", head: true }).eq("team_id", teamId),
-    SK ? taxReady() : Promise.resolve(false),
+    onStripe && SK ? taxReady() : Promise.resolve(false),
   ]);
   const credits = Number(t.credits || 0);
-  const value = creditValue(credits);
-  const ov = overageCost(plan, used);
+  const value = creditValue(credits, cur);
+  const ov = overageCost(plan, used, cur);
   const L = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
   const firstPlanInvoice = (invoices || []).filter((i: Any) => i.status === "success" && i.plan === plan && i.kind !== "credits" && i.kind !== "overage").map((i: Any) => i.paid_at).sort()[0];
   const sub = subView(b, "transactional");
   const msub = subView(b.marketing, "marketing");
   const daysIn = Math.round((to.getTime() - from.getTime()) / 864e5), dayN = Math.min(daysIn, Math.floor((now.getTime() - from.getTime()) / 864e5) + 1);
   const projected = dayN ? Math.round(used / dayN * daysIn) : used;
-  const projOver = overageCost(plan, projected);
-  const renewal = sub && sub.status === "active" && sub.currency === "USD" && sub.next_payment_date && new Date(sub.next_payment_date) < to ? sub.price : 0;
+  const projOver = overageCost(plan, projected, cur);
+  const renewal = sub && sub.status === "active" && sub.currency === cur && sub.next_payment_date && new Date(sub.next_payment_date) < to ? sub.price : 0;
   const creditsApplied = Math.min(value, projOver.cost);
-  const stripeReady = b.stripe_mode === MODE;
+  const vat = onStripe ? 0 : vatOf(projOver.cost - creditsApplied);
+  const stripeReady = onStripe && b.stripe_mode === MODE;
   return {
     plan,
     plan_marketing: t.plan_marketing || "free",
     admin,
-    provider: "stripe",
-    payments_ready: !!SK,
-    mode: MODE,
+    provider,
+    payments_ready: onStripe ? !!SK : !!PSK,
+    mode: onStripe ? MODE : PS_MODE,
     tax_ready: tax,
-    currencies: ["USD"],
-    currency: "USD",
+    currencies: [cur],
+    currency: cur,
     plans: Object.entries(PLANS).map(([id, p]) => ({ id, ...p })),
     marketing: Object.entries(MARKETING).map(([id, p]) => ({ id, ...p })),
     packs: PACKS,
     credits,
     credit_value: value,
-    credit_rate: { USD: CREDIT_RATE },
-    min_topup: { USD: MIN_TOPUP },
-    vat_rate: 0,
-    usage: { month: used, today, included: PLANS[plan]?.emails ?? (plan === "free" ? 4000 : 0), day_limit: L.day, contacts: contactsQ.count || 0, ...ov, currency: "USD" },
+    credit_rate: CREDIT_RATE,
+    min_topup: MIN_TOPUP,
+    vat_rate: onStripe ? 0 : VAT_RATE,
+    usage: { month: used, today, included: PLANS[plan]?.emails ?? (plan === "free" ? 4000 : 0), day_limit: L.day, contacts: contactsQ.count || 0, ...ov, currency: cur },
     period: { start: from.toISOString(), end: new Date(to.getTime() - 1).toISOString(), day: dayN, days: daysIn, projected, projected_over: projOver.over, projected_cost: projOver.cost },
     daily: (daily as Any[]).map((r) => ({ day: r.day, n: Number(r.n) })),
     limits: {
@@ -487,19 +648,19 @@ async function summary(teamId: string, admin: boolean) {
       contacts: { used: contactsQ.count || 0, limit: MARKETING_CONTACTS[t.plan_marketing || "free"] || 0 },
       retention_days: L.retention_days,
     },
-    next_invoice: { date: renewal ? sub!.next_payment_date : to.toISOString(), plan: renewal, plan_currency: "USD", overage: projOver.cost, overage_units: Math.ceil(projOver.over / 1000), credits: creditsApplied, vat: 0, total: renewal + projOver.cost - creditsApplied, currency: "USD" },
+    next_invoice: { date: renewal ? sub!.next_payment_date : to.toISOString(), plan: renewal, plan_currency: cur, overage: projOver.cost, overage_units: Math.ceil(projOver.over / 1000), credits: creditsApplied, vat, total: renewal + projOver.cost - creditsApplied + vat, currency: cur },
     customer_since: t.created_at,
     plan_since: b.plan_since || firstPlanInvoice || (plan === "free" ? t.created_at : null),
-    auto_topup: { enabled: false, pack: 1, threshold: DEFAULT_THRESHOLD, ...(b.auto_topup || {}) },
+    auto_topup: { enabled: false, pack: 1, threshold: DEFAULT_THRESHOLD[cur], ...(b.auto_topup || {}) },
     alerts: { p80: true, p100: true, credits_low: true, ...(b.alerts || {}) },
     spend_cap: b.spend_cap || null,
-    card: stripeReady || b.provider === "paystack" ? (b.card || null) : null,
-    can_charge_card: !!(stripeReady && b.stripe_pm),
-    has_customer: !!(stripeReady && b.stripe_customer),
+    card: stripeReady || (!onStripe && b.authorization_code) || sub?.provider === provider ? (b.card || null) : null,
+    can_charge_card: onStripe ? !!(stripeReady && b.stripe_pm) : !!(b.authorization_code && b.email),
+    has_customer: onStripe ? !!(stripeReady && b.stripe_customer) : !!b.customer_code,
+    can_update_card: onStripe ? !!(stripeReady && b.stripe_customer) : !!(b.subscription_code || b.marketing?.subscription_code),
     subscription: sub,
     marketing_subscription: msub,
-    // Teams still paying in naira through Paystack: shown a prompt to continue in USD before their period ends.
-    legacy: sub?.provider === "paystack" && sub.status !== "canceled" ? (() => { const ends = sub.cancel_at || sub.next_payment_date; return { plan: sub.plan, ends, price: sub.price, currency: sub.currency, switch_free_until: trialEndFor(ends) ? ends : null }; })() : null,
+    legacy: null,
     details: b.details || {},
     invoices: invoices || [],
   };
@@ -514,14 +675,17 @@ async function watchRun() {
   const tag = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   for (const t of teams || []) {
     const b = t.billing || {};
-    const value = creditValue(Number(t.credits || 0));
+    const provider = providerOf(t);
+    const cur = CUR[provider];
+    const value = creditValue(Number(t.credits || 0), cur);
     const at = b.auto_topup || {};
-    if (at.enabled && b.stripe_pm && b.stripe_mode === MODE && value < Number(at.threshold ?? DEFAULT_THRESHOLD)) {
+    const canCharge = provider === "stripe" ? !!(b.stripe_pm && b.stripe_mode === MODE) : !!(b.authorization_code && b.email);
+    if (at.enabled && canCharge && value < Number(at.threshold ?? DEFAULT_THRESHOLD[cur])) {
       const last = at.last_attempt ? new Date(at.last_attempt).getTime() : 0;
       if (now.getTime() - last > 3600e3) {
         const pack = PACKS[Number(at.pack ?? 1)] || PACKS[1];
         await saveBilling(t.id, { auto_topup: { ...at, last_attempt: now.toISOString() } });
-        try { out.push({ team: t.id, topup: await chargeCredits(t.id, pack.emails, pack.price.USD, true) }); }
+        try { out.push({ team: t.id, topup: provider === "stripe" ? await chargeCredits(t.id, pack.emails, pack.price.USD, true) : await paystackCredits(t.id, pack.emails, pack.price.NGN, true) }); }
         catch (e) { out.push({ team: t.id, topup: "error", error: String((e as Error).message) }); }
       }
     }
@@ -535,7 +699,7 @@ async function watchRun() {
       else if (al.p80 && used >= p.emails * 0.8 && !sent.kinds.includes("p80")) fire.push("p80");
       if (fire.length) sent.used = used;
     }
-    const lowAt = Number(at.threshold ?? DEFAULT_THRESHOLD);
+    const lowAt = Number(at.threshold ?? DEFAULT_THRESHOLD[cur]);
     if (al.credits_low && Number(t.credits || 0) > 0 && value < lowAt && !at.enabled && !sent.kinds.includes("credits_low")) fire.push("credits_low");
     if (!fire.length) continue;
     const to = b.details?.email || b.email;
@@ -543,7 +707,7 @@ async function watchRun() {
     if (to && from) {
       for (const k of fire) {
         const subject = k === "credits_low" ? `${t.name}: Delivrie credits are running low` : `${t.name}: you've used ${k === "p100" ? "all" : "80%"} of this month's ${p!.emails.toLocaleString("en-US")} emails`;
-        const text = k === "credits_low" ? `You have ${usd(value)} of credit left (about ${Number(t.credits).toLocaleString("en-US")} emails). Top up or turn on auto top-up: ${APP_URL}/billing/credits`
+        const text = k === "credits_low" ? `You have ${fmt(value, cur)} of credit left (about ${Number(t.credits).toLocaleString("en-US")} emails). Top up or turn on auto top-up: ${APP_URL}/billing/credits`
           : k === "p100" ? `Your team has sent ${Number(sent.used).toLocaleString("en-US")} emails this month. Sending continues; extra emails are billed per 1,000 at month end, paid from credits first. Details: ${APP_URL}/billing`
           : `Your team has sent ${Number(sent.used).toLocaleString("en-US")} of ${p!.emails.toLocaleString("en-US")} emails this month. Details: ${APP_URL}/billing`;
         await db.from("emails").insert({ team_id: t.id, from, to: [to], subject, text, html: `<p>${text.replace(/(https:\/\/\S+)/g, '<a href="$1">$1</a>')}</p>`, status: "queued", tags: [{ name: "system", value: "billing_alert" }] });
@@ -564,39 +728,59 @@ async function overageRun() {
   const results: Any[] = [];
   for (const t of teams || []) {
     const b = t.billing || {};
-    if (b.provider === "paystack") { results.push({ team: t.id, status: "skipped_naira_plan" }); continue; }
+    const provider = providerOf(t);
+    const cur = CUR[provider];
     const used = await usage(t.id, from, to);
-    const { over, cost } = overageCost(t.plan_transactional, used);
+    const { over, cost } = overageCost(t.plan_transactional, used, cur);
     let amount = cost;
     const lines = over ? [`${over.toLocaleString("en-US")} emails over ${PLANS[t.plan_transactional].name}`] : [];
     if (t.plan_marketing === "pro") {
       const { count } = await db.from("contacts").select("id", { count: "exact", head: true }).eq("team_id", t.id);
       const extra = Math.max(0, (count || 0) - MARKETING.pro.contacts);
-      if (extra) { amount += Math.ceil(extra / 1000) * MARKETING.pro.extra!.USD; lines.push(`${extra.toLocaleString("en-US")} extra contacts`); }
+      if (extra) { amount += Math.ceil(extra / 1000) * MARKETING.pro.extra![cur]; lines.push(`${extra.toLocaleString("en-US")} extra contacts`); }
     }
     if (!amount) continue;
-    const { data: done } = await db.from("billing_invoices").select("status").eq("team_id", t.id).eq("kind", "overage").like("reference", "in_%").gte("paid_at", to.toISOString()).eq("status", "success").limit(1);
+    const reference = `ovg_${tag}_${t.id.slice(0, 8)}`;
+    const { data: done } = provider === "stripe"
+      ? await db.from("billing_invoices").select("status").eq("team_id", t.id).eq("kind", "overage").like("reference", "in_%").gte("paid_at", to.toISOString()).eq("status", "success").limit(1)
+      : await db.from("billing_invoices").select("status").eq("reference", reference).eq("status", "success").limit(1);
     if (done?.length) continue;
     const creditRef = `ovc_${tag}_${t.id.slice(0, 8)}`;
     const { data: paid } = await db.from("billing_invoices").select("amount").eq("reference", creditRef).maybeSingle();
     let fromCredits = Number(paid?.amount || 0);
     if (!paid && Number(t.credits || 0) > 0) {
-      const apply = Math.min(creditValue(Number(t.credits)), amount);
-      const n = Math.min(Number(t.credits), Math.ceil(apply / CREDIT_RATE));
+      const apply = Math.min(creditValue(Number(t.credits), cur), amount);
+      const n = Math.min(Number(t.credits), Math.ceil(apply / CREDIT_RATE[cur]));
       if (apply > 0 && n > 0) {
         const { data: ok } = await db.rpc("use_credits", { p_team: t.id, p_n: n });
         if (ok) {
           fromCredits = apply;
-          await recordInvoice({ team_id: t.id, reference: creditRef, kind: "overage", plan: t.plan_transactional, description: `${lines.join(" · ")} · paid from credits (${n.toLocaleString("en-US")} emails)`, amount: apply, status: "success" });
+          await recordInvoice({ team_id: t.id, reference: creditRef, kind: "overage", plan: t.plan_transactional, description: `${lines.join(" · ")} · paid from credits (${n.toLocaleString("en-US")} emails)`, amount: apply, currency: cur, status: "success" });
         }
       }
     }
     amount = Math.max(0, amount - fromCredits);
     if (!amount) { results.push({ team: t.id, credits: fromCredits, status: "paid_from_credits" }); continue; }
     if (fromCredits) lines.push("credits applied");
-    if (!b.stripe_pm || b.stripe_mode !== MODE) {
-      await recordInvoice({ team_id: t.id, reference: `ovg_${tag}_${t.id.slice(0, 8)}`, kind: "overage", plan: t.plan_transactional, description: lines.join(" · ") + " (no saved card)", amount, status: "failed" });
+    if (provider === "paystack") {
+      amount += vatOf(amount);
+      if (VAT_RATE) lines.push(`incl. VAT ${VAT_RATE}%`);
+    }
+    const canCharge = provider === "stripe" ? !!(b.stripe_pm && b.stripe_mode === MODE) : !!(b.authorization_code && b.email);
+    if (!canCharge) {
+      await recordInvoice({ team_id: t.id, reference, kind: "overage", plan: t.plan_transactional, description: lines.join(" · ") + " (no saved card)", amount, currency: cur, status: "failed" });
       results.push({ team: t.id, amount, status: "no_card" });
+      continue;
+    }
+    if (provider === "paystack") {
+      try {
+        const metadata = { team_id: t.id, kind: "overage", description: lines.join(" · ") };
+        const tx = await ps("POST", "/transaction/charge_authorization", { email: b.email, amount, currency: "NGN", authorization_code: b.authorization_code, reference, metadata });
+        await applyCharge({ ...tx, reference, currency: "NGN", amount, metadata });
+        results.push({ team: t.id, amount, status: tx.status });
+      } catch (e) {
+        results.push({ team: t.id, amount, status: "error", error: String((e as Error).message) });
+      }
       continue;
     }
     try {
@@ -666,17 +850,28 @@ async function handle(req: Request, path: string): Promise<Response> {
   if (path === "/cron/overage" && req.method === "POST") { await cronAuth(req); return json(await overageRun()); }
   if (path === "/cron/watch" && req.method === "POST") { await cronAuth(req); return json(await watchRun()); }
   if (path === "/cron/health" && req.method === "POST") {
-    // For delivrie.io/status: can we reach Stripe with our key? Says test or live mode, never the key.
+    // For delivrie.io/status: can we reach Stripe and Paystack with our keys? Says test or live, never the keys.
     await cronAuth(req);
-    if (!SK) return json({ ok: false, configured: false });
-    const t0 = Date.now();
-    try { await stripe("GET", "/products", { limit: 1 }); return json({ ok: true, configured: true, mode: MODE, webhook: !!WHSEC, latency_ms: Date.now() - t0 }); }
-    catch (e) { return json({ ok: false, configured: true, mode: MODE, error: (e as Error).message.slice(0, 200) }); }
+    const check = async (on: boolean, mode: string | null, call: () => Promise<unknown>) => {
+      if (!on) return { ok: false, configured: false };
+      const t0 = Date.now();
+      try { await call(); return { ok: true, configured: true, mode, latency_ms: Date.now() - t0 }; }
+      catch (e) { return { ok: false, configured: true, mode, error: (e as Error).message.slice(0, 200) }; }
+    };
+    const [st, pk] = await Promise.all([
+      check(!!SK, MODE, () => stripe("GET", "/products", { limit: 1 })),
+      check(!!PSK, PS_MODE, () => ps("GET", "/bank?currency=NGN&perPage=1")),
+    ]);
+    const used = [st, pk].filter((x) => x.configured);
+    return json({ ok: used.length > 0 && used.every((x) => x.ok), configured: used.length > 0, mode: MODE, webhook: !!WHSEC, stripe: st, paystack: pk });
   }
   const a = await auth(req);
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  // Set by middleware.js from Vercel's geolocation; only used before a team has paid with either provider.
+  const country = (req.headers.get("x-dlv-country") || "").toUpperCase().slice(0, 2) || null;
+  const view = () => summary(a.teamId, a.admin, country);
 
-  if (path === "/summary" && req.method === "GET") return json(await summary(a.teamId, a.admin));
+  if (path === "/summary" && req.method === "GET") return json(await view());
 
   if (path === "/checkout" && req.method === "POST") {
     requireAdmin(a);
@@ -688,6 +883,17 @@ async function handle(req: Request, path: string): Promise<Response> {
     const t = await team(a.teamId);
     const cur = kind === "marketing" ? (t.billing?.marketing || {}) : (t.billing || {});
     const current = kind === "marketing" ? t.plan_marketing : t.plan_transactional;
+    if (providerOf(t, country) === "paystack") {
+      if (current === plan && cur.status === "active" && cur.provider === "paystack" && (cur.interval || "monthly") === interval) throw new HttpError(400, `You're already on ${p.name}.`);
+      const code = await planCode(kind, plan, interval);
+      const init = await ps("POST", "/transaction/initialize", {
+        email: t.billing?.details?.email || t.billing?.email || a.user.email,
+        amount: p[interval as "monthly" | "yearly"].NGN, currency: "NGN", plan: code,
+        callback_url: `${APP_URL}/billing`,
+        metadata: { team_id: a.teamId, kind, plan, interval, currency: "NGN", user_id: a.user.id, cancel_action: `${APP_URL}/billing?canceled=1` },
+      });
+      return json({ url: init.authorization_url, reference: init.reference });
+    }
     const onStripe = cur.provider === "stripe" && cur.stripe_subscription && ["active", "cancelling", "past_due"].includes(cur.status);
     if (onStripe && current === plan && (cur.interval || "monthly") === interval && cur.status === "active") throw new HttpError(400, `You're already on ${p.name}.`);
     const price = await priceId(kind, plan, interval);
@@ -701,13 +907,11 @@ async function handle(req: Request, path: string): Promise<Response> {
         cancel_at_period_end: false, metadata: { team_id: a.teamId, kind, plan, interval },
       }, `change-${sub.id}-${price}-${Date.now().toString(36)}`);
       await syncSubscription(updated.id);
-      return json({ changed: true, ...(await summary(a.teamId, a.admin)) });
+      return json({ changed: true, ...(await view()) });
     }
 
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
-    // Naira (Paystack) customers switching: USD billing starts when their paid naira period ends.
-    const trialEnd = kind === "transactional" && t.billing?.provider === "paystack" && ["active", "cancelling"].includes(t.billing?.status) ? trialEndFor(t.billing.cancel_at || t.billing.next_payment_date) : null;
     const meta = { team_id: a.teamId, kind, plan, interval };
     const s = await stripe("POST", "/checkout/sessions", {
       mode: "subscription", customer, client_reference_id: a.teamId,
@@ -715,7 +919,7 @@ async function handle(req: Request, path: string): Promise<Response> {
       success_url: `${APP_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${APP_URL}/billing?canceled=1`,
       metadata: meta,
-      subscription_data: { metadata: meta, ...(trialEnd ? { trial_end: trialEnd } : {}) },
+      subscription_data: { metadata: meta },
       automatic_tax: { enabled: tax },
       // The billing address is always collected and saved: Stripe needs it for tax IDs and Stripe Tax, and it
       // goes on receipts.
@@ -728,27 +932,45 @@ async function handle(req: Request, path: string): Promise<Response> {
   // Top up credits: a pack or a custom amount; saved card (charged now), or Stripe Checkout.
   if ((path === "/topup" || path === "/credits") && req.method === "POST") {
     requireAdmin(a);
+    const t = await team(a.teamId);
+    const provider = providerOf(t, country);
+    const currency = CUR[provider];
     let amount: number, emails: number;
     if (body.pack != null && body.pack !== "custom") {
       const pack = PACKS[Number(body.pack)];
       if (!pack) throw new HttpError(400, "Choose a credit pack.");
-      amount = pack.price.USD; emails = pack.emails;
+      amount = pack.price[currency]; emails = pack.emails;
     } else {
       amount = Math.round(Number(body.amount) * 100);
-      if (!isFinite(amount) || amount < MIN_TOPUP) throw new HttpError(400, "The minimum top-up is $5.");
-      if (amount > MAX_TOPUP) throw new HttpError(400, "That's above the largest top-up. Talk to sales for bigger volumes.");
-      emails = emailsFor(amount);
+      if (!isFinite(amount) || amount < MIN_TOPUP[currency]) throw new HttpError(400, `The minimum top-up is ${fmt(MIN_TOPUP[currency], currency)}.`);
+      if (amount > MAX_TOPUP[currency]) throw new HttpError(400, "That's above the largest top-up. Talk to sales for bigger volumes.");
+      emails = emailsFor(amount, currency);
     }
-    const t = await team(a.teamId);
     if (body.auto && typeof body.auto === "object") {
       const pack = Number(body.auto.pack ?? body.pack ?? 1);
-      await saveBilling(a.teamId, { auto_topup: { ...(t.billing?.auto_topup || {}), enabled: !!body.auto.enabled, pack: PACKS[pack] ? pack : 1, threshold: Math.max(0, Math.round(Number(body.auto.threshold ?? DEFAULT_THRESHOLD / 100) * 100)) } });
+      await saveBilling(a.teamId, { auto_topup: { ...(t.billing?.auto_topup || {}), enabled: !!body.auto.enabled, pack: PACKS[pack] ? pack : 1, threshold: Math.max(0, Math.round(Number(body.auto.threshold ?? DEFAULT_THRESHOLD[currency] / 100) * 100)) } });
     }
     const b = t.billing || {};
+    if (provider === "paystack") {
+      const method = ["card", "bank_transfer", "ussd"].includes(body.method) ? body.method : "checkout";
+      if (method === "card" && b.authorization_code) {
+        const status = await paystackCredits(a.teamId, emails, amount, false);
+        if (status !== "success") throw new HttpError(402, "Your card was declined. Try checkout instead.");
+        return json({ status, emails, ...(await view()) });
+      }
+      const vat = vatOf(amount);
+      const init = await ps("POST", "/transaction/initialize", {
+        email: b.details?.email || b.email || a.user.email, amount: amount + vat, currency: "NGN",
+        ...(method === "bank_transfer" || method === "ussd" ? { channels: [method] } : {}),
+        callback_url: `${APP_URL}/billing/credits`,
+        metadata: { team_id: a.teamId, kind: "credits", emails, currency: "NGN", vat, user_id: a.user.id, cancel_action: `${APP_URL}/billing/credits?canceled=1` },
+      });
+      return json({ url: init.authorization_url, reference: init.reference });
+    }
     if (body.method === "card" && b.stripe_pm && b.stripe_mode === MODE) {
       const status = await chargeCredits(a.teamId, emails, amount, false);
       if (status !== "success") throw new HttpError(402, "Your card was declined. Try checkout with another card.");
-      return json({ status, emails, ...(await summary(a.teamId, a.admin)) });
+      return json({ status, emails, ...(await view()) });
     }
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
@@ -770,16 +992,31 @@ async function handle(req: Request, path: string): Promise<Response> {
   }
 
   if (path === "/verify" && req.method === "POST") {
+    if (body.reference) {
+      const ref = String(body.reference);
+      const tx = await ps("GET", `/transaction/verify/${encodeURIComponent(ref)}`);
+      const meta = parseMeta(tx.metadata);
+      if (meta.team_id && meta.team_id !== a.teamId) throw new HttpError(403, "This payment belongs to a different team.");
+      if (tx.status === "success") await applyCharge(tx);
+      return json({ status: tx.status, kind: meta.kind || "transactional", ...(await view()) });
+    }
     const id = String(body.session_id || "");
     if (!/^cs_(test|live)_[A-Za-z0-9]+$/.test(id)) throw new HttpError(400, "Missing checkout session.");
     const r = await applySession(id, a.teamId);
-    return json({ status: r.status, kind: r.kind || "transactional", ...(await summary(a.teamId, a.admin)) });
+    return json({ status: r.status, kind: r.kind || "transactional", ...(await view()) });
   }
 
   // Stripe's customer portal: update the card, download receipts, edit billing details and tax IDs.
   if ((path === "/portal" || path === "/card") && req.method === "POST") {
     requireAdmin(a);
     const t = await team(a.teamId);
+    if (providerOf(t, country) === "paystack") {
+      // Paystack has no customer portal; its subscription page lets the customer change the card on a plan.
+      const code = t.billing?.subscription_code || t.billing?.marketing?.subscription_code;
+      if (!code) throw new HttpError(400, "Your card is saved when you next pay. To use a different card, top up or subscribe with it.");
+      const d = await ps("GET", `/subscription/${code}/manage/link`);
+      return json({ url: d.link });
+    }
     if (!t.billing?.stripe_customer || t.billing.stripe_mode !== MODE) throw new HttpError(400, "Add a card by upgrading or topping up first.");
     try {
       const s = await stripe("POST", "/billing_portal/sessions", {
@@ -801,14 +1038,14 @@ async function handle(req: Request, path: string): Promise<Response> {
     if (b.provider === "stripe" && b.stripe_subscription) {
       await stripe("POST", `/subscriptions/${b.stripe_subscription}`, { cancel_at_period_end: true });
       await syncSubscription(b.stripe_subscription);
-      return json(await summary(a.teamId, a.admin));
+      return json(await view());
     }
     if (b.subscription_code && b.email_token) {
       await ps("POST", "/subscription/disable", { code: b.subscription_code, token: b.email_token });
       const end = b.next_payment_date || new Date().toISOString();
       if (marketing) await saveBilling(a.teamId, { marketing: { ...b, status: "cancelling", cancel_at: end } });
       else await saveBilling(a.teamId, { status: "cancelling", cancel_at: end });
-      return json(await summary(a.teamId, a.admin));
+      return json(await view());
     }
     throw new HttpError(400, "There's no active subscription to cancel.");
   }
@@ -817,15 +1054,17 @@ async function handle(req: Request, path: string): Promise<Response> {
     requireAdmin(a);
     const t = await team(a.teamId);
     const b = t.billing || {};
+    const provider = providerOf(t, country);
     const patch: Any = {};
     if (body.auto_topup) {
       const x = body.auto_topup, pack = Number(x.pack ?? b.auto_topup?.pack ?? 1);
-      if (x.enabled && !(b.stripe_pm && b.stripe_mode === MODE)) throw new HttpError(400, "Auto top-up needs a saved card. Top up once with a card first.");
-      patch.auto_topup = { ...(b.auto_topup || {}), enabled: !!x.enabled, pack: PACKS[pack] ? pack : 1, threshold: x.threshold != null ? Math.max(0, Math.round(Number(x.threshold) * 100)) : (b.auto_topup?.threshold ?? DEFAULT_THRESHOLD) };
+      const saved = provider === "stripe" ? !!(b.stripe_pm && b.stripe_mode === MODE) : !!(b.authorization_code && b.email);
+      if (x.enabled && !saved) throw new HttpError(400, "Auto top-up needs a saved card. Top up once with a card first.");
+      patch.auto_topup = { ...(b.auto_topup || {}), enabled: !!x.enabled, pack: PACKS[pack] ? pack : 1, threshold: x.threshold != null ? Math.max(0, Math.round(Number(x.threshold) * 100)) : (b.auto_topup?.threshold ?? DEFAULT_THRESHOLD[CUR[provider]]) };
     }
     if (body.alerts) patch.alerts = { ...(b.alerts || {}), ...Object.fromEntries(["p80", "p100", "credits_low"].filter((k) => k in body.alerts).map((k) => [k, !!body.alerts[k]])) };
     await saveBilling(a.teamId, patch);
-    return json(await summary(a.teamId, a.admin));
+    return json(await view());
   }
 
   if (path === "/cap" && req.method === "POST") {
@@ -833,17 +1072,22 @@ async function handle(req: Request, path: string): Promise<Response> {
     const v = body.amount == null || body.amount === "" ? null : Math.round(Number(body.amount) * 100);
     if (v != null && (!isFinite(v) || v < 0)) throw new HttpError(400, "Enter a positive amount, or leave it empty for no cap.");
     await saveBilling(a.teamId, { spend_cap: v || null });
-    return json(await summary(a.teamId, a.admin));
+    return json(await view());
   }
 
   if (path === "/details" && req.method === "POST") {
     requireAdmin(a);
-    const email = String(body.email ?? "").trim().slice(0, 254);
+    const clip = (v: unknown, n = 200) => String(v ?? "").trim().slice(0, n);
+    const email = clip(body.email, 254);
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "Enter a valid billing email.");
     const t = await team(a.teamId);
-    await saveBilling(a.teamId, { details: { ...(t.billing?.details || {}), email } });
+    const next: Any = { ...(t.billing?.details || {}) };
+    // Naira invoices show the address and tax ID saved here; Stripe keeps its own in the customer portal.
+    for (const k of ["name", "country", "state", "address", "city", "postal_code", "tax_id_type", "tax_id"]) if (k in body) next[k] = clip(body[k]);
+    if ("email" in body) next.email = email;
+    await saveBilling(a.teamId, { details: next });
     if (email && t.billing?.stripe_customer && t.billing.stripe_mode === MODE) await stripe("POST", `/customers/${t.billing.stripe_customer}`, { email }).catch((e) => console.error("customer email", e.message));
-    return json(await summary(a.teamId, a.admin));
+    return json(await view());
   }
 
   throw new HttpError(404, "Not found");

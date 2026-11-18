@@ -68,7 +68,7 @@ Retries can deliver an event more than once. Skip events whose `webhook-id` you'
 
 **What happens when I reach my limit?** See [When you reach a limit](/docs/limits).
 
-**Can I change plans any time?** Yes, in [Billing](https://delivrie.io/billing). Plans are billed in US dollars by card through Stripe, with sales tax or VAT added where it applies.
+**Can I change plans any time?** Yes, in [Billing](https://delivrie.io/billing). Teams in Nigeria pay in naira through Paystack; everyone else pays in US dollars through Stripe.
 
 **How long are emails and logs kept?** Email content, sent and received, and API request logs: 30 days on every plan. Recipients, status and events stay after content is deleted. Use [webhooks](/docs/webhooks) to keep your own records.
 

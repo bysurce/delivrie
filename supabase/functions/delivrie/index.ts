@@ -100,9 +100,9 @@ async function checkQuota(c: Ctx, n: number) {
   if (L.overage) {
     const cap = Number(t?.billing?.spend_cap || 0);
     if (!cap || !L.month) return;
-    // Caps and overage are in US dollars (cents).
+    const cur = t?.billing?.currency === "USD" ? "USD" : "NGN";
     const over = Math.max(0, (await count(month)) + n - L.month);
-    const cost = Math.ceil(over / 1000) * L.overage.USD;
+    const cost = Math.ceil(over / 1000) * L.overage[cur];
     if (cost > cap) throw new HttpError(429, "spending_cap_reached", `This send would take overage past your spending cap. Raise or remove the cap in Billing.`);
     return;
   }
