@@ -245,6 +245,8 @@ async function syncSubscription(subOrId: Any) {
   const t = await team(teamId);
   const b = t.billing || {};
   const cur = kind === "marketing" ? (b.marketing || {}) : b;
+  // A team paying through Paystack isn't moved by a stray Stripe subscription (for example one left over from a test).
+  if (cur.provider === "paystack" && cur.plan && cur.plan !== "free" && ["active", "cancelling", "past_due"].includes(cur.status)) return teamId;
   // Ignore events for a subscription that has since been replaced by a newer one.
   if (cur.stripe_subscription && cur.stripe_subscription !== sub.id && sub.status !== "active" && sub.status !== "trialing") return teamId;
   const state = subState(sub);
