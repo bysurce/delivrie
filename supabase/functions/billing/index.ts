@@ -22,6 +22,7 @@
 //   POST /cron/watch      auto top-ups and usage alert emails (pg_cron every 15 minutes, x-cron-secret)
 //   POST /cron/overage    month-end overage charges (pg_cron, x-cron-secret)
 //   POST /cron/health     can we reach Stripe and Paystack? (status page, x-cron-secret)
+//   GET  /geo             the country seen for this request and the provider it would get (no login)
 //
 // Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYSTACK_SECRET_KEY, APP_URL, SYSTEM_FROM, VAT_RATE (optional
 // percent added to Naira top-ups and overage; Stripe Tax handles tax on dollar payments).
@@ -864,6 +865,11 @@ async function handle(req: Request, path: string): Promise<Response> {
     ]);
     const used = [st, pk].filter((x) => x.configured);
     return json({ ok: used.length > 0 && used.every((x) => x.ok), configured: used.length > 0, mode: MODE, webhook: !!WHSEC, stripe: st, paystack: pk });
+  }
+  if (path === "/geo" && req.method === "GET") {
+    // Which provider a new team here would get. Country only, from Vercel's geolocation via middleware.js.
+    const cc = (req.headers.get("x-dlv-country") || "").toUpperCase().slice(0, 2) || null;
+    return json({ country: cc, provider: providerOf(null, cc), currency: CUR[providerOf(null, cc)] });
   }
   const a = await auth(req);
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
