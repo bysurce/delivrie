@@ -499,7 +499,7 @@ async function summary(teamId: string, admin: boolean) {
     subscription: sub,
     marketing_subscription: msub,
     // Teams still paying in naira through Paystack: shown a prompt to continue in USD before their period ends.
-    legacy: sub?.provider === "paystack" && sub.status !== "canceled" ? { plan: sub.plan, ends: sub.next_payment_date, price: sub.price, currency: sub.currency, switch_free_until: trialEndFor(sub.next_payment_date) ? sub.next_payment_date : null } : null,
+    legacy: sub?.provider === "paystack" && sub.status !== "canceled" ? (() => { const ends = sub.cancel_at || sub.next_payment_date; return { plan: sub.plan, ends, price: sub.price, currency: sub.currency, switch_free_until: trialEndFor(ends) ? ends : null }; })() : null,
     details: b.details || {},
     invoices: invoices || [],
   };
@@ -702,7 +702,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
     // Naira (Paystack) customers switching: USD billing starts when their paid naira period ends.
-    const trialEnd = kind === "transactional" && t.billing?.provider === "paystack" && t.billing?.status === "active" ? trialEndFor(t.billing.next_payment_date) : null;
+    const trialEnd = kind === "transactional" && t.billing?.provider === "paystack" && ["active", "cancelling"].includes(t.billing?.status) ? trialEndFor(t.billing.cancel_at || t.billing.next_payment_date) : null;
     const meta = { team_id: a.teamId, kind, plan, interval };
     const s = await stripe("POST", "/checkout/sessions", {
       mode: "subscription", customer, client_reference_id: a.teamId,
