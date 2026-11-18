@@ -618,7 +618,12 @@ async function cronAuth(req: Request) {
 
 async function stripeWebhook(req: Request) {
   const raw = await req.text();
-  if (!(await verifyStripeSignature(raw, req.headers.get("stripe-signature") || "", WHSEC))) return json({ error: "invalid signature" }, 400);
+  if (!(await verifyStripeSignature(raw, req.headers.get("stripe-signature") || "", WHSEC))) {
+    // Says which part is wrong (never the secret itself), so a bad setup is easy to spot in the logs.
+    const sig = req.headers.get("stripe-signature") || "";
+    console.error("stripe webhook rejected:", !WHSEC ? "STRIPE_WEBHOOK_SECRET is not set" : !WHSEC.startsWith("whsec_") ? "STRIPE_WEBHOOK_SECRET doesn't start with whsec_ (wrong value pasted?)" : !sig ? "no Stripe-Signature header" : "signature doesn't match: the secret is from a different webhook destination or mode");
+    return json({ error: "invalid signature" }, 400);
+  }
   const evt = JSON.parse(raw);
   const o = evt.data?.object || {};
   if (MODE && (evt.livemode ? "live" : "test") !== MODE) return json({ received: true, ignored: "other mode" });
