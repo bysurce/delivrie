@@ -27,13 +27,13 @@ NAV = """<header class="nav">
 
 FOOTER = """<footer class="footer">
   <div class="wrap">
-    <div class="brand"><a href="/" aria-label="Delivrie, by South Circle"><img src="/assets/footer-logo.svg" width="188" height="26" alt="Delivrie by South Circle"></a></div>
+    <div class="brand"><a href="/" aria-label="Delivrie, by Surce Inc"><img src="/assets/footer-logo.svg" width="188" height="26" alt="Delivrie by Surce Inc"></a></div>
     <nav class="fcol"><h4>Product</h4><a href="/signup">Emails</a><a href="/signup">Broadcasts</a><a href="/signup">Templates</a><a href="/pricing">Pricing</a><a href="/resend-alternative">Resend alternative</a><a href="/brevo-alternative">Brevo alternative</a><a href="/changelog">Changelog</a></nav>
     <nav class="fcol"><h4>Developers</h4><a href="/docs">Docs</a><a href="/docs/api">API reference</a><a href="/docs/mcp">MCP server</a><a href="/status">Status</a></nav>
     <nav class="fcol"><h4>Company</h4><a href="/about">About</a><a href="/customers">Customers</a><a href="/careers">Careers</a><a href="/brand">Brand</a><a href="/contact-sales">Contact sales</a></nav>
     <nav class="fcol"><h4>Legal</h4><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/dpa">DPA</a><a href="/acceptable-use">Acceptable use</a><a href="/security">Security</a></nav>
   </div>
-  <div class="wrap fbottom"><span>© 2026 South Circle · Lagos · delivrie.io</span><span class="grow"></span><a class="sys" href="/status" id="sys"><i></i><span>All systems operational</span></a></div>
+  <div class="wrap fbottom"><span>© 2026 Surce Inc · delivrie.io</span><span class="grow"></span><a class="sys" href="/status" id="sys"><i></i><span>All systems operational</span></a></div>
 </footer>"""
 
 CTA = """<section class="cta">
@@ -59,9 +59,8 @@ ICON = {
   "download": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
 }
 
-ORG = {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "South Circle", "url": "https://delivrie.io",
-       "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io",
-       "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}
+ORG = {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io",
+       "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io"}
 
 def ld(*items):
     """JSON-LD for search engines (one @graph per page)."""
@@ -160,7 +159,7 @@ def legal(doc):
   <section class="lg-body"><div class="wrap lg-grid">
     <aside class="lg-toc"><div class="h">On this page</div>{toc}</aside>
     <article class="lg-art">{short}{glance}{body}
-      <div class="lg-q">{ICON["mail"]}<div><b>Questions about this policy?</b><span>Email <a href="mailto:{contact}">{contact}</a> or write to South Circle, Lagos, Nigeria.</span></div><a class="b-ghost sm" href="mailto:{contact}">Contact us</a></div>
+      <div class="lg-q">{ICON["mail"]}<div><b>Questions about this policy?</b><span>Email <a href="mailto:{contact}">{contact}</a> or write to Surce Inc.</span></div><a class="b-ghost sm" href="mailto:{contact}">Contact us</a></div>
     </article>
   </div></section>"""
     return page("/" + doc["slug"], doc["title"], doc["lede"], html_)
@@ -179,7 +178,7 @@ def cards(items, cols=4):
     return f'<div class="grid{cols} reveal-stagger">' + "".join(f'<article class="fcard {it[3] if len(it) > 3 else ""}"><span class="fic">{ICON.get(it[0], ICON["spark"])}</span><h3>{E(it[1])}</h3><p>{E(it[2])}</p></article>' for it in items) + "</div>"
 
 def about():
-    body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built by South Circle, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
+    body = hero("About", "Email infrastructure,<br> built for builders.", "Delivrie is built by Surce Inc, because sending a receipt should not need a deliverability team. Developers, and their agents, ship email with us.", [("Start for free", "/signup", "b-primary"), ("Read the docs", "/docs", "b-secondary")], center=True)
     body += """<section class="section"><div class="wrap"><div class="stats reveal-stagger">
       <div><b>4,000</b><span>free emails every month</span></div><div><b>$10</b><span>a month for 20,000 emails</span></div><div><b>64</b><span>MCP tools for AI agents</span></div><div><b>1 call</b><span>to send an email</span></div></div></div></section>"""
     body += f"""<section class="section"><div class="wrap split-2">
@@ -189,7 +188,7 @@ def about():
       <p>We are a small team based in Lagos, building for developers everywhere, and we answer support ourselves.</p></div></div></section>"""
     body += f'<section class="section"><div class="wrap">{head2("How we work", "What we care about")}' + cards([("zap", "Fast by default", "We treat latency as a bug, from the API to the dashboard."), ("info", "Nothing hidden", "Every bounce, block and webhook attempt is visible, with the reason."), ("code", "Developers first", "Docs and errors written for the person debugging at 2am."), ("shield", "Earn the inbox", "We say no to spam so your email keeps landing.")]) + "</div></section>"
     body += CTA
-    return page("/about", "About", "Delivrie is an email API, SMTP relay and MCP server for developers and AI agents, built by South Circle for developers everywhere, with simple pricing in US dollars.", body, jsonld=[ORG, crumbs(("Home", "/"), ("About", "/about"))])
+    return page("/about", "About", "Delivrie is an email API, SMTP relay and MCP server for developers and AI agents, built by Surce Inc for developers everywhere, with simple pricing in US dollars.", body, jsonld=[ORG, crumbs(("Home", "/"), ("About", "/about"))])
 
 def customers():
     body = hero("Customers", "Built for the emails<br> that matter.", "Receipts, one-time passwords, shipping updates and launches. Here is what teams send with Delivrie.", [("Talk to sales", "/contact-sales", "b-secondary"), ("Start for free", "/signup", "b-primary")])

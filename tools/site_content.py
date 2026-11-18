@@ -1,7 +1,7 @@
 # Copy for the Company, Legal and Resources pages (Figma: Marketing · Company & legal).
-# Adapted to what is true today: operated by South Circle, delivrie.io addresses, and only features that exist.
+# Adapted to what is true today: operated by Surce Inc, delivrie.io addresses, and only features that exist.
 # Edit here, then run: python3 tools/build_site.py
-COMPANY = "South Circle"
+COMPANY = "Surce Inc"
 UPDATED = "13 November 2026"
 EFFECTIVE = "1 December 2026"
 
@@ -14,7 +14,7 @@ LEGAL = [
               "You are responsible for what your API keys, apps and AI agents send.",
               "Paid plans renew until you cancel. Pay-as-you-go credits never expire."],
     "sections": [
-      ("Agreement", ["These Terms of Service (“Terms”) are an agreement between you and South Circle, the company that operates Delivrie (“Delivrie”, “we”, “us”). If you use Delivrie for a company, you confirm you have authority to bind it, and “you” means that company.",
+      ("Agreement", ["These Terms of Service (“Terms”) are an agreement between you and Surce Inc, the company that operates Delivrie (“Delivrie”, “we”, “us”). If you use Delivrie for a company, you confirm you have authority to bind it, and “you” means that company.",
                      "Our Privacy Policy, Acceptable Use Policy and, where applicable, Data Processing Addendum form part of these Terms."]),
       ("Your account", ["You must provide accurate information, keep your credentials secure and be at least 18 years old. Each team has at least one admin who controls billing, members and API keys.",
                         ["Turn on two-factor authentication.", "Tell us immediately at security@delivrie.io if you suspect unauthorised access.", "You are responsible for activity under your account, including by team members you invite."]]),
@@ -47,7 +47,7 @@ LEGAL = [
               "Email content is kept for 30 days, then deleted.",
               "You can access, correct, export or delete your data at any time."],
     "sections": [
-      ("Who we are", ["South Circle, which operates Delivrie, is the controller of personal data about our customers and website visitors. For data inside your account, such as your recipients and contacts, you are the controller and Delivrie is your processor.",
+      ("Who we are", ["Surce Inc, which operates Delivrie, is the controller of personal data about our customers and website visitors. For data inside your account, such as your recipients and contacts, you are the controller and Delivrie is your processor.",
                       "Our privacy team can be reached at privacy@delivrie.io."]),
       ("Data we collect", [["Account data: name, email address, team name, password hash, and your Google or GitHub account id if you sign in with them.", "Billing data: billing address, tax ID, and your card brand and last four digits. Full card numbers are handled by Stripe, our payment processor.", "Usage data: API requests, IP addresses, browser details, and how you use the dashboard.", "Customer Data: email content, recipients, contacts and attachments you send or receive through Delivrie.", "Communications: support requests and feedback you send us."]]),
       ("How we use it", [["Provide, secure and improve the service, including detecting abuse and spam.", "Process payments, send receipts and prevent fraud.", "Send service emails, such as sign-in codes, security alerts and billing notices.", "Comply with legal obligations and respond to lawful requests."],

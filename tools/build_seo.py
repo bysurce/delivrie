@@ -24,9 +24,8 @@ def wr(p, s):
 def ld(*items):
     return '<script type="application/ld+json" data-seo>' + json.dumps({"@context": "https://schema.org", "@graph": list(items)}, ensure_ascii=False).replace("</", "<\\/") + "</script>"
 
-ORG = {"@type": "Organization", "@id": f"{SITE}/#org", "name": "Delivrie", "legalName": "South Circle", "url": SITE,
-       "logo": f"{SITE}/assets/delivrie-icon.png", "email": "support@delivrie.io",
-       "address": {"@type": "PostalAddress", "addressLocality": "Lagos", "addressCountry": "NG"}}
+ORG = {"@type": "Organization", "@id": f"{SITE}/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": SITE,
+       "logo": f"{SITE}/assets/delivrie-icon.png", "email": "support@delivrie.io"}
 
 def pricing_data():
     js = rd("pricing.js")

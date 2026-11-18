@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-authors = [{ name = "South Circle", email = "support@delivrie.io" }]
+authors = [{ name = "Surce Inc", email = "support@delivrie.io" }]
 keywords = ["email", "transactional email", "email api", "smtp", "webhooks", "delivrie", "resend alternative"]
 classifiers = [
   "Development Status :: 4 - Beta",

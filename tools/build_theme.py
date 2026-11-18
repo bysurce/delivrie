@@ -74,7 +74,7 @@ MOBILE_MENU = ('<!--mmenu--><div class="mmenu" id="mmenu" role="dialog" aria-mod
   '</nav><div class="mm-bottom"><div class="mm-btns"><a class="mm-btn sec" href="/login">Log in</a><a class="mm-btn pri" href="/signup">Get started</a></div>'
   '<div class="mm-meta"><a class="mm-status" href="/status"><i></i><span>All systems operational</span></a>' + SWITCH.replace('class="theme-sw"', 'class="theme-sw pill"') + '</div></div></div><!--/mmenu-->')
 BRAND_OLD = re.compile(r'<div class="brand">(?:<a [^>]*>)?<img src="/assets/(?:footer-mark|logo|footer-logo)\.svg"[^>]*>(?:</a>)?</div>')
-BRAND_NEW = '<div class="brand"><a href="/" aria-label="Delivrie, by South Circle"><img src="/assets/footer-logo.svg" width="188" height="26" alt="Delivrie by South Circle"></a></div>'
+BRAND_NEW = '<div class="brand"><a href="/" aria-label="Delivrie, by Surce Inc"><img src="/assets/footer-logo.svg" width="188" height="26" alt="Delivrie by Surce Inc"></a></div>'
 
 def files():
     out = glob.glob(os.path.join(ROOT, "*.html"))
