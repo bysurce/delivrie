@@ -712,9 +712,10 @@ async function handle(req: Request, path: string): Promise<Response> {
       metadata: meta,
       subscription_data: { metadata: meta, ...(trialEnd ? { trial_end: trialEnd } : {}) },
       automatic_tax: { enabled: tax },
-      ...(tax ? { customer_update: { address: "auto", name: "auto" }, billing_address_collection: "required" } : {}),
+      // The billing address is always collected and saved: Stripe needs it for tax IDs and Stripe Tax, and it
+      // goes on receipts.
+      customer_update: { address: "auto", name: "auto" }, billing_address_collection: "required",
       tax_id_collection: { enabled: true },
-      ...(tax ? {} : { customer_update: { name: "auto" } }),
     });
     return json({ url: s.url });
   }
@@ -757,7 +758,7 @@ async function handle(req: Request, path: string): Promise<Response> {
       payment_intent_data: { setup_future_usage: "off_session", metadata: meta },
       invoice_creation: { enabled: true, invoice_data: { metadata: { ...meta, via: "checkout" } } },
       automatic_tax: { enabled: tax },
-      ...(tax ? { customer_update: { address: "auto", name: "auto" }, billing_address_collection: "required" } : { customer_update: { name: "auto" } }),
+      customer_update: { address: "auto", name: "auto" }, billing_address_collection: "required",
       tax_id_collection: { enabled: true },
     });
     return json({ url: s.url });
