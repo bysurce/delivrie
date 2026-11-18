@@ -1,7 +1,7 @@
 // Vercel Routing Middleware: pages switched off in Admin → Website return the 404 page.
 // Settings are cached for 30 seconds per edge instance. If they can't be loaded, pages stay on (fail open).
 export const config = {
-  // Every page (not assets, files or the API), so each visitor gets the country cookie below.
+  // Every page (not assets, files or the API).
   matcher: ['/sitemap.xml', '/((?!api/|app/|assets/|docs-md/|_vercel/|.*\\.[a-z0-9]+$).*)'],
 };
 
@@ -12,14 +12,7 @@ const SWITCHABLE = [
 ];
 const switchable = (path) => SWITCHABLE.some((p) => path === p || path.startsWith(p + '/'));
 
-// Pricing is shown in Naira to visitors in Nigeria and in US dollars everywhere else. Vercel tells us the visitor's
-// country; we pass it to the page in a short-lived cookie that pricing.js, script.js and the billing page read.
-function next(request) {
-  const cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-  const headers = { 'x-middleware-next': '1' };
-  if (cc) headers['set-cookie'] = `dlv_cc=${cc}; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
-  return new Response(null, { headers });
-}
+const next = () => new Response(null, { headers: { 'x-middleware-next': '1' } });
 
 // These pages can't be switched off: app directories and the support links reviewers check rely on them.
 const ALWAYS_ON = new Set(['/', '/terms', '/privacy', '/support']);
@@ -64,5 +57,5 @@ export default async function middleware(request) {
       return new Response(nf.body, { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
   }
-  return next(request);
+  return next();
 }

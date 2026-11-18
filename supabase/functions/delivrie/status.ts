@@ -111,7 +111,7 @@ const CHECKS: Record<string, () => Promise<Result>> = {
   },
   async billing() {
     const secret = String(await setting("cron_secret"));
-    // 15s: the billing function often starts cold for this check, then calls Paystack.
+    // 15s: the billing function often starts cold for this check, then calls Stripe.
     const [r, ms] = await timed(() => fetch(`${SUPABASE_URL}/functions/v1/billing/cron/health`, { method: "POST", headers: { "x-cron-secret": secret } }), 15000);
     const j: Any = await r.json().catch(() => ({}));
     if (!j.configured) return { state: "degraded", latency_ms: ms, detail: "Payments aren't available right now" };

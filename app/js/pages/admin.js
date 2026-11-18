@@ -295,7 +295,6 @@ async function siteCompare(el, cfg, save) {
   const inp = (name, value, ph, w = "") => `<input class="input" name="${name}" value="${esc(value ?? "")}" placeholder="${esc(ph ?? "")}" style="${w}">`;
   el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:13px">Figures and notes for Pricing → Compare. Leave a box empty to keep the default (shown in grey). Delivrie's own prices come from your plans and aren't edited here.</p>
     <div class="card card-pad" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
-      <div class="field"><label>₦ per $1</label>${inp("fx", c.fx, "1350")}</div>
       <div class="field"><label>Prices checked on</label>${inp("date", c.date, "13 November 2026")}</div>
       ${CMP_PRICES.map(([k, l, d]) => `<div class="field"><label>${l}</label>${inp("p_" + k, c.prices?.[k], String(d))}</div>`).join("")}
     </div>
@@ -312,7 +311,6 @@ async function siteCompare(el, cfg, save) {
   el.querySelector("[data-save]").addEventListener("click", async (e) => {
     const v = (n) => el.querySelector(`[name="${n}"]`).value.trim();
     const next = { prices: {}, rows: {} };
-    if (v("fx")) { if (!(+v("fx") > 0)) return toast("₦ per $1 must be a number", "error"); next.fx = +v("fx"); }
     if (v("date")) next.date = v("date");
     for (const [k] of CMP_PRICES) { const x = v("p_" + k); if (x) { if (!(+x >= 0)) return toast("Prices must be numbers", "error"); next.prices[k] = +x; } }
     el.querySelectorAll("[data-row]").forEach((r) => {

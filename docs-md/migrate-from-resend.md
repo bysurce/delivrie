@@ -86,7 +86,7 @@ Signatures use the same HMAC scheme, but the headers are named `webhook-id`, `we
 | Several sending regions | `eu-west-1` today |
 | `onboarding@resend.dev` for testing | `onboarding@delivrie.io`, plus [test addresses](/docs/test-mode) |
 
-Things Delivrie adds: an [SMTP relay](/docs/smtp) on ports 587 and 465, an [inbox](/docs/inbox) for replies, [automations](/docs/automations) triggered by events, an [MCP server](/docs/mcp) for AI assistants, and billing in naira or dollars.
+Things Delivrie adds: an [SMTP relay](/docs/smtp) on ports 587 and 465, an [inbox](/docs/inbox) for replies, [automations](/docs/automations) triggered by events, an [MCP server](/docs/mcp) for AI assistants.
 
 ## Move your contacts and templates
 

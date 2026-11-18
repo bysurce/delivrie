@@ -14,7 +14,7 @@ Live at https://delivrie.io
 | `app.html`, `app/` | Dashboard SPA (vanilla JS ES modules, no build step) |
 | `assets/` | Logos, favicon and icons (from the Figma brand page) |
 | `supabase/functions/delivrie/` | Edge function: REST API, SES/SNS integration, webhooks, cron, MCP server |
-| `supabase/functions/billing/` | Edge function: Paystack subscriptions (USD and NGN), served at `/api/billing/*` |
+| `supabase/functions/billing/` | Edge function: Stripe subscriptions, credits and overage in USD with Stripe Tax, served at `/api/billing/*` |
 | `supabase/migrations/` | Database schema: tables, row-level security, RPCs, cron job, storage bucket |
 | `vercel.json` | Rewrites `/api/*` to the edge function and app routes to `app.html` |
 
@@ -35,6 +35,8 @@ Live at https://delivrie.io
 | `SYSTEM_REGION` | Optional | Default SES region (default `eu-west-1`) |
 | `ANTHROPIC_API_KEY` | Optional | Enables AI answers in Help → Ask Delivrie |
 | `ENFORCE_LIMITS` | Optional | `true` to enforce plan limits |
-| `PAYSTACK_SECRET_KEY` | For billing | Paystack secret key (`sk_test_…` while testing, `sk_live_…` in production) |
+| `STRIPE_SECRET_KEY` | For billing | Stripe secret key (`sk_test_…` while testing, `sk_live_…` in production) |
+| `STRIPE_WEBHOOK_SECRET` | For billing | Signing secret of the Stripe webhook endpoint `https://delivrie.io/api/billing/stripe/webhook` (`whsec_…`) |
+| `PAYSTACK_SECRET_KEY` | Legacy | Only until the last naira subscription that started on Paystack has ended |
 
 The Supabase anon key in `app/js/lib/sb.js` is public by design; data access is protected by row-level security.
