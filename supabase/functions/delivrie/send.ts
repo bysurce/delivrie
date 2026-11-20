@@ -255,13 +255,22 @@ async function autoForward(d: Any, e: Any, rcpt: string, parsed: Any, msg: Any) 
   const skip = async (reason: string) => { await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "forward_skipped", data: { reason, to } }); };
   // Never relay spam or viruses, and never forward a forward (two domains forwarding to each other would loop).
   if (msg.receipt?.spamVerdict?.status === "FAIL" || msg.receipt?.virusVerdict?.status === "FAIL") return skip("flagged_as_spam");
-  if (e.headers?.["x-delivrie-forwarded-for"]) return skip("already_forwarded");
+  // Read the full parsed headers: only the first 60 are stored on the email, and these can sit after them.
+  const hdr: Record<string, string> = parsed?.headers || e.headers || {};
+  if (hdr["x-delivrie-forwarded-for"]) return skip("already_forwarded");
+  // The same message arriving again (a mailbox that forwards back here, or one email to two addresses) is
+  // forwarded once.
+  const mid = hdr["message-id"];
+  if (mid) {
+    const { data: seen } = await db.from("emails").select("id").eq("team_id", d.team_id).eq("direction", "inbound").eq("headers->>message-id", mid).neq("id", e.id).limit(1);
+    if (seen?.length) return skip("duplicate_message");
+  }
   if (d.status !== "verified" || d.sending_enabled === false) return skip("domain_cannot_send");
   try { if (quotaCheck) await quotaCheck(d.team_id, 1); } catch { return skip("sending_limit_reached"); }
   const sender = parseAddress(e.from || "");
   const senderEmail = emailOnly(e.from || "");
   const name = `${(sender.name || senderEmail || "Unknown sender").replace(/["<>\\\r\n]/g, "").slice(0, 80)} via ${d.name}`;
-  const replyTo = [e.headers?.["reply-to"] ? emailOnly(e.headers["reply-to"]) : senderEmail].filter((a) => EMAIL_RE.test(a));
+  const replyTo = [hdr["reply-to"] ? emailOnly(hdr["reply-to"]) : senderEmail].filter((a) => EMAIL_RE.test(a));
   let attachments = (parsed?.attachments || []).filter((a: Any) => a.content).map((a: Any) => ({ filename: a.filename, content: a.content, content_type: a.content_type, ...(a.content_id ? { content_id: a.content_id } : {}) }));
   let note = "";
   if (attachments.reduce((n: number, a: Any) => n + a.content.length * 0.75, 0) > FORWARD_MAX_BYTES) {
