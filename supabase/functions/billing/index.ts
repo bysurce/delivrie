@@ -87,6 +87,8 @@ const CUR: Record<Provider, string> = { stripe: "USD", paystack: "NGN" };
 // request's country (Nigeria: Paystack in Naira; anywhere else: Stripe in US dollars).
 function providerOf(t: Any, country?: string | null): Provider {
   const b = t?.billing || {};
+  // Set by hand in the database for one team (for example to test Stripe from Nigeria). Wins over everything else.
+  if (b.provider_override === "stripe" || b.provider_override === "paystack") return b.provider_override;
   const running = (x: Any) => x?.provider && x.plan && x.plan !== "free" && ["active", "cancelling", "past_due"].includes(x.status);
   if (running(b)) return b.provider;
   if (running(b.marketing)) return b.marketing.provider;
