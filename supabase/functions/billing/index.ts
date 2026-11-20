@@ -27,7 +27,7 @@
 // Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYSTACK_SECRET_KEY, APP_URL, SYSTEM_FROM, VAT_RATE (optional
 // percent added to Naira top-ups and overage; Stripe Tax handles tax on dollar payments).
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
-import { cardLabel, formEncode, periodEnd, priceKey, subState, verifyStripeSignature } from "./stripe.ts";
+import { cardLabel, formEncode, periodEnd, priceKey, subState, trialEndFor, verifyStripeSignature } from "./stripe.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -85,18 +85,37 @@ const CUR: Record<Provider, string> = { stripe: "USD", paystack: "NGN" };
 
 // Which provider a team pays with: the one behind its running plan, else the one it first paid with, else the
 // request's country (Nigeria: Paystack in Naira; anywhere else: Stripe in US dollars).
+// Admin → Website → Payments can switch a provider off. Everyone then pays through the other one, whatever their
+// country or history: Stripe off means Naira through Paystack for all, Paystack off means dollars through Stripe
+// for all. With both off, payments are paused. Read from site_config and cached for 30 seconds.
+let FLAGS: { stripe: boolean; paystack: boolean; at: number } = { stripe: true, paystack: true, at: 0 };
+async function loadFlags() {
+  if (Date.now() - FLAGS.at < 30_000) return;
+  try {
+    const { data } = await db.from("site_config").select("value").eq("key", "billing").maybeSingle();
+    const v = (data?.value || {}) as Any;
+    FLAGS = { stripe: v.stripe !== false, paystack: v.paystack !== false, at: Date.now() };
+  } catch (e) { console.error("billing switches", e); FLAGS.at = Date.now() - 20_000; } // keep the last known, retry in 10s
+}
+const otherOf = (p: Provider): Provider => (p === "stripe" ? "paystack" : "stripe");
+const paused = () => !FLAGS.stripe && !FLAGS.paystack;
+// A provider that's switched off hands over to the other one. (With both off the natural one is kept, and every
+// payment route answers that payments are paused.)
+const usable = (p: Provider): Provider => (FLAGS[p] || !FLAGS[otherOf(p)] ? p : otherOf(p));
+const runningSub = (x: Any) => !!(x?.provider && x.plan && x.plan !== "free" && ["active", "cancelling", "past_due"].includes(x.status));
+
 function providerOf(t: Any, country?: string | null): Provider {
   const b = t?.billing || {};
   // Set by hand in the database for one team (for example to test Stripe from Nigeria). Wins over everything else.
   if (b.provider_override === "stripe" || b.provider_override === "paystack") return b.provider_override;
-  const running = (x: Any) => x?.provider && x.plan && x.plan !== "free" && ["active", "cancelling", "past_due"].includes(x.status);
-  if (running(b)) return b.provider;
-  if (running(b.marketing)) return b.marketing.provider;
-  if (b.payment_provider === "stripe" || b.payment_provider === "paystack") return b.payment_provider;
+  if (runningSub(b)) return usable(b.provider);
+  if (runningSub(b.marketing)) return usable(b.marketing.provider);
+  if (b.payment_provider === "stripe" || b.payment_provider === "paystack") return usable(b.payment_provider);
   const cc = (country || "").toUpperCase();
-  if (cc) return cc === "NG" ? "paystack" : "stripe";
-  return b.details?.country === "Nigeria" || b.currency === "NGN" ? "paystack" : "stripe";
+  if (cc) return usable(cc === "NG" ? "paystack" : "stripe");
+  return usable(b.details?.country === "Nigeria" || b.currency === "NGN" ? "paystack" : "stripe");
 }
+const assertOpen = () => { if (paused()) throw new HttpError(503, "Payments are paused right now. Please try again a little later."); };
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -249,8 +268,10 @@ async function syncSubscription(subOrId: Any) {
   const t = await team(teamId);
   const b = t.billing || {};
   const cur = kind === "marketing" ? (b.marketing || {}) : b;
-  // A team paying through Paystack isn't moved by a stray Stripe subscription (for example one left over from a test).
-  if (cur.provider === "paystack" && cur.plan && cur.plan !== "free" && ["active", "cancelling", "past_due"].includes(cur.status)) return teamId;
+  // A team that pays through Paystack isn't moved by a stray Stripe subscription (for example one left over from
+  // a test). It is moved when new payments for it go through Stripe: Paystack switched off, or an override.
+  const fromPaystack = cur.provider === "paystack" && runningSub(cur);
+  if (fromPaystack && providerOf(t) === "paystack") return teamId;
   // Ignore events for a subscription that has since been replaced by a newer one.
   if (cur.stripe_subscription && cur.stripe_subscription !== sub.id && sub.status !== "active" && sub.status !== "trialing") return teamId;
   const state = subState(sub);
@@ -262,6 +283,12 @@ async function syncSubscription(subOrId: Any) {
     trial_end: sub.status === "trialing" && sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
   };
   if (sub.default_payment_method?.card) Object.assign(fields, { card: cardLabel(sub.default_payment_method.card) });
+  // Continuing a Naira plan in dollars: stop the Paystack subscription so it never renews. The Stripe one starts
+  // charging when the paid Naira period ends (see the trial in /checkout).
+  if (fromPaystack && state !== "canceled") {
+    if (cur.subscription_code && cur.email_token) await ps("POST", "/subscription/disable", { code: cur.subscription_code, token: cur.email_token }).catch((e) => console.error("paystack disable", e.message));
+    Object.assign(fields, { subscription_code: null, email_token: null, plan_code: null });
+  }
   if (kind === "marketing") {
     await saveBilling(teamId, { marketing: { ...(b.marketing || {}), ...fields, subscription_code: null, email_token: null } });
     await db.from("teams").update({ plan_marketing: state === "canceled" ? "free" : plan }).eq("id", teamId);
@@ -633,7 +660,8 @@ async function summary(teamId: string, admin: boolean, country?: string | null) 
     plan_marketing: t.plan_marketing || "free",
     admin,
     provider,
-    payments_ready: onStripe ? !!SK : !!PSK,
+    payments_ready: (onStripe ? !!SK : !!PSK) && !paused(),
+    payments_paused: paused(),
     mode: onStripe ? MODE : PS_MODE,
     tax_ready: tax,
     currencies: [cur],
@@ -667,7 +695,9 @@ async function summary(teamId: string, admin: boolean, country?: string | null) 
     can_update_card: onStripe ? !!(stripeReady && b.stripe_customer) : !!(b.subscription_code || b.marketing?.subscription_code),
     subscription: sub,
     marketing_subscription: msub,
-    legacy: null,
+    // A plan that was bought through the other provider (its provider has been switched off, or the team was moved):
+    // the billing page explains what happens next. Moving to Stripe is free until the paid period ends.
+    legacy: sub && sub.provider && sub.provider !== provider && sub.status !== "canceled" ? (() => { const ends = sub.cancel_at || sub.next_payment_date; return { plan: sub.plan, from: sub.provider, to: provider, ends, price: sub.price, currency: sub.currency, status: sub.status, switch_free_until: provider === "stripe" && trialEndFor(ends) ? ends : null }; })() : null,
     details: b.details || {},
     invoices: invoices || [],
   };
@@ -867,6 +897,7 @@ async function stripeWebhook(req: Request) {
 }
 
 async function handle(req: Request, path: string): Promise<Response> {
+  await loadFlags();
   if (path === "/stripe/webhook" && req.method === "POST") return stripeWebhook(req);
   if (path === "/webhook" && req.method === "POST") return paystackWebhook(req);
   if (path === "/cron/overage" && req.method === "POST") { await cronAuth(req); return json(await overageRun()); }
@@ -890,7 +921,7 @@ async function handle(req: Request, path: string): Promise<Response> {
   if (path === "/geo" && req.method === "GET") {
     // Which provider a new team here would get. Country only, from Vercel's geolocation via middleware.js.
     const cc = (req.headers.get("x-dlv-country") || "").toUpperCase().slice(0, 2) || null;
-    return json({ country: cc, provider: providerOf(null, cc), currency: CUR[providerOf(null, cc)] });
+    return json({ country: cc, provider: providerOf(null, cc), currency: CUR[providerOf(null, cc)], enabled: { stripe: FLAGS.stripe, paystack: FLAGS.paystack } });
   }
   const a = await auth(req);
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
@@ -910,8 +941,15 @@ async function handle(req: Request, path: string): Promise<Response> {
     const t = await team(a.teamId);
     const cur = kind === "marketing" ? (t.billing?.marketing || {}) : (t.billing || {});
     const current = kind === "marketing" ? t.plan_marketing : t.plan_transactional;
+    assertOpen();
     if (providerOf(t, country) === "paystack") {
       if (current === plan && cur.status === "active" && cur.provider === "paystack" && (cur.interval || "monthly") === interval) throw new HttpError(400, `You're already on ${p.name}.`);
+      // A plan still running on Stripe can't be bought again in Naira without paying twice for the same days.
+      if (cur.provider === "stripe" && runningSub(cur)) {
+        const until = cur.cancel_at || cur.next_payment_date;
+        const when = until ? new Date(until).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "the end of its billing period";
+        throw new HttpError(400, cur.status === "cancelling" ? `Your current plan is paid until ${when}. You can choose a new plan in Naira after that.` : `Your current plan renews through Stripe. Cancel it under Payment methods, then choose a new plan in Naira when it ends on ${when}.`);
+      }
       const code = await planCode(kind, plan, interval);
       const init = await ps("POST", "/transaction/initialize", {
         email: t.billing?.details?.email || t.billing?.email || a.user.email,
@@ -940,13 +978,15 @@ async function handle(req: Request, path: string): Promise<Response> {
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
     const meta = { team_id: a.teamId, kind, plan, interval };
+    // Continuing a Naira (Paystack) plan in dollars: Stripe starts charging when the paid Naira period ends.
+    const trialEnd = cur.provider === "paystack" && ["active", "cancelling"].includes(cur.status) && cur.plan && cur.plan !== "free" ? trialEndFor(cur.cancel_at || cur.next_payment_date) : null;
     const s = await stripe("POST", "/checkout/sessions", {
       mode: "subscription", customer, client_reference_id: a.teamId,
       line_items: [{ price, quantity: 1 }],
       success_url: `${APP_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${APP_URL}/billing?canceled=1`,
       metadata: meta,
-      subscription_data: { metadata: meta },
+      subscription_data: { metadata: meta, ...(trialEnd ? { trial_end: trialEnd } : {}) },
       automatic_tax: { enabled: tax },
       // The billing address is always collected and saved: Stripe needs it for tax IDs and Stripe Tax, and it
       // goes on receipts.
@@ -959,6 +999,7 @@ async function handle(req: Request, path: string): Promise<Response> {
   // Top up credits: a pack or a custom amount; saved card (charged now), or Stripe Checkout.
   if ((path === "/topup" || path === "/credits") && req.method === "POST") {
     requireAdmin(a);
+    assertOpen();
     const t = await team(a.teamId);
     const provider = providerOf(t, country);
     const currency = CUR[provider];
@@ -1037,7 +1078,9 @@ async function handle(req: Request, path: string): Promise<Response> {
   if ((path === "/portal" || path === "/card") && req.method === "POST") {
     requireAdmin(a);
     const t = await team(a.teamId);
-    if (providerOf(t, country) === "paystack") {
+    // The card on a running plan is managed where that plan is billed, even if that provider is off for new payments.
+    const where: Provider = runningSub(t.billing) && !t.billing.provider_override ? t.billing.provider : providerOf(t, country);
+    if (where === "paystack") {
       // Paystack has no customer portal; its subscription page lets the customer change the card on a plan.
       const code = t.billing?.subscription_code || t.billing?.marketing?.subscription_code;
       if (!code) throw new HttpError(400, "Your card is saved when you next pay. To use a different card, top up or subscribe with it.");

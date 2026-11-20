@@ -14,8 +14,12 @@ const switchable = (path) => SWITCHABLE.some((p) => path === p || path.startsWit
 
 // Pricing is shown in Naira to visitors in Nigeria and in US dollars everywhere else. Vercel tells us the visitor's
 // country; we pass it to the page in a short-lived cookie that pricing.js, script.js and the billing page read.
-function next(request) {
-  const cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+// When one payment provider is switched off in Admin → Website → Payments, every visitor sees the other one's
+// currency: the cookie is set as if they were in Nigeria (Naira) or outside it (dollars).
+function next(request, billing) {
+  let cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  if (billing && billing.paystack === false && billing.stripe !== false) cc = 'ZZ';
+  else if (billing && billing.stripe === false && billing.paystack !== false) cc = 'NG';
   const headers = { 'x-middleware-next': '1' };
   if (cc) headers['set-cookie'] = `dlv_cc=${cc}; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
   return new Response(null, { headers });
@@ -24,19 +28,21 @@ function next(request) {
 // These pages can't be switched off: app directories and the support links reviewers check rely on them.
 const ALWAYS_ON = new Set(['/', '/terms', '/privacy', '/support']);
 const SOURCE = 'https://hnjejflinvaoxbduxeiu.supabase.co/functions/v1/delivrie/public/site?only=pages';
-let cache = { at: 0, pages: {} };
+let cache = { at: 0, pages: {}, billing: null };
 
-async function offPages() {
-  if (Date.now() - cache.at < 30_000) return cache.pages;
+async function offPages() { return (await siteConfig()).pages; }
+
+async function siteConfig() {
+  if (Date.now() - cache.at < 30_000) return cache;
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 800);
     const r = await fetch(SOURCE, { signal: ctl.signal });
     clearTimeout(t);
-    if (r.ok) cache = { at: Date.now(), pages: (await r.json()).pages || {} };
+    if (r.ok) { const j = await r.json(); cache = { at: Date.now(), pages: j.pages || {}, billing: j.billing || null }; }
     else cache.at = Date.now();
   } catch { cache.at = Date.now() - 20_000; } // retry in 10 seconds
-  return cache.pages;
+  return cache;
 }
 
 // The sitemap lists every page; switched-off pages are removed from it here.
@@ -85,5 +91,5 @@ export default async function middleware(request) {
       return new Response(nf.body, { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
   }
-  return next(request);
+  return next(request, (await siteConfig()).billing);
 }

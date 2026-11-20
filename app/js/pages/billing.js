@@ -106,9 +106,16 @@ function overview(B) {
 
 function payBanner(s) {
   const ps = s.provider === "paystack";
-  if (!s.payments_ready) return `<div class="banner">${icon("info", 14)} Payments aren't connected yet. Plans can't be bought until the ${ps ? "Paystack" : "Stripe"} key is added.</div>`;
-  if (s.mode === "test") return `<div class="banner">${icon("info", 14)} Test mode: ${ps ? "use Paystack's test card <b>4084 0840 8408 4081</b>, any future expiry, CVV <b>408</b>" : "pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC"}. No real money moves.</div>`;
-  return "";
+  const L = s.legacy && s.admin ? s.legacy : null;
+  const cname = (c) => c === "NGN" ? "Naira" : "US dollars";
+  // The team's plan was bought through the other provider, which now isn't used for new payments.
+  const legacy = !L ? "" : L.to === "stripe"
+    ? banner("warn", "Billing has moved to US dollars", `${L.status === "cancelling" ? `Your ${esc(cap1(L.plan))} plan is paid in Naira until ${fullDate(L.ends)} and ends then.` : `Your ${esc(cap1(L.plan))} plan is paid in Naira until ${fullDate(L.ends)} and still renews through Paystack for now.`} Continue in US dollars${L.switch_free_until ? `: your first dollar payment is on ${fullDate(L.switch_free_until)}, so you won't pay twice` : ""}. Top-ups are in dollars from now on.`, `<button class="btn btn-primary btn-sm" data-upgrade="${esc(L.plan)}">Continue in USD</button>`)
+    : banner("warn", "Billing has moved to Naira", `Your ${esc(cap1(L.plan))} plan is paid in US dollars until ${fullDate(L.ends)}${L.status === "cancelling" ? " and ends then. After that," : " and still renews through Stripe for now. Cancel it under Payment methods and, when it ends,"} choose a plan in Naira to keep going. Top-ups are in Naira from now on.`, "");
+  if (s.payments_paused) return legacy + `<div class="banner">${icon("info", 14)} Payments are paused right now. Your plan and credits keep working; upgrades and top-ups will be back shortly.</div>`;
+  if (!s.payments_ready) return legacy + `<div class="banner">${icon("info", 14)} Payments aren't connected yet. Plans can't be bought until the ${ps ? "Paystack" : "Stripe"} key is added.</div>`;
+  if (s.mode === "test") return legacy + `<div class="banner">${icon("info", 14)} Test mode: ${ps ? "use Paystack's test card <b>4084 0840 8408 4081</b>, any future expiry, CVV <b>408</b>" : "pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC"}. No real money moves.</div>`;
+  return legacy;
 }
 
 function overviewPaid(B) {
@@ -425,9 +432,10 @@ function changePlan(B, kind, startMode, preselect) {
   let mode = startMode || (s.subscription?.interval === "yearly" ? "yearly" : "monthly");
   let pick = preselect || null;
   // A Stripe plan changes in place; Paystack starts a new subscription at checkout and stops the old one.
-  const stripeSub = (x) => x && x.provider === "stripe" && x.status !== "canceled";
+  const stripeSub = (x) => x && x.provider === "stripe" && s.provider === "stripe" && x.status !== "canceled";
   const live = kind === "marketing" ? stripeSub(s.marketing_subscription) : stripeSub(s.subscription);
-  const isCurrent = (id) => s.plan === id && (s.subscription?.interval || "monthly") === mode;
+  // A plan bought through the other provider isn't "current" here: picking it again is how the team moves over.
+  const isCurrent = (id) => s.plan === id && (s.subscription?.interval || "monthly") === mode && !s.legacy;
   if (pick && kind === "transactional" && isCurrent(pick)) pick = null;
   return modal({ title: kind === "marketing" ? "Marketing plan" : preselect && !isCurrent(preselect) && s.plan === "free" ? `Upgrade to ${planName(preselect)}` : "Change plan", size: "lg", body: `<p class="desc" style="margin-top:-6px">${kind === "marketing" ? "Priced by contacts, with unlimited broadcasts." : "Transactional emails for this team."}</p><div data-mb></div>`,
     foot: `<a class="btn btn-ghost" href="/pricing" target="_blank" data-native style="margin-right:auto">Compare all plans ${icon("arrow-right", 12)}</a><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go disabled>Continue</button>`,
@@ -447,8 +455,9 @@ function changePlan(B, kind, startMode, preselect) {
             + `<a class="pick" href="/contact-sales" target="_blank" data-native><span class="radio" style="visibility:hidden"></span><span class="grow"><b>Enterprise</b><span class="dim">Custom volume, SSO, SLA</span></span><span class="pr">Talk to sales</span></a>`;
         }
         mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span><span class="dim sm">${currency === "NGN" ? "Prices in Naira, paid through Paystack" : `Prices in USD${s.tax_ready ? ", plus tax where it applies" : ""}`}</span></div>
-          ${!live && currency === "NGN" && s.subscription && s.subscription.status !== "canceled" && kind === "transactional" && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">You'll pay for the new plan at checkout. Your current Paystack subscription stops once it goes through, so you aren't charged twice.</p>` : ""}
-          ${live && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">Your plan changes right away. You'll be charged the difference for the rest of this billing period (or get a credit when moving down).</p>` : ""}
+          ${s.legacy && kind === "transactional" ? `<p class="hint" style="margin:0 0 10px">${s.legacy.to === "stripe" ? `Your Naira plan is paid until ${fullDate(s.legacy.ends)}.${s.legacy.switch_free_until ? " Your first dollar payment is on that date, so you won't pay twice." : ""} Your Paystack subscription stops when you switch.` : `Your current plan is paid in US dollars until ${fullDate(s.legacy.ends)}. You can choose a Naira plan once it has ended.`}</p>` : ""}
+          ${!s.legacy && !live && currency === "NGN" && s.subscription && s.subscription.status !== "canceled" && kind === "transactional" && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">You'll pay for the new plan at checkout. Your current Paystack subscription stops once it goes through, so you aren't charged twice.</p>` : ""}
+          ${!s.legacy && live && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">Your plan changes right away. You'll be charged the difference for the rest of this billing period (or get a credit when moving down).</p>` : ""}
           <div class="picks stagger">${list}</div>${kind === "marketing" ? "" : `<p class="dim sm" style="margin:12px 0 0">Need emails without a monthly fee? <button class="link" data-payg>Buy pay-as-you-go credits</button></p>`}`;
         go.textContent = !pick ? "Continue" : pick === "free" ? (kind === "marketing" ? "Move to Starter" : "Downgrade to Free") : `Continue with ${planName(pick, kind)}${kind === "transactional" ? ` · ${mode}` : ""}`;
         go.disabled = !pick;

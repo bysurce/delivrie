@@ -237,16 +237,16 @@ const SITE_PAGES = [
   ["/cookies", "Cookies"], ["/subprocessors", "Subprocessors"], ["/security", "Security"],
 ];
 const CMP_PRICES = [["r20", "Resend at 20,000 emails ($)", 20], ["b20", "Brevo at 20,000 emails ($)", 32], ["r100", "Resend at 100,000 emails ($)", 65], ["b100", "Brevo at 100,000 emails ($)", 82], ["rOver", "Resend per extra 1,000 ($)", 0.9], ["bBrand", "Brevo footer removal ($/month)", 12]];
-const SITE_TABS = [["pages", "Pages"], ["banner", "Announcement bar"], ["compare", "Compare"], ["edit", "Edit pages"]];
+const SITE_TABS = [["pages", "Pages"], ["banner", "Announcement bar"], ["compare", "Compare"], ["edit", "Edit pages"], ["payments", "Payments"]];
 
 async function website(body, ctx) {
   const sub = new URLSearchParams(location.search).get("s") || "pages";
   const raw = (await rpc("admin_site_get")) || {};
-  const cfg = { pages: raw.pages?.value || {}, banner: raw.banner?.value || {}, compare: raw.compare?.value || {}, edits: raw.edits?.value || {} };
+  const cfg = { pages: raw.pages?.value || {}, banner: raw.banner?.value || {}, compare: raw.compare?.value || {}, edits: raw.edits?.value || {}, billing: raw.billing?.value || {} };
   const save = async (key, value, msg = "Saved. Live within a minute.") => { await rpc("admin_site_set", { p_key: key, p_value: value }); cfg[key] = value; toast(msg); };
   body.innerHTML = `<div class="seg-tabs">${SITE_TABS.map(([k, l]) => `<a class="seg-tab ${k === sub ? "on" : ""}" href="/admin/website?s=${k}" style="display:inline-flex;align-items:center">${l}</a>`).join("")}</div><div data-site></div>`;
   const el = body.querySelector("[data-site]");
-  const view = { pages: sitePages, banner: siteBanner, compare: siteCompare, edit: siteEditor }[sub] || sitePages;
+  const view = { pages: sitePages, banner: siteBanner, compare: siteCompare, edit: siteEditor, payments: sitePayments }[sub] || sitePages;
   await view(el, cfg, save, ctx);
 }
 
@@ -259,6 +259,33 @@ function sitePages(el, cfg, save) {
     const next = { ...cfg.pages };
     if (t.checked) delete next[t.dataset.page]; else next[t.dataset.page] = false;
     try { await save("pages", next, t.checked ? "Page is on" : "Page is off. It shows \"not found\" within a minute."); } catch (e) { t.checked = !t.checked; errToast(e); }
+  });
+}
+
+// Switch a payment provider off for new payments. The billing server and the public site read this within a minute;
+// nothing needs deploying.
+function sitePayments(el, cfg, save) {
+  const draw = () => {
+    const v = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false };
+    const now = v.stripe && v.paystack ? ["Teams in Nigeria pay in Naira through Paystack. Everyone else pays in US dollars through Stripe.", "green", "Both on"]
+      : v.stripe ? ["Everyone, Nigeria included, pays in US dollars through Stripe. Prices on the site show in dollars for all visitors.", "blue", "Stripe only"]
+      : v.paystack ? ["Everyone, in every country, pays in Naira through Paystack. Prices on the site show in Naira for all visitors.", "blue", "Paystack only"]
+      : ["Payments are paused. Nobody can upgrade or top up until one is switched back on.", "red", "Paused"];
+    const row = (k, name, desc) => `<label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">${name}</b><div class="dim" style="font-size:12px">${desc}</div></span><input type="checkbox" class="toggle" data-pay="${k}" ${v[k] ? "checked" : ""} aria-label="${name} on"></label>`;
+    el.innerHTML = `<div class="card card-pad" style="max-width:640px;display:flex;flex-direction:column;gap:16px">
+        ${row("stripe", "Stripe · US dollars", "Card payments in USD, with Stripe Tax.")}
+        ${row("paystack", "Paystack · Naira", "Card, bank transfer and USSD in NGN.")}
+        <div class="banner" style="margin:0"><span class="badge ${now[1]}">${now[2]}</span> <span>${now[0]}</span></div>
+        <p class="dim" style="font-size:12px;margin:0">Changes apply to new payments within a minute. Plans already running keep renewing with the provider they were bought on until they end or the customer moves. A team on a Naira plan can continue in dollars without paying twice; a team on a dollar plan picks a Naira plan once its current one ends.</p></div>`;
+  };
+  draw();
+  on(el, "change", "[data-pay]", async (_e, t) => {
+    const next = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false, [t.dataset.pay]: t.checked };
+    const what = !next.stripe && !next.paystack ? "This pauses all payments: nobody will be able to upgrade or top up."
+      : !t.checked ? `Everyone will pay through ${t.dataset.pay === "stripe" ? "Paystack in Naira" : "Stripe in US dollars"}, in every country.` : null;
+    if (what && !(await confirmModal({ title: `Turn off ${t.dataset.pay === "stripe" ? "Stripe" : "Paystack"}?`, desc: what, confirm: "Turn off" }))) { t.checked = !t.checked; return; }
+    try { await save("billing", next, "Saved. Applies within a minute."); } catch (e) { errToast(e); }
+    draw();
   });
 }
 

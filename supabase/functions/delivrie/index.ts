@@ -851,8 +851,10 @@ async function publicRoutes(req: Request, path: string, url: URL): Promise<Respo
     const { data } = await db.from("site_config").select("key,value");
     const cfg: Any = { pages: {}, banner: null, compare: null, edits: {} };
     for (const r of data || []) cfg[r.key] = r.value;
+    // Which payment providers are on (Admin → Website → Payments); the site shows Naira or dollars to match.
+    cfg.billing = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false };
     const only = url.searchParams.get("only");
-    const body = only === "pages" ? { pages: cfg.pages } : cfg;
+    const body = only === "pages" ? { pages: cfg.pages, billing: cfg.billing } : cfg;
     return new Response(JSON.stringify(body), { headers: { ...CORS, "content-type": "application/json", "cache-control": "public, max-age=30, s-maxage=30, stale-while-revalidate=300" } });
   }
   if (path === "/public/sales-lead" && req.method === "POST") {
