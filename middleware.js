@@ -52,15 +52,28 @@ async function sitemap(url) {
 }
 
 // Billing API: tell the billing function which country the request comes from, so Nigeria is offered Naira through
-// Paystack and everywhere else US dollars through Stripe. Overriding the header means a client can't set it itself.
+// Paystack and everywhere else US dollars through Stripe. The value always comes from Vercel, never the client.
+// Vercel forwards only the request headers named in x-middleware-override-headers, so every header is listed:
+// naming just the new one would drop Authorization and the rest.
 function billing(request) {
   const cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-  return new Response(null, { headers: { 'x-middleware-next': '1', 'x-middleware-override-headers': 'x-dlv-country', 'x-middleware-request-x-dlv-country': cc } });
+  const fwd = new Headers(request.headers);
+  fwd.delete('x-dlv-country');
+  if (cc) fwd.set('x-dlv-country', cc);
+  const out = new Headers({ 'x-middleware-next': '1' });
+  const names = [];
+  fwd.forEach((value, name) => { names.push(name); out.set('x-middleware-request-' + name, value); });
+  out.set('x-middleware-override-headers', names.join(','));
+  return new Response(null, { headers: out });
 }
 
 export default async function middleware(request) {
   const url = new URL(request.url);
-  if (url.pathname.startsWith('/api/billing/')) return billing(request);
+  if (url.pathname.startsWith('/api/billing/')) {
+    // Webhooks and cron calls pass through untouched: their signatures and secrets must arrive exactly as sent.
+    if (/\/(webhook|cron\/[a-z]+)\/?$/.test(url.pathname)) return new Response(null, { headers: { 'x-middleware-next': '1' } });
+    return billing(request);
+  }
   if (url.pathname === '/sitemap.xml') return url.searchParams.has('raw') ? new Response(null, { headers: { 'x-middleware-next': '1' } }) : sitemap(url);
   let path = url.pathname.replace(/\/+$/, '') || '/';
   if (path === '/compare') path = '/pricing'; // the Compare view is part of Pricing
