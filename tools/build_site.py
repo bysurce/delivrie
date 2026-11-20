@@ -85,7 +85,7 @@ def page(path, title, desc, body, extra_script="", jsonld=None, noindex=False, o
   <meta name="description" content="{E(desc)}">
   <meta name="theme-color" content="#ffffff">
   <meta property="og:type" content="{og_type}"><meta property="og:site_name" content="Delivrie"><meta property="og:url" content="{canonical}">
-  <meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=4">
+  <meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="{canonical}">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
@@ -264,7 +264,7 @@ def blog():
         iso = datetime.strptime(p["date"], "%b %d, %Y").strftime("%Y-%m-%d")
         url = f"https://delivrie.io/blog/{p['slug']}"
         post_ld = {"@type": "BlogPosting", "headline": p["title"], "description": p["lede"], "datePublished": iso, "dateModified": iso,
-                   "author": {"@id": "https://delivrie.io/#org"}, "publisher": ORG, "image": "https://delivrie.io/assets/og-image.jpg?v=4",
+                   "author": {"@id": "https://delivrie.io/#org"}, "publisher": ORG, "image": "https://delivrie.io/assets/og-image.jpg?v=5",
                    "mainEntityOfPage": url, "articleSection": p["cat"], "timeRequired": f"PT{p['mins']}M"}
         page(f"/blog/{p['slug']}", p["title"], p["lede"], body, jsonld=[post_ld, crumbs(("Home", "/"), ("Blog", "/blog"), (p["title"], f"/blog/{p['slug']}"))], og_type="article")
 
