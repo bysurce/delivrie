@@ -214,7 +214,9 @@ async function teamForCustomer(customer: string) {
 // ---------------------------------------------------------------- applying payments
 async function recordInvoice(row: { team_id: string; reference: string; kind: string; plan: string | null; description: string; amount: number; currency?: string; status: string; card?: string | null; url?: string | null; tax?: number; paid_at?: string }) {
   const { data: prev } = await db.from("billing_invoices").select("status").eq("reference", row.reference).maybeSingle();
-  await db.from("billing_invoices").upsert({ currency: "USD", paid_at: new Date().toISOString(), ...row }, { onConflict: "reference" });
+  // Drop fields that weren't given, so they don't wipe the defaults (an undefined paid_at would save an empty date).
+  const given = Object.fromEntries(Object.entries(row).filter(([, v]) => v !== undefined));
+  await db.from("billing_invoices").upsert({ currency: "USD", paid_at: new Date().toISOString(), ...given }, { onConflict: "reference" });
   return prev?.status === "success"; // already applied before
 }
 
@@ -678,6 +680,21 @@ async function watchRun() {
   const tag = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   for (const t of teams || []) {
     const b = t.billing || {};
+    // A cancelled plan that has passed its paid-through date moves to Free. The provider's webhook normally does
+    // this at the moment it ends; this catches one that was missed. Stripe is asked for the real state first.
+    const lapsed = (x: Any) => x?.status === "cancelling" && x.cancel_at && new Date(x.cancel_at).getTime() < now.getTime() - 6 * 3600e3;
+    if (lapsed(b) || lapsed(b.marketing)) {
+      try {
+        for (const [x, marketing] of [[b, false], [b.marketing, true]] as [Any, boolean][]) {
+          if (!lapsed(x)) continue;
+          if (x.provider === "stripe" && x.stripe_subscription && b.stripe_mode === MODE) await syncSubscription(x.stripe_subscription);
+          else if (marketing) { await saveBilling(t.id, { marketing: { ...x, status: "canceled", plan: "free" } }); await db.from("teams").update({ plan_marketing: "free" }).eq("id", t.id); }
+          else await saveBilling(t.id, { status: "canceled", plan: "free" }, "free");
+        }
+        out.push({ team: t.id, plan_ended: true });
+      } catch (e) { out.push({ team: t.id, plan_ended: "error", error: String((e as Error).message) }); }
+      continue; // the team row above is stale now; alerts and top-ups run on the next pass
+    }
     const provider = providerOf(t);
     const cur = CUR[provider];
     const value = creditValue(Number(t.credits || 0), cur);
