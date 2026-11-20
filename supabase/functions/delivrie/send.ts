@@ -240,14 +240,56 @@ export async function handleSesEvent(msg: Any) {
   await emit(e.team_id, hookType, { ...payloadFor(e), ...(type === "bounced" ? { bounce: data } : {}), ...(type === "clicked" ? { click: data } : {}) });
 }
 
+// Set by index.ts: throws when the team is over its plan's sending allowance. Forwards are sends, so they obey it.
+let quotaCheck: ((teamId: string, n: number) => Promise<void>) | null = null;
+export function setQuotaCheck(fn: (teamId: string, n: number) => Promise<void>) { quotaCheck = fn; }
+
+const FORWARD_MAX_BYTES = 10 * 1024 * 1024;
+
+// Automatic forwarding: send a copy of a received email on to the domain's forwarding addresses (for example a
+// Gmail inbox). The copy comes from the address that received it, so it passes SPF, DKIM and DMARC, and its
+// Reply-To is the original sender, so a reply from the mail app goes straight back to them.
+async function autoForward(d: Any, e: Any, rcpt: string, parsed: Any, msg: Any) {
+  const to: string[] = (d.receiving_forward_to || []).filter((a: string) => EMAIL_RE.test(a));
+  if (!to.length) return;
+  const skip = async (reason: string) => { await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "forward_skipped", data: { reason, to } }); };
+  // Never relay spam or viruses, and never forward a forward (two domains forwarding to each other would loop).
+  if (msg.receipt?.spamVerdict?.status === "FAIL" || msg.receipt?.virusVerdict?.status === "FAIL") return skip("flagged_as_spam");
+  if (e.headers?.["x-delivrie-forwarded-for"]) return skip("already_forwarded");
+  if (d.status !== "verified" || d.sending_enabled === false) return skip("domain_cannot_send");
+  try { if (quotaCheck) await quotaCheck(d.team_id, 1); } catch { return skip("sending_limit_reached"); }
+  const sender = parseAddress(e.from || "");
+  const senderEmail = emailOnly(e.from || "");
+  const name = `${(sender.name || senderEmail || "Unknown sender").replace(/["<>\\\r\n]/g, "").slice(0, 80)} via ${d.name}`;
+  const replyTo = [e.headers?.["reply-to"] ? emailOnly(e.headers["reply-to"]) : senderEmail].filter((a) => EMAIL_RE.test(a));
+  let attachments = (parsed?.attachments || []).filter((a: Any) => a.content).map((a: Any) => ({ filename: a.filename, content: a.content, content_type: a.content_type, ...(a.content_id ? { content_id: a.content_id } : {}) }));
+  let note = "";
+  if (attachments.reduce((n: number, a: Any) => n + a.content.length * 0.75, 0) > FORWARD_MAX_BYTES) {
+    note = `Attachments were too large to forward: ${attachments.map((a: Any) => a.filename).join(", ")}.`;
+    attachments = [];
+  }
+  const html = e.html ? (note ? `<p style="color:#6b6f76">${note}</p>` : "") + e.html : null;
+  const text = e.text || (e.html ? null : "(no content)");
+  const { data: row, error } = await db.from("emails").insert({
+    team_id: d.team_id, domain_id: d.id, from: `"${name}" <${emailOnly(rcpt)}>`, to, reply_to: replyTo.length ? replyTo : null,
+    subject: e.subject || "(no subject)", html, text: text && note ? `${note}\n\n${text}` : text,
+    headers: { "X-Delivrie-Forwarded-For": emailOnly(rcpt), ...(senderEmail ? { "X-Original-From": senderEmail } : {}) },
+    tags: [{ name: "auto_forward", value: e.id }], attachments, status: "queued",
+  }).select("id").single();
+  if (error || !row) { console.error("auto-forward insert failed", error?.message); return skip("could_not_queue"); }
+  await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "forwarded", data: { to, email_id: row.id } });
+  await deliver(row.id);
+}
+
 async function handleInbound(msg: Any) {
   const recipients: string[] = msg.receipt?.recipients || msg.mail?.destination || [];
   const raw = msg.content ? new TextDecoder().decode(b64ToBytes(msg.content)) : "";
-  const parsed = raw ? parseMime(raw) : null;
+  const parsed = raw ? parseMime(raw, true) : null;
+  const attMeta = (parsed?.attachments || []).map((a) => ({ filename: a.filename, content_type: a.content_type, size: a.size }));
   const seenTeams = new Set<string>();
   for (const rcpt of recipients) {
     const dom = domainOf(rcpt);
-    const { data: doms } = await db.from("domains").select("id,team_id,name,receiving_subdomain,receiving_mode,receiving_addresses").eq("receiving_enabled", true);
+    const { data: doms } = await db.from("domains").select("id,team_id,name,status,sending_enabled,receiving_subdomain,receiving_mode,receiving_addresses,receiving_forward_to").eq("receiving_enabled", true);
     // Longest match first so a subdomain set up on its own wins over its parent.
     const d = (doms || []).sort((a: Any, b: Any) => b.name.length - a.name.length).find((x: Any) => dom === x.name || dom.endsWith("." + x.name));
     if (!d || seenTeams.has(d.team_id)) continue;
@@ -263,11 +305,12 @@ async function handleInbound(msg: Any) {
       cc: parsed?.cc || common.cc || null,
       subject: parsed?.subject || common.subject || "", html: parsed?.html, text: parsed?.text,
       headers: parsed?.headers ? Object.fromEntries(Object.entries(parsed.headers).slice(0, 60)) : {},
-      attachments: parsed?.attachments || [], ses_message_id: msg.mail?.messageId, sent_at: msg.mail?.timestamp,
+      attachments: attMeta, ses_message_id: msg.mail?.messageId, sent_at: msg.mail?.timestamp,
     }).select().single();
     if (e) {
       await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "received", data: { spam: msg.receipt?.spamVerdict?.status, virus: msg.receipt?.virusVerdict?.status, spf: msg.receipt?.spfVerdict?.status, dkim: msg.receipt?.dkimVerdict?.status, dmarc: msg.receipt?.dmarcVerdict?.status } });
       await emit(d.team_id, "email.received", { email_id: e.id, from: e.from, to: e.to, subject: e.subject, created_at: e.created_at, message_id: e.headers?.["message-id"] || null, attachments: (e.attachments || []).map((a: Any) => ({ filename: a.filename, content_type: a.content_type, size: a.size })) });
+      await autoForward(d, e, rcpt, parsed, msg).catch((err) => console.error("auto-forward failed", e.id, err));
     }
   }
 }

@@ -30,6 +30,7 @@ Access: Needs a full access key..
 | `receiving_subdomain` | string | No | Receive on a subdomain, like in. Empty for the domain itself. |
 | `receiving_mode` | string | No | all or specific. |
 | `receiving_addresses` | string[] | No | Addresses that accept mail when receiving_mode is specific. |
+| `receiving_forward_to` | string[] | No | Up to 5 addresses that get a copy of every received email, like a Gmail inbox. An empty list turns forwarding off. |
 
 ## Example request
 

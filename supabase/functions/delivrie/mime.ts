@@ -169,9 +169,11 @@ function param(h: string, name: string): string | null {
   return m ? (m[1] ?? m[2]) : null;
 }
 
-export interface ParsedMail { headers: Record<string, string>; subject: string; from: string; to: string[]; cc: string[]; html: string | null; text: string | null; attachments: { filename: string; content_type: string; size: number }[] }
+export interface ParsedMail { headers: Record<string, string>; subject: string; from: string; to: string[]; cc: string[]; html: string | null; text: string | null; attachments: { filename: string; content_type: string; size: number; content?: string; content_id?: string }[] }
 
-export function parseMime(raw: string): ParsedMail {
+// `keepContent` also returns each attachment's bytes (base64) and Content-ID, for forwarding the message on.
+// Nothing stores them: callers that save the result keep only the name, type and size.
+export function parseMime(raw: string, keepContent = false): ParsedMail {
   const out: ParsedMail = { headers: {}, subject: "", from: "", to: [], cc: [], html: null, text: null, attachments: [] };
   const walk = (part: string) => {
     const { headers, body } = splitHeaders(part);
@@ -187,7 +189,10 @@ export function parseMime(raw: string): ParsedMail {
     const disp = headers["content-disposition"] || "";
     const filename = param(disp, "filename") || param(ct, "name");
     const bytes = cte === "base64" ? b64ToBytes(body) : cte === "quoted-printable" ? decodeQP(body) : enc.encode(body);
-    if (filename || /attachment/i.test(disp)) { out.attachments.push({ filename: decodeWords(filename || "attachment"), content_type: ct.split(";")[0], size: bytes.length }); return; }
+    if (filename || /attachment/i.test(disp)) { const cid = (headers["content-id"] || "").trim().replace(/^<|>$/g, "");
+      out.attachments.push({ filename: decodeWords(filename || "attachment"), content_type: ct.split(";")[0], size: bytes.length, ...(keepContent ? { content: b64(bytes), ...(cid ? { content_id: cid } : {}) } : {}) });
+      return;
+    }
     const charset = (param(ct, "charset") || "utf-8").toLowerCase();
     let text: string;
     try { text = new TextDecoder(charset).decode(bytes); } catch { text = new TextDecoder().decode(bytes); }

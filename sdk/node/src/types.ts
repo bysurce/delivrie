@@ -173,6 +173,8 @@ export interface Domain {
   receiving_subdomain: string | null;
   receiving_mode: string | null;
   receiving_addresses: string[] | null;
+  /** Addresses that get a copy of every email this domain receives. Empty when forwarding is off. */
+  receiving_forward_to: string[];
   receiving_verified_at: string | null;
 }
 

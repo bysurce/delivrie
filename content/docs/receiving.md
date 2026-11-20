@@ -2,7 +2,7 @@
 title: Receiving email
 group: Receiving
 order: 1
-description: Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them.
+description: Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them automatically to Gmail or any inbox.
 ---
 Delivrie can receive email for your domain: replies to your app's emails, a `support@` address, inbound parsing for tickets or uploads. Every received message is stored, sent to your webhooks as `email.received`, and grouped into conversations in the [Inbox](/docs/inbox).
 
@@ -64,6 +64,23 @@ curl "https://delivrie.io/api/emails/received?to=support@in.acme.com&limit=20" \
 
 - **Reply** from the [Inbox](/docs/inbox), or with `POST /inbox/threads/:id/reply`. Delivrie sets `In-Reply-To` and `References`, so the reply lands in the same conversation in the sender's mail app.
 - **Forward** a received email with `POST /emails/:id/forward` and `{ "to": "ops@acme.com", "from": "Acme <support@mail.acme.com>" }`.
+
+## Forward received mail to Gmail or another inbox
+
+Delivrie doesn't offer IMAP or POP3, so a mail app can't connect to it directly. Instead, turn on **Forward a copy** on the domain's Receiving page and every email the domain receives is also sent to the inboxes you choose, up to 5.
+
+```json
+{ "receiving_forward_to": ["you@gmail.com"] }
+```
+
+Send that to [`PATCH /domains/:id`](/docs/api/update-domain). An empty list turns forwarding off.
+
+- The copy is sent **from the address that received it** (for example `support@in.acme.com`), shown as "Ada Lovelace via acme.com", so it passes SPF, DKIM and DMARC.
+- **Reply-To is the original sender**, so replying from Gmail goes straight to them. To reply *as* your address from Gmail, add it under Gmail's "Send mail as" with Delivrie's [SMTP settings](/docs/smtp).
+- Attachments are included, up to 10 MB in total.
+- Each forward counts as one sent email and appears in **Emails** with the tag `auto_forward`.
+- Messages flagged as spam or carrying a virus aren't forwarded, and the domain must be verified for sending.
+- The email still arrives in Delivrie: the Inbox, the API and `email.received` webhooks work as before.
 
 ## Make your app's emails replyable
 

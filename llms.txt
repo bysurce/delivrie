@@ -39,7 +39,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 
 ## Receiving
 
-- [Receiving email](https://delivrie.io/docs/receiving.md): Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them.
+- [Receiving email](https://delivrie.io/docs/receiving.md): Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them automatically to Gmail or any inbox.
 - [Inbox](https://delivrie.io/docs/inbox.md): A shared inbox for received email: conversations grouped into threads, labels, archiving, replies from the dashboard or API, and AI agents that answer through MCP.
 
 ## Platform

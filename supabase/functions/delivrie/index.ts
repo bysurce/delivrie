@@ -1,6 +1,6 @@
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
-import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
+import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
 import { DOCS, searchDocs } from "./docs.js";
@@ -120,6 +120,9 @@ async function checkQuota(c: Ctx, n: number) {
   const which = L.day && (await count(day)) + n > L.day ? `daily limit of ${L.day.toLocaleString("en-US")}` : `monthly limit of ${L.month.toLocaleString("en-US")}`;
   throw new HttpError(429, L.day && which.startsWith("daily") ? "daily_quota_exceeded" : "monthly_quota_exceeded", `You've reached the ${name} plan's ${which} emails. Upgrade or buy credits in Billing.`);
 }
+
+// Automatic forwards of received mail are sends too, so they count against the same allowance.
+setQuotaCheck((teamId, n) => checkQuota({ teamId } as Ctx, n));
 
 async function checkLimit(c: Ctx, table: "domains" | "webhooks", key: "domains" | "webhooks", label: string) {
   if (!ENFORCE_LIMITS) return;
@@ -542,7 +545,7 @@ route("POST", "/domains/claims/:id/verify", async (_r, c, p) => {
 });
 
 // domains
-const domainOut = (d: Any) => ({ object: "domain", id: d.id, name: d.name, status: d.status, region: d.region, region_label: regionLabel(d.region), records: d.records, created_at: d.created_at, click_tracking: d.click_tracking, open_tracking: d.open_tracking, tls: d.tls, return_path: d.return_path, receiving_enabled: d.receiving_enabled, receiving_subdomain: d.receiving_subdomain, receiving_mode: d.receiving_mode, receiving_addresses: d.receiving_addresses, receiving_verified_at: d.receiving_verified_at });
+const domainOut = (d: Any) => ({ object: "domain", id: d.id, name: d.name, status: d.status, region: d.region, region_label: regionLabel(d.region), records: d.records, created_at: d.created_at, click_tracking: d.click_tracking, open_tracking: d.open_tracking, tls: d.tls, return_path: d.return_path, receiving_enabled: d.receiving_enabled, receiving_subdomain: d.receiving_subdomain, receiving_mode: d.receiving_mode, receiving_addresses: d.receiving_addresses, receiving_forward_to: d.receiving_forward_to || [], receiving_verified_at: d.receiving_verified_at });
 async function getDomain(c: Ctx, id: string) {
   const q = db.from("domains").select("*").eq("team_id", c.teamId);
   const { data } = id.includes(".") ? await q.eq("name", id).maybeSingle() : await q.eq("id", id).maybeSingle();

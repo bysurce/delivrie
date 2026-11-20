@@ -219,6 +219,17 @@ export async function updateDomainConfig(d: Any, patch: Any) {
     const host = next.receiving_subdomain ? `${next.receiving_subdomain}.${d.name}` : d.name;
     patch.receiving_addresses = [...new Set(list.map((a: string) => a.includes("@") ? a : `${a}@${host}`))];
   }
+  if ("receiving_forward_to" in patch) {
+    const list = [...new Set((Array.isArray(patch.receiving_forward_to) ? patch.receiving_forward_to : String(patch.receiving_forward_to || "").split(/[\s,;]+/)).map((a: string) => String(a).trim().toLowerCase()).filter(Boolean))] as string[];
+    if (list.length > 5) throw new HttpError(422, "validation_error", "You can forward to at most 5 addresses");
+    for (const a of list) {
+      if (!/^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/.test(a)) throw new HttpError(422, "validation_error", `Invalid forwarding address: ${a}`);
+      // Forwarding back into the domain it arrived on would loop.
+      const host = a.split("@")[1];
+      if (host === d.name || host.endsWith("." + d.name)) throw new HttpError(422, "validation_error", `Forward to an address outside ${d.name}, like a Gmail or company inbox`);
+    }
+    patch.receiving_forward_to = list;
+  }
   if ("receiving_enabled" in patch && patch.receiving_enabled !== d.receiving_enabled) {
     if (patch.receiving_enabled) await enableReceiving(c, next); else await disableReceiving(c, next);
   }
@@ -231,7 +242,7 @@ export async function updateDomainConfig(d: Any, patch: Any) {
     records = fresh.map((r) => ({ ...r, status: (d.records || []).find((o: Any) => o.type === r.type && o.name === r.name && o.value === r.value)?.status || r.status }));
   }
   const allowed: Any = {};
-  for (const k of ["click_tracking", "open_tracking", "tls", "return_path", "receiving_enabled", "sending_enabled", "receiving_subdomain", "receiving_mode", "receiving_addresses"]) if (k in patch) allowed[k] = patch[k];
+  for (const k of ["click_tracking", "open_tracking", "tls", "return_path", "receiving_enabled", "sending_enabled", "receiving_subdomain", "receiving_mode", "receiving_addresses", "receiving_forward_to"]) if (k in patch) allowed[k] = patch[k];
   const { data } = await db.from("domains").update({ ...allowed, records }).eq("id", d.id).select().single();
   return data;
 }

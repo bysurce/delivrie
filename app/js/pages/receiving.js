@@ -63,6 +63,7 @@ export async function setup(ctx) {
     const mx = recs.find((r) => r.type === "MX");
     const ok = mx?.status === "verified";
     const h = host(d);
+    const fwd = d.receiving_forward_to || [];
     const st = (s) => s === "verified" ? badge("Verified", "green") : s === "optional" ? badge("Optional", "gray") : s === "failed" ? badge("Failed", "red") : badge("Pending", "yellow");
     root.innerHTML = `<div class="page wide">
       <div class="page-head"><div><h1>${ok ? `${esc(h)} is receiving email` : "Add this MX record"}</h1><p class="muted" style="margin:4px 0 0">${ok ? `Every email sent to ${d.receiving_mode === "specific" ? "the addresses below" : `anything@${esc(h)}`} arrives in Emails → Receiving and the Inbox.` : `Add it at your DNS provider for ${esc(h)}. Verification usually takes a few minutes.`}</p></div>
@@ -74,7 +75,11 @@ export async function setup(ctx) {
         <div><h3 class="section-title">Addresses</h3><div class="card card-pad">${d.receiving_mode === "specific" ? `<div class="chip-row">${(d.receiving_addresses || []).map((a) => `<span class="pill mono">${esc(a)}</span>`).join("")}</div><p class="hint" style="margin:10px 0 0">Mail to any other address at ${esc(h)} is dropped.</p>` : `<div class="row-flex">${icon("check-circle", 14)}<span>Accepting every address at <span class="mono">${esc(h)}</span></span></div>`}
           <button class="btn btn-ghost btn-sm" data-change style="margin-top:10px">Change</button></div></div>
         <div><h3 class="section-title">Webhook</h3>${listening.length ? listening.map((w) => `<div class="card pm-row"><span class="dim">${icon("webhook", 14)}</span><span class="mono grow ellipsis">${esc(w.endpoint)}</span><span class="badge yellow">email.received</span><a class="btn btn-secondary btn-sm" href="/webhooks/${w.id}">Change</a></div>`).join("") : `<div class="card card-pad"><p class="muted" style="margin:0 0 10px">No webhook is listening for <span class="mono">email.received</span> yet. Received mail still shows in Emails and the Inbox.</p><a class="btn btn-secondary btn-sm" href="/webhooks?new=1&event=email.received">${icon("plus", 12)} Add webhook</a></div>`}</div>
-      </div></div>`;
+      </div>
+      <h3 class="section-title" style="margin-top:22px">Forward a copy</h3>
+      <div class="card card-pad">${fwd.length ? `<div class="row-flex" style="gap:8px;flex-wrap:wrap">${icon("arrow-right", 14)}<span>Every email received at <span class="mono">${esc(h)}</span> is also sent to</span><span class="chip-row">${fwd.map((a) => `<span class="pill mono">${esc(a)}</span>`).join("")}</span></div>${d.status !== "verified" ? `<p class="hint" style="margin:10px 0 0;color:var(--orange)">Forwarding starts once ${esc(d.name)} is verified for sending.</p>` : `<p class="hint" style="margin:10px 0 0">Copies come from the address that received the email. Replying from your mail app goes to the original sender.</p>`}` : `<p class="muted" style="margin:0">Read received mail in Gmail, Outlook or any other inbox: Delivrie sends a copy of each email on to the addresses you choose.</p>`}
+        <button class="btn ${fwd.length ? "btn-ghost" : "btn-secondary"} btn-sm" data-fwd style="margin-top:10px">${fwd.length ? "Change" : "Set up forwarding"}</button></div>
+      </div>`;
   };
   await draw();
   on(root, "click", "[data-copy]", (_e, b) => copyText(b.dataset.copy, "Copied"));
@@ -89,6 +94,29 @@ export async function setup(ctx) {
   });
   on(root, "click", "[data-enable]", async () => { try { d = await api("PATCH", `/domains/${d.id}`, { receiving_enabled: true }); await draw(); } catch (e) { errToast(e); } });
   on(root, "click", "[data-change]", () => setupModal(ctx));
+  on(root, "click", "[data-fwd]", () => forwardingModal(d, async (next) => { d = next; await draw(); }));
+}
+
+// Automatic forwarding: a copy of everything the domain receives goes to up to 5 other inboxes.
+function forwardingModal(d, done) {
+  const cur = d.receiving_forward_to || [];
+  return modal({ title: "Forward received email", body: `<p class="desc" style="margin-top:-4px">Send a copy of every email received at <span class="mono">${esc(host(d))}</span> to another inbox, like your Gmail. The email also stays in Delivrie.</p>
+      <div class="field"><label for="fwdto">Forward to</label><textarea class="textarea" id="fwdto" rows="2" placeholder="you@gmail.com, team@yourcompany.com">${esc(cur.join(", "))}</textarea><div class="hint">Up to 5 addresses, separated by commas. Leave empty to turn forwarding off.</div></div>
+      <p class="hint" style="margin:0">Each forward counts as one sent email. Messages flagged as spam aren't forwarded.</p>`,
+    foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go>Save</button>`,
+    onMount(m, close) {
+      m.querySelector("#fwdto").focus();
+      m.querySelector("[data-go]").onclick = async (ev) => {
+        const btn = ev.currentTarget;
+        const list = [...new Set(m.querySelector("#fwdto").value.split(/[\s,;]+/).map((a) => a.trim().toLowerCase()).filter(Boolean))];
+        if (list.length > 5) return toast("You can forward to at most 5 addresses", "err");
+        btn.disabled = true; btn.innerHTML = `<span class="spinner"></span>`;
+        try {
+          const next = await api("PATCH", `/domains/${d.id}`, { receiving_forward_to: list });
+          close(); toast(list.length ? `Forwarding to ${list.join(", ")}` : "Forwarding turned off"); await done(next);
+        } catch (e) { errToast(e); btn.disabled = false; btn.textContent = "Save"; }
+      };
+    } });
 }
 
 // ---------------------------------------------------------------- received email detail (Figma 12.2)
@@ -101,12 +129,15 @@ export async function received(ctx, e, events) {
   ctx.crumb("mail", e.subject || "(no subject)", ["Receiving", "/emails?tab=receiving"]);
   const { data: hook } = await sb.from("webhook_deliveries").select("status_code,delivered,attempts,created_at,updated_at,payload").eq("team_id", state.team.id).eq("event_type", "email.received").eq("payload->data->>email_id", e.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const payload = hook?.payload?.data ? hook.payload : { type: "email.received", created_at: e.created_at, data: { email_id: e.id, from: e.from, to: e.to, subject: e.subject, message_id: e.headers?.["message-id"] || null, attachments: (e.attachments || []).map((a) => ({ filename: a.filename, content_type: a.content_type, size: a.size })) } };
+  const fw = (events || []).find((x) => x.type === "forwarded"), fwSkip = (events || []).find((x) => x.type === "forward_skipped");
+  const SKIP = { flagged_as_spam: "it was flagged as spam", already_forwarded: "it was already a forwarded email", domain_cannot_send: "the domain isn't verified for sending", sending_limit_reached: "your plan's sending limit was reached", could_not_queue: "of an error on our side" };
+  const fwLine = fw ? `<div class="banner" style="margin-bottom:14px">${icon("arrow-right", 14)} Forwarded automatically to ${esc((fw.data?.to || []).join(", "))}.${fw.data?.email_id ? ` <a href="/emails/${esc(fw.data.email_id)}">View the forward</a>` : ""}</div>` : fwSkip ? `<div class="banner warn" style="margin-bottom:14px">${icon("alert", 14)} Not forwarded because ${SKIP[fwSkip.data?.reason] || "forwarding wasn't possible"}.</div>` : "";
   const spam = rec.spam ? (/pass/i.test(rec.spam) ? "Clean" : /fail/i.test(rec.spam) ? "Flagged as spam" : rec.spam) : null;
   let tab = "preview";
   root.innerHTML = `<div class="page wide recv">
     <div class="page-head" style="align-items:flex-start"><span class="avatar sm yellow" style="margin-top:4px">${esc(initials(name))}</span><div style="min-width:0"><h1 class="ellipsis">${esc(e.subject || "(no subject)")}</h1><p class="dim" style="margin:3px 0 0;font-size:12.5px">${esc(e.from)} → ${esc((e.to || []).join(", "))} · ${fmtDateTime(e.sent_at || e.created_at)}</p></div>
       <div class="actions"><button class="btn btn-secondary btn-sm" data-forward>${icon("arrow-right", 13)} Forward</button>${e.thread_id ? `<a class="btn btn-secondary btn-sm" href="/inbox/${e.thread_id}">${icon("inbox", 13)} Open in Inbox</a><a class="btn btn-primary btn-sm" href="/inbox/${e.thread_id}?reply=1">${icon("reply", 13)} Reply</a>` : ""}</div></div>
-    <div class="recv-facts"><div><span class="k">Spam check</span><b>${spam ? esc(spam) : "—"}</b></div><div><span class="k">SPF</span>${verdict(rec.spf)}</div><div><span class="k">DKIM</span>${verdict(rec.dkim)}</div><div><span class="k">Message-ID</span><b class="mono ellipsis" title="${esc(e.headers?.["message-id"] || "")}">${esc(e.headers?.["message-id"] || "—")}</b></div></div>
+    ${fwLine}<div class="recv-facts"><div><span class="k">Spam check</span><b>${spam ? esc(spam) : "—"}</b></div><div><span class="k">SPF</span>${verdict(rec.spf)}</div><div><span class="k">DKIM</span>${verdict(rec.dkim)}</div><div><span class="k">Message-ID</span><b class="mono ellipsis" title="${esc(e.headers?.["message-id"] || "")}">${esc(e.headers?.["message-id"] || "—")}</b></div></div>
     <div class="recv-grid"><div style="min-width:0">
       <div class="ul-tabs" style="margin-bottom:12px">${[["preview", "Preview"], ["text", "Plain text"], ["headers", "Headers"], ["raw", "Raw"]].map(([k, l]) => `<button class="ul-tab" data-v="${k}">${l}</button>`).join("")}</div>
       <div data-vb></div>
