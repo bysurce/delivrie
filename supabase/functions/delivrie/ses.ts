@@ -156,14 +156,17 @@ export async function doh(name: string, type: string): Promise<string[]> {
 export async function verifyDomain(d: Any) {
   const recs: Any[] = Array.isArray(d.records) ? d.records : [];
   // Our own DNS look-ups give per-record feedback while SES catches up.
+  let dkimSeen = false; // the DKIM record is in public DNS right now
   for (const r of recs) {
     const fqdn = r.name === "@" ? d.name : `${r.name}.${d.name}`;
     const answers = await doh(fqdn, r.type);
     const found = r.type === "MX" ? answers.some((a) => a.toLowerCase().includes(String(r.value).toLowerCase())) : answers.some((a) => a.replace(/\s+/g, "") === String(r.value).replace(/\s+/g, "") || (r.record === "DMARC" && a.startsWith("v=DMARC1")) || (r.record === "SPF" && a.startsWith("v=spf1") && (a.includes(SPF_INCLUDE) || a.includes("amazonses.com"))));
+    if (r.group === "dkim" && found) dkimSeen = true;
     if (r.status !== "optional" || found) r.status = found ? "verified" : (r.status === "not_started" ? "pending" : r.status === "verified" ? "verified" : "pending");
   }
   let status = d.status;
   let verifiedAt = d.verified_at;
+  let resubmittedAt = d.dkim_resubmitted_at || null;
   if (hasAws()) {
     const c = creds();
     try {
@@ -180,6 +183,20 @@ export async function verifyDomain(d: Any) {
       else if (dkim === "FAILED") status = "failed";
       else if (dkim === "TEMPORARY_FAILURE") status = "temporary_failure";
       else status = "pending";
+      // SES re-checks a waiting domain less and less often, so records added a while after the domain was created
+      // can sit unnoticed for hours (and after 72 hours SES gives up). When the DKIM record is already in DNS but
+      // SES hasn't verified it, hand SES the same key again: that makes it look straight away.
+      if (status !== "verified" && dkimSeen && (!resubmittedAt || Date.now() - new Date(resubmittedAt).getTime() > 15 * 60_000)) {
+        try {
+          const { data: sec } = await db.from("domain_secrets").select("dkim_private_key").eq("domain_id", d.id).maybeSingle();
+          if (sec?.dkim_private_key) {
+            await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/dkim/signing`, { SigningAttributesOrigin: "EXTERNAL", SigningAttributes: { DomainSigningSelector: d.dkim_selector, DomainSigningPrivateKey: sec.dkim_private_key } });
+            resubmittedAt = new Date().toISOString();
+            status = "pending";
+            for (const r of recs) if (r.group === "dkim" && r.status === "failed") r.status = "verified"; // it is in DNS
+          }
+        } catch (e) { console.error("dkim resubmit failed", d.name, (e as Error).message); }
+      }
     } catch (e) {
       if (e instanceof AwsError && e.status === 404) status = "failed";
       else throw e;
@@ -189,7 +206,7 @@ export async function verifyDomain(d: Any) {
   const mx = recs.find((r) => r.group === "receiving" && r.type === "MX");
   const receivingVerifiedAt = mx?.status === "verified" ? (d.receiving_verified_at || new Date().toISOString()) : null;
   const { data } = await db.from("domains").update({
-    records: recs, status, verified_at: verifiedAt, last_checked_at: new Date().toISOString(), receiving_verified_at: receivingVerifiedAt,
+    records: recs, status, verified_at: verifiedAt, last_checked_at: new Date().toISOString(), receiving_verified_at: receivingVerifiedAt, dkim_resubmitted_at: resubmittedAt,
     dns_found_at: d.dns_found_at || (anyFound ? new Date().toISOString() : null),
   }).eq("id", d.id).select().single();
   return data;
