@@ -107,7 +107,7 @@ const CHANGELOG = [
   { date: "Nov 12, 2026", title: "New pricing, credits and billing", items: ["Pro now includes 20,000 emails a month and Scale 100,000, with yearly plans at ten months' price.", "Paid plans keep sending past their allowance and pay overage per 1,000 at month end. Set a spending cap in Billing.", "Pay-as-you-go credits: top up from ₦5,000 or $5, credits never expire.", "Marketing add-on priced by contacts, and billing address and tax ID on invoices."] },
   { date: "Nov 12, 2026", title: "Test addresses and natural-language scheduling", items: ["Send to delivered@, bounced@ and complained@test.delivrie.io to exercise events without touching your reputation.", "scheduled_at accepts phrases like \"in 1 hour\" and \"tomorrow at 9am\" as well as ISO dates."] },
   { date: "Nov 12, 2026", title: "New docs", items: ["An API reference page for every endpoint, with examples in five languages.", "MCP server docs with install steps for Claude, Cursor, Codex, v0, Antigravity and VS Code."] },
-  { date: "Nov 12, 2026", title: "Sign in with Google, GitHub or a code", items: ["Google and GitHub sign-in.", "Sign-up, sign-in and password reset now use 6-digit codes instead of magic links."] },
+  { date: "Nov 12, 2026", title: "Sign in with Google, GitHub or a code", items: ["Google and GitHub sign-in.", "Sign-up, sign-in and password reset now use emailed codes instead of magic links."] },
 ];
 
 // ---------------------------------------------------------------- page

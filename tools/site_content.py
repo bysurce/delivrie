@@ -146,7 +146,7 @@ CHANGELOG = [
   ("Nov 12, 2026", "Docs, legal pages and client logos", ["Dashboard", "Docs"], ["A new docs site with a page for every API endpoint, the MCP server guide and a changelog.", "Terms, Privacy, DPA, Acceptable Use, Cookies, Subprocessors and Security pages.", "Official logos for Claude, Cursor, v0, Codex, Antigravity and VS Code in the Works with sections."]),
   ("Nov 12, 2026", "New pricing, credits and billing", ["Billing"], ["Pro includes 20,000 emails a month and Scale 100,000, with yearly plans at ten months’ price.", "Paid plans keep sending past their allowance and pay overage per 1,000 at month end. Set a spending cap in Billing.", "Pay-as-you-go credits from ₦5,000 or $5 that never expire, and a marketing add-on priced by contacts."]),
   ("Nov 12, 2026", "Test addresses and natural-language scheduling", ["API"], ["Send to delivered@, bounced@ and complained@test.delivrie.io to test events without touching your reputation.", "scheduled_at accepts phrases like “in 1 hour” and “tomorrow at 9am”."]),
-  ("Nov 12, 2026", "Sign in with Google, GitHub or a code", ["Dashboard"], ["Google and GitHub sign-in.", "Sign-up, sign-in and password reset use 6-digit codes instead of magic links."]),
+  ("Nov 12, 2026", "Sign in with Google, GitHub or a code", ["Dashboard"], ["Google and GitHub sign-in.", "Sign-up, sign-in and password reset use emailed codes instead of magic links."]),
   ("Nov 11, 2026", "Delivrie is live", ["API", "MCP"], ["Transactional email over a REST API, broadcasts, templates, contacts, domains, webhooks and logs.", "A hosted MCP server with 24 tools for AI agents."]),
 ]
 

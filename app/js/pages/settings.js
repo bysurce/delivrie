@@ -246,7 +246,7 @@ export async function profile(ctx) {
   on(root, "click", "[data-saveemail]", async () => {
     const v = root.querySelector("[data-email]").value.trim().toLowerCase(); if (v === u.email) return; if (!EMAIL_RE.test(v)) return toast("Enter a valid email", "err");
     const { error } = await sb.auth.updateUser({ email: v }); if (error) return errToast(error);
-    formModal({ title: "Confirm your new email", fields: [{ name: "next", label: `Code sent to ${v}`, placeholder: "123456" }, { name: "current", label: `Code sent to ${u.email} (if you got one)`, placeholder: "Optional" }], submit: "Confirm change", validate: (f) => /^\d{6,10}$/.test(f.next.trim()),
+    formModal({ title: "Confirm your new email", fields: [{ name: "next", label: `Code sent to ${v}`, placeholder: "12345678" }, { name: "current", label: `Code sent to ${u.email} (if you got one)`, placeholder: "Optional" }], submit: "Confirm change", validate: (f) => /^\d{6,10}$/.test(f.next.trim()),
       async onSubmit(f) {
         const a = await sb.auth.verifyOtp({ email: v, token: f.next.trim(), type: "email_change" }); if (a.error) throw new Error("The code for " + v + " didn’t work.");
         if (f.current.trim()) { const b = await sb.auth.verifyOtp({ email: u.email, token: f.current.trim(), type: "email_change" }); if (b.error) throw new Error("The code for " + u.email + " didn’t work."); }

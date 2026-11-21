@@ -56,6 +56,9 @@ export async function signup(ctx) {
 }
 
 // One screen for every emailed code: sign-up confirmation, sign-in code and password reset.
+// Emailed codes are 8 digits (Supabase Auth → Email → "Email OTP length"). Keep this in step with that setting:
+// the form submits by itself when this many digits are in. Shorter codes still work with the Continue button.
+const CODE_LENGTH = 8;
 const CODE_FLOWS = {
   signup: { title: "Check your email", sub: "Enter the code we sent to confirm your account.", resend: (email) => sb.auth.resend({ type: "signup", email }) },
   email: { title: "Check your email", sub: "Enter the sign-in code we sent you.", resend: (email) => sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } }) },
@@ -69,13 +72,13 @@ export async function verify(ctx) {
   const domain = email.split("@")[1] || "";
   const inbox = /gmail|googlemail/.test(domain) ? ["Open Gmail", "https://mail.google.com"] : /outlook|hotmail|live/.test(domain) ? ["Open Outlook", "https://outlook.live.com"] : /yahoo/.test(domain) ? ["Open Yahoo Mail", "https://mail.yahoo.com"] : null;
   const card = layout(ctx.root, `${mark}<h1>${flow.title}</h1><p class="sub">${flow.sub} It went to <b style="color:var(--fg);font-weight:500">${esc(email)}</b>.</p>
-    <form novalidate><div class="field"><label for="code">Code</label><input class="input mono" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" style="letter-spacing:.35em;text-align:center;font-size:20px;height:48px"></div>
+    <form novalidate><div class="field"><label for="code">Code</label><input class="input mono" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="${"12345678".slice(0, CODE_LENGTH)}" style="letter-spacing:.35em;text-align:center;font-size:20px;height:48px"></div>
     <button class="btn btn-primary btn-lg btn-block" type="submit">Continue</button></form>
     ${inbox ? `<a class="btn btn-secondary btn-lg btn-block" href="${inbox[1]}" target="_blank" rel="noopener">${icon("mail", 14)} ${inbox[0]}</a>` : ""}
     <p class="sub" style="font-size:12.5px">Didn’t get it? Check spam, or <a href="#" data-resend>send a new code</a> · <a href="/login">Back to log in</a></p>`);
   const input = card.querySelector("#code"), form = card.querySelector("form"), btn = form.querySelector("button");
   input.focus();
-  input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); input.classList.remove("error"); if (input.value.length === 6) form.requestSubmit(); });
+  input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); input.classList.remove("error"); if (input.value.length === CODE_LENGTH) form.requestSubmit(); });
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const token = input.value.trim();
