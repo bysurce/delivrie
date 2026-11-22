@@ -32,7 +32,7 @@ export async function gallery(ctx) {
     if (!r.length) { body.innerHTML = emptyState({ icon: folder === "all" ? "search" : "folder", title: folder !== "all" && !root.querySelector("[data-q]").value ? "This folder is empty" : "No templates match", desc: folder !== "all" ? "Move templates here from their ⋯ menu." : "Try a different search." }); return; }
     body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">${r.map((t) => `<div class="card clickable tpl-card" data-id="${t.id}" style="overflow:hidden;cursor:pointer">
       <div style="height:170px;overflow:hidden;background:#fff;position:relative;pointer-events:none"><iframe sandbox data-thumb="${t.id}" style="width:640px;height:720px;border:0;transform:scale(.4);transform-origin:0 0;position:absolute;left:calc(50% - 128px);top:0"></iframe></div>
-      <div style="padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)"><div class="grow"><div class="ellipsis" style="font-weight:500">${esc(t.name)}</div><div class="dim" style="font-size:12px">${t.status === "published" ? `v${t.published_version} · ` : "Draft · "}${ago(t.updated_at)}</div></div><button class="ibtn" data-row="${t.id}">${icon("more")}</button></div></div>`).join("")}</div>`;
+      <div style="padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)"><div class="grow"><div class="ellipsis" style="font-weight:500">${esc(t.name)}</div><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${t.status === "published" ? `v${t.published_version} · ` : "Draft · "}${ago(t.updated_at)}</div></div><button class="ibtn" data-row="${t.id}">${icon("more")}</button></div></div>`).join("")}</div>`;
     r.forEach((t) => { const f = body.querySelector(`[data-thumb="${t.id}"]`); if (f) f.srcdoc = renderVars(renderBlocks(t.content || { blocks: [] }, { subject: t.subject }), Object.fromEntries((t.variables || []).map((v) => [v.name, v.sample || v.fallback || ""])), t.variables || []); });
   }
   root.querySelector("[data-q]").addEventListener("input", draw);
@@ -79,7 +79,7 @@ function createModal(navigate) {
   let cat = "All", pick = null;
   const branded = canBrand(state.team?.plan_transactional) && Object.keys(state.team?.brand || {}).length;
   modal({ title: "Create template", size: "tpl-gallery", body: `<div class="tg-top"><div class="seg-tabs" style="margin:0">${["All", ...CATEGORIES].map((c) => `<button class="seg-tab ${c === "All" ? "on" : ""}" data-cat="${c}">${c}</button>`).join("")}</div><span class="grow"></span><span class="dim tg-note">${branded ? `${icon("check", 12)} Styled with your brand kit` : canBrand(state.team?.plan_transactional) ? `<a href="/settings/brand">Set up your brand kit</a> to style these with your logo and colours` : `Add your logo and colours with a brand kit on <a href="/billing">Starter</a>`}</span></div><div class="tg-grid" data-grid></div>`,
-    foot: `<span class="dim grow" data-picked style="font-size:12.5px">Choose a template</span><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok disabled>Use template</button>`,
+    foot: `<span class="dim grow" data-picked style="font-size:calc(12.5px + var(--fs-up, 0px))">Choose a template</span><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok disabled>Use template</button>`,
     onMount(m, close) {
       const grid = m.querySelector("[data-grid]");
       const draw = () => {
@@ -120,7 +120,7 @@ export async function editor(ctx) {
   const latest = versions?.[0];
   const dirty = () => !latest || new Date(t.updated_at) > new Date(latest.created_at);
   root.innerHTML = `<div class="editor-shell">
-    <div class="editor-top"><a class="ibtn" href="/templates">${icon("arrow-left", 15)}</a><span class="dim">Templates</span><span class="dim">/</span><input class="name-input" data-name value="${esc(t.name)}" size="${Math.max(8, t.name.length)}"><span data-state></span><span class="dim" data-saved style="font-size:12px"></span>
+    <div class="editor-top"><a class="ibtn" href="/templates">${icon("arrow-left", 15)}</a><span class="dim">Templates</span><span class="dim">/</span><input class="name-input" data-name value="${esc(t.name)}" size="${Math.max(8, t.name.length)}"><span data-state></span><span class="dim" data-saved style="font-size:calc(12px + var(--fs-up, 0px))"></span>
       <span class="grow"></span><button class="btn btn-ghost btn-sm" data-vars>${icon("code", 13)} Variables</button><button class="btn btn-ghost btn-sm" data-history>${icon("clock", 13)} History</button><button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test</button><button class="btn btn-primary btn-sm" data-publish>Publish</button></div>
     <div class="editor-main"><div class="editor-canvas"><div class="editor-doc">
       <div class="hdr-fields">

@@ -27,7 +27,7 @@ export default async function admin(ctx) {
   const tab = ctx.params.tab || "overview";
   ROLE = await rpc("platform_role").catch(() => null);
   root.innerHTML = `<div class="admin">
-    <header class="admin-top"><a href="/emails" class="row-flex" style="gap:10px"><img src="/assets/logo.svg" width="122" height="22" alt="Delivrie"></a>${badge(ROLE_LABEL[ROLE] || "Admin", "yellow")}<span class="grow"></span><span class="dim" style="font-size:12.5px">${esc(state.user?.email || "")}</span><a class="btn btn-ghost btn-sm" href="/emails">Back to app ${icon("arrow-right", 12)}</a></header>
+    <header class="admin-top"><a href="/emails" class="row-flex" style="gap:10px"><img src="/assets/logo.svg" width="122" height="22" alt="Delivrie"></a>${badge(ROLE_LABEL[ROLE] || "Admin", "yellow")}<span class="grow"></span><span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))">${esc(state.user?.email || "")}</span><a class="btn btn-ghost btn-sm" href="/emails">Back to app ${icon("arrow-right", 12)}</a></header>
     <div class="page wide"><div class="ul-tabs">${TABS.filter((t) => can(t[2])).map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="/admin/${k === "overview" ? "" : k}">${l}</a>`).join("")}</div><div data-body><div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div></div></div></div>`;
   const body = root.querySelector("[data-body]");
 
@@ -50,7 +50,7 @@ async function overview(body) {
   const sent = o.emails_30d || 0;
   const delivered = (st.delivered || 0) + (st.opened || 0) + (st.clicked || 0);
   const paid = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
-  const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="dim" style="font-size:11.5px;margin-top:4px">${sub}</div>` : ""}</div>`;
+  const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${sub}</div>` : ""}</div>`;
   const draw = (rows) => {
     body.innerHTML = `
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
@@ -67,7 +67,7 @@ async function overview(body) {
       </div>
       <div class="admin-grid">
         <div class="card card-pad"><div class="row-flex"><h3 class="h3">Sign-ups</h3><span class="grow"></span><div class="seg">${[7, 30, 90].map((d) => `<button class="${d === days ? "on" : ""}" data-days="${d}">${d}d</button>`).join("")}</div></div><div data-chart="signups" style="margin-top:12px"></div></div>
-        <div class="card card-pad"><div class="row-flex"><h3 class="h3">Email volume</h3><span class="grow"></span><span class="dim" style="font-size:12px">sent · delivered · bounced</span></div><div data-chart="emails" style="margin-top:12px"></div></div>
+        <div class="card card-pad"><div class="row-flex"><h3 class="h3">Email volume</h3><span class="grow"></span><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">sent · delivered · bounced</span></div><div data-chart="emails" style="margin-top:12px"></div></div>
       </div>
       <div class="admin-grid three">
         <div class="card card-pad"><h3 class="h3">Plans</h3>${bars(o.plans, o.teams)}</div>
@@ -93,15 +93,15 @@ async function regionsCard(body, fresh = false) {
   try {
     const { data } = await api("GET", `/dashboard/regions${fresh ? "?fresh=1" : ""}`);
     box.innerHTML = `<div class="row-flex"><h3 class="h3">Sending regions</h3><span class="grow"></span><button class="btn btn-secondary btn-sm" data-recheck>${icon("refresh", 12)} Check again</button></div>
-      <p class="dim" style="font-size:12.5px;margin:6px 0 12px">Customers can pick a region once AWS grants SES production access there. Request it in the AWS console: SES → Account dashboard → Request production access, in each region.</p>
-      <div class="table-wrap"><table class="t"><thead><tr><th>Region</th><th>SES access</th><th>Offered to customers</th><th>Checked</th></tr></thead><tbody>${data.map((r) => `<tr><td>${esc(r.label)}</td><td>${r.error ? badge("Error", "red") + ` <span class="dim" style="font-size:11.5px">${esc(r.error)}</span>` : r.production ? badge("Production", "green") : badge("Sandbox", "yellow")}</td><td>${r.offered ? badge("Yes", "green") : badge("No", "gray")}</td><td class="dim">${esc(ago(r.checked_at))}</td></tr>`).join("")}</tbody></table></div>`;
+      <p class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px));margin:6px 0 12px">Customers can pick a region once AWS grants SES production access there. Request it in the AWS console: SES → Account dashboard → Request production access, in each region.</p>
+      <div class="table-wrap"><table class="t"><thead><tr><th>Region</th><th>SES access</th><th>Offered to customers</th><th>Checked</th></tr></thead><tbody>${data.map((r) => `<tr><td>${esc(r.label)}</td><td>${r.error ? badge("Error", "red") + ` <span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(r.error)}</span>` : r.production ? badge("Production", "green") : badge("Sandbox", "yellow")}</td><td>${r.offered ? badge("Yes", "green") : badge("No", "gray")}</td><td class="dim">${esc(ago(r.checked_at))}</td></tr>`).join("")}</tbody></table></div>`;
     box.querySelector("[data-recheck]").onclick = () => regionsCard(body, true);
   } catch (e) { box.innerHTML = `<h3 class="h3">Sending regions</h3><p class="dim" style="margin-top:8px">${esc(e.message || "Couldn't load regions")}</p>`; }
 }
 function bars(map, total) {
   const rows = Object.entries(map || {}).sort((a, b) => b[1] - a[1]);
   if (!rows.length) return `<p class="dim" style="margin-top:10px">No teams yet.</p>`;
-  return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${rows.map(([k, n]) => `<div><div class="row-flex" style="font-size:12.5px"><span>${esc(k.replace(/^\w/, (c) => c.toUpperCase()))}</span><span class="grow"></span><span class="dim">${num(n)} · ${pct(n, total)}</span></div><div class="meter"><i style="width:${total ? (n / total) * 100 : 0}%"></i></div></div>`).join("")}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${rows.map(([k, n]) => `<div><div class="row-flex" style="font-size:calc(12.5px + var(--fs-up, 0px))"><span>${esc(k.replace(/^\w/, (c) => c.toUpperCase()))}</span><span class="grow"></span><span class="dim">${num(n)} · ${pct(n, total)}</span></div><div class="meter"><i style="width:${total ? (n / total) * 100 : 0}%"></i></div></div>`).join("")}</div>`;
 }
 
 // ---------------------------------------------------------------- users
@@ -115,9 +115,9 @@ async function users(body) {
     const total = rows[0]?.total || 0;
     body.querySelector("[data-total]").textContent = `${num(total)} users`;
     list.innerHTML = rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>User</th><th>Sign-in</th><th>Teams</th><th>Signed up</th><th>Last seen</th></tr></thead><tbody>${rows.map((u) => `<tr>
-        <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:10.5px">${esc(initials(u.name || u.email))}</span><div><div>${esc(u.name || u.email)}</div>${u.name ? `<div class="dim" style="font-size:12px">${esc(u.email)}</div>` : ""}</div></div></td>
+        <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:calc(10.5px + var(--fs-up, 0px))">${esc(initials(u.name || u.email))}</span><div><div>${esc(u.name || u.email)}</div>${u.name ? `<div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${esc(u.email)}</div>` : ""}</div></div></td>
         <td>${badge(u.provider === "email" ? "Email" : u.provider.replace(/^\w/, (c) => c.toUpperCase()), "gray")} ${u.confirmed ? "" : badge("Unconfirmed", "orange")}</td>
-        <td>${(u.teams || []).map((t) => `<span class="row-flex" style="gap:6px;font-size:12.5px">${esc(t.name)} ${planBadge(t.plan)}</span>`).join("") || `<span class="dim">—</span>`}</td>
+        <td>${(u.teams || []).map((t) => `<span class="row-flex" style="gap:6px;font-size:calc(12.5px + var(--fs-up, 0px))">${esc(t.name)} ${planBadge(t.plan)}</span>`).join("") || `<span class="dim">—</span>`}</td>
         <td class="muted" title="${esc(fmtDateTime(u.created_at))}">${fmtDate(u.created_at)}</td>
         <td class="muted">${u.last_sign_in_at ? ago(u.last_sign_in_at) : "Never"}</td></tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No users found" })}</div>`;
   };
@@ -125,7 +125,7 @@ async function users(body) {
   on(body, "click", "[data-page]", (_e, b) => { page = Number(b.dataset.page); load().catch(errToast); });
   await load();
 }
-const pagerHtml = (page, total, size) => total > size ? `<div class="row-flex" style="margin-top:12px;justify-content:flex-end;gap:8px"><span class="dim" style="font-size:12px">${num(page * size + 1)}–${num(Math.min(total, (page + 1) * size))} of ${num(total)}</span><button class="btn btn-secondary btn-sm" data-page="${page - 1}" ${page ? "" : "disabled"}>Previous</button><button class="btn btn-secondary btn-sm" data-page="${page + 1}" ${(page + 1) * size < total ? "" : "disabled"}>Next</button></div>` : "";
+const pagerHtml = (page, total, size) => total > size ? `<div class="row-flex" style="margin-top:12px;justify-content:flex-end;gap:8px"><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${num(page * size + 1)}–${num(Math.min(total, (page + 1) * size))} of ${num(total)}</span><button class="btn btn-secondary btn-sm" data-page="${page - 1}" ${page ? "" : "disabled"}>Previous</button><button class="btn btn-secondary btn-sm" data-page="${page + 1}" ${(page + 1) * size < total ? "" : "disabled"}>Next</button></div>` : "";
 
 // ---------------------------------------------------------------- teams
 async function teams(body) {
@@ -140,7 +140,7 @@ async function teams(body) {
     const total = rows[0]?.total || 0;
     body.querySelector("[data-total]").textContent = `${num(total)} teams`;
     list.innerHTML = rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Team</th><th>Plan</th><th class="r">Emails (30d)</th><th class="r">Members</th><th class="r">Domains</th><th class="r">Credits</th><th>Created</th><th></th></tr></thead><tbody>${rows.map((t) => `<tr>
-        <td><div>${esc(t.name)}</div><div class="dim" style="font-size:12px">${esc(t.owner_email || "")}</div></td>
+        <td><div>${esc(t.name)}</div><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${esc(t.owner_email || "")}</div></td>
         <td>${t.paused ? `<span title="${esc(t.paused.sending_paused_reason || "")}">${badge("Sending paused", "red")}</span> ` : ""}${planBadge(t.plan)} ${t.plan_marketing && t.plan_marketing !== "free" ? badge("Mkt " + t.plan_marketing, "gray") : ""} ${t.billing_status === "past_due" ? badge("Past due", "red") : t.billing_status === "cancelling" ? badge("Cancelling", "orange") : ""}</td>
         <td class="r">${num(t.emails_30d)}</td><td class="r">${num(t.members)}</td><td class="r">${num(t.domains)}</td><td class="r">${num(t.credits)}</td>
         <td class="muted">${fmtDate(t.created_at)}</td>
@@ -181,13 +181,13 @@ async function admins(body) {
   let rows = [];
   const load = async () => {
     rows = await rpc("admin_list_admins");
-    body.innerHTML = `<div class="row-flex" style="margin-bottom:14px"><div><h3 style="margin:0;font-size:15px">Admins</h3><p class="dim" style="margin:4px 0 0;font-size:12.5px">People who can open this admin area, and what they can do.</p></div><span class="grow"></span><button class="btn btn-primary btn-sm" data-add>${icon("plus", 12)} Add admin</button></div>
+    body.innerHTML = `<div class="row-flex" style="margin-bottom:14px"><div><h3 style="margin:0;font-size:max(15px, var(--fs-min, 0px))">Admins</h3><p class="dim" style="margin:4px 0 0;font-size:calc(12.5px + var(--fs-up, 0px))">People who can open this admin area, and what they can do.</p></div><span class="grow"></span><button class="btn btn-primary btn-sm" data-add>${icon("plus", 12)} Add admin</button></div>
       <div class="table-wrap"><table class="t"><thead><tr><th>Person</th><th>Role</th><th>Added</th><th></th></tr></thead><tbody>${rows.map((a) => `<tr>
-        <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:10.5px">${esc(initials(a.full_name || a.email))}</span><div><div>${esc(a.full_name || a.email)}${a.user_id === state.user?.id ? ' <span class="dim">(you)</span>' : ""}</div>${a.full_name ? `<div class="dim" style="font-size:12px">${esc(a.email)}</div>` : ""}</div></div></td>
+        <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:calc(10.5px + var(--fs-up, 0px))">${esc(initials(a.full_name || a.email))}</span><div><div>${esc(a.full_name || a.email)}${a.user_id === state.user?.id ? ' <span class="dim">(you)</span>' : ""}</div>${a.full_name ? `<div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${esc(a.email)}</div>` : ""}</div></div></td>
         <td><select class="input" data-role="${a.user_id}" style="height:30px;width:auto;min-width:150px">${roleOpts(a.role)}</select></td>
-        <td class="muted">${fmtDate(a.created_at)}${a.added_by_email ? `<div class="dim" style="font-size:12px">by ${esc(a.added_by_email)}</div>` : ""}</td>
+        <td class="muted">${fmtDate(a.created_at)}${a.added_by_email ? `<div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">by ${esc(a.added_by_email)}</div>` : ""}</td>
         <td class="act"><button class="ibtn" data-remove="${a.user_id}" title="Remove admin access">${icon("trash")}</button></td></tr>`).join("")}</tbody></table></div>
-      <div class="card card-pad" style="margin-top:16px"><h3 style="margin:0 0 10px;font-size:14px">What each role can do</h3>${ROLES.map(([, l, d]) => `<div style="display:flex;gap:10px;padding:6px 0"><b style="min-width:110px">${l}</b><span class="muted">${d}</span></div>`).join("")}</div>`;
+      <div class="card card-pad" style="margin-top:16px"><h3 style="margin:0 0 10px;font-size:max(14px, var(--fs-min, 0px))">What each role can do</h3>${ROLES.map(([, l, d]) => `<div style="display:flex;gap:10px;padding:6px 0"><b style="min-width:110px">${l}</b><span class="muted">${d}</span></div>`).join("")}</div>`;
   };
   on(body, "change", "[data-role]", async (_e, sel) => {
       const a = rows.find((x) => x.user_id === sel.dataset.role);
@@ -214,18 +214,18 @@ async function revenue(body) {
   body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat"><div class="k">Last 30 days</div><div class="v">${esc(moneyMap(o.revenue_30d))}</div></div>
       <div class="stat"><div class="k">All time</div><div class="v">${esc(moneyMap(o.revenue_all))}</div></div>
-      <div class="stat"><div class="k">Paying teams</div><div class="v">${num(Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0))}</div><div class="dim" style="font-size:11.5px;margin-top:4px">${Object.entries(kinds).map(([k, a]) => `${k.split(":")[0]} ${money(a, k.split(":")[1])}`).join(" · ") || "No payments yet"}</div></div>
+      <div class="stat"><div class="k">Paying teams</div><div class="v">${num(Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0))}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${Object.entries(kinds).map(([k, a]) => `${k.split(":")[0]} ${money(a, k.split(":")[1])}`).join(" · ") || "No payments yet"}</div></div>
     </div>
-    <h3 class="section-title">Payments</h3>${inv.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${inv.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, i.currency)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:11.5px">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: "Paystack payments show up here as they land." })}</div>`}`;
+    <h3 class="section-title">Payments</h3>${inv.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${inv.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, i.currency)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: "Paystack payments show up here as they land." })}</div>`}`;
 }
 
 // ---------------------------------------------------------------- inbox
 async function inbox(body) {
   const rows = await rpc("admin_inbox", { p_limit: 100 });
   const impact = { low: "gray", medium: "yellow", high: "orange", critical: "red" };
-  body.innerHTML = rows.length ? `<div style="display:flex;flex-direction:column;gap:10px" class="stagger">${rows.map((r) => `<div class="card card-pad"><div class="row-flex" style="gap:8px">${r.kind === "support" ? badge("Support", "blue") : r.kind === "sales" ? badge("Sales lead", "green") : badge("Feedback", "gray")}${r.impact ? badge(r.impact, impact[r.impact] || "gray") : ""}<b style="font-weight:500">${esc(r.subject || (r.kind === "feedback" ? "Feedback" : ""))}</b><span class="grow"></span><span class="dim" style="font-size:12px" title="${esc(fmtDateTime(r.created_at))}">${ago(r.created_at)}</span></div>
-      <p style="margin:10px 0;white-space:pre-wrap;font-size:13px;line-height:1.55">${esc(r.message)}</p>
-      <div class="row-flex dim" style="font-size:12px;gap:6px">${icon("users", 12)} ${esc(r.email || "Unknown")}${r.team ? ` · ${esc(r.team)}` : ""}<span class="grow"></span>${r.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent("Re: " + (r.subject || "Your Delivrie feedback"))}" data-native>Reply</a>` : ""}</div></div>`).join("")}</div>` : `<div class="card">${emptyState({ icon: "mail", title: "Inbox zero", desc: "Support requests and feedback from the app land here." })}</div>`;
+  body.innerHTML = rows.length ? `<div style="display:flex;flex-direction:column;gap:10px" class="stagger">${rows.map((r) => `<div class="card card-pad"><div class="row-flex" style="gap:8px">${r.kind === "support" ? badge("Support", "blue") : r.kind === "sales" ? badge("Sales lead", "green") : badge("Feedback", "gray")}${r.impact ? badge(r.impact, impact[r.impact] || "gray") : ""}<b style="font-weight:500">${esc(r.subject || (r.kind === "feedback" ? "Feedback" : ""))}</b><span class="grow"></span><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))" title="${esc(fmtDateTime(r.created_at))}">${ago(r.created_at)}</span></div>
+      <p style="margin:10px 0;white-space:pre-wrap;font-size:calc(13px + var(--fs-up, 0px));line-height:1.55">${esc(r.message)}</p>
+      <div class="row-flex dim" style="font-size:calc(12px + var(--fs-up, 0px));gap:6px">${icon("users", 12)} ${esc(r.email || "Unknown")}${r.team ? ` · ${esc(r.team)}` : ""}<span class="grow"></span>${r.email ? `<a class="btn btn-secondary btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent("Re: " + (r.subject || "Your Delivrie feedback"))}" data-native>Reply</a>` : ""}</div></div>`).join("")}</div>` : `<div class="card">${emptyState({ icon: "mail", title: "Inbox zero", desc: "Support requests and feedback from the app land here." })}</div>`;
 }
 
 // ---------------------------------------------------------------- website
@@ -251,10 +251,10 @@ async function website(body, ctx) {
 }
 
 function sitePages(el, cfg, save) {
-  el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:13px">A page that's off shows "not found" and its links disappear from the menus and footer. Home, Support, Terms and Privacy always stay on, because app directories (ChatGPT, Claude) link to them.</p>
+  el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:calc(13px + var(--fs-up, 0px))">A page that's off shows "not found" and its links disappear from the menus and footer. Home, Support, Terms and Privacy always stay on, because app directories (ChatGPT, Claude) link to them.</p>
     <div class="table-wrap"><table class="t"><thead><tr><th>Page</th><th>Address</th><th class="r">On</th></tr></thead><tbody>${SITE_PAGES.map(([path, name, locked]) => `<tr>
-      <td>${esc(name)}</td><td class="muted mono" style="font-size:12px"><a href="${path}" target="_blank" rel="noopener">delivrie.io${path === "/" ? "" : path}</a></td>
-      <td class="r">${locked ? `<span class="dim" style="font-size:12px">Always on</span>` : `<input type="checkbox" class="toggle" data-page="${path}" ${cfg.pages[path] === false ? "" : "checked"} aria-label="${esc(name)} on">`}</td></tr>`).join("")}</tbody></table></div>`;
+      <td>${esc(name)}</td><td class="muted mono" style="font-size:calc(12px + var(--fs-up, 0px))"><a href="${path}" target="_blank" rel="noopener">delivrie.io${path === "/" ? "" : path}</a></td>
+      <td class="r">${locked ? `<span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Always on</span>` : `<input type="checkbox" class="toggle" data-page="${path}" ${cfg.pages[path] === false ? "" : "checked"} aria-label="${esc(name)} on">`}</td></tr>`).join("")}</tbody></table></div>`;
   on(el, "change", "[data-page]", async (_e, t) => {
     const next = { ...cfg.pages };
     if (t.checked) delete next[t.dataset.page]; else next[t.dataset.page] = false;
@@ -271,12 +271,12 @@ function sitePayments(el, cfg, save) {
       : v.stripe ? ["Everyone, Nigeria included, pays in US dollars through Stripe. Prices on the site show in dollars for all visitors.", "blue", "Stripe only"]
       : v.paystack ? ["Everyone, in every country, pays in Naira through Paystack. Prices on the site show in Naira for all visitors.", "blue", "Paystack only"]
       : ["Payments are paused. Nobody can upgrade or top up until one is switched back on.", "red", "Paused"];
-    const row = (k, name, desc) => `<label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">${name}</b><div class="dim" style="font-size:12px">${desc}</div></span><input type="checkbox" class="toggle" data-pay="${k}" ${v[k] ? "checked" : ""} aria-label="${name} on"></label>`;
+    const row = (k, name, desc) => `<label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">${name}</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${desc}</div></span><input type="checkbox" class="toggle" data-pay="${k}" ${v[k] ? "checked" : ""} aria-label="${name} on"></label>`;
     el.innerHTML = `<div class="card card-pad" style="max-width:640px;display:flex;flex-direction:column;gap:16px">
         ${row("stripe", "Stripe · US dollars", "Card payments in USD, with Stripe Tax.")}
         ${row("paystack", "Paystack · Naira", "Card, bank transfer and USSD in NGN.")}
         <div class="banner" style="margin:0"><span class="badge ${now[1]}">${now[2]}</span> <span>${now[0]}</span></div>
-        <p class="dim" style="font-size:12px;margin:0">Changes apply to new payments within a minute. Plans already running keep renewing with the provider they were bought on until they end or the customer moves. A team on a Naira plan can continue in dollars without paying twice; a team on a dollar plan picks a Naira plan once its current one ends.</p></div>`;
+        <p class="dim" style="font-size:calc(12px + var(--fs-up, 0px));margin:0">Changes apply to new payments within a minute. Plans already running keep renewing with the provider they were bought on until they end or the customer moves. A team on a Naira plan can continue in dollars without paying twice; a team on a dollar plan picks a Naira plan once its current one ends.</p></div>`;
   };
   draw();
   on(el, "change", "[data-pay]", async (_e, t) => {
@@ -292,14 +292,14 @@ function sitePayments(el, cfg, save) {
 function siteBanner(el, cfg, save) {
   const b = { on: false, text: "", link: "", link_text: "", tone: "warm", ...cfg.banner };
   el.innerHTML = `<div class="card card-pad" style="max-width:640px;display:flex;flex-direction:column;gap:14px">
-      <label class="row-flex" style="justify-content:space-between"><span><b style="font-weight:500">Show the announcement bar</b><div class="dim" style="font-size:12px">A strip at the very top of every public page. Visitors can close it.</div></span><input type="checkbox" class="toggle" name="on" ${b.on ? "checked" : ""}></label>
+      <label class="row-flex" style="justify-content:space-between"><span><b style="font-weight:500">Show the announcement bar</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">A strip at the very top of every public page. Visitors can close it.</div></span><input type="checkbox" class="toggle" name="on" ${b.on ? "checked" : ""}></label>
       ${fieldHtml({ name: "text", label: "Message", value: b.text, placeholder: "SMTP is live: send from WordPress, Laravel and more" })}
       <div class="row-flex" style="gap:12px;align-items:flex-start"><div style="flex:2">${fieldHtml({ name: "link", label: "Link", value: b.link, placeholder: "/docs/smtp", optional: true })}</div><div style="flex:1">${fieldHtml({ name: "link_text", label: "Link text", value: b.link_text, placeholder: "Learn more", optional: true })}</div></div>
       
       <div class="field"><label>Preview</label><div data-preview></div></div>
       <div class="row-flex" style="justify-content:flex-end"><button class="btn btn-primary" data-save>Save</button></div></div>`;
   const read = () => ({ on: el.querySelector("[name=on]").checked, text: el.querySelector("[name=text]").value.trim(), link: el.querySelector("[name=link]").value.trim(), link_text: el.querySelector("[name=link_text]").value.trim() });
-  const preview = () => { const v = read(); el.querySelector("[data-preview]").innerHTML = v.text ? `<div style="padding:9px 14px;border-radius:8px;text-align:center;font-size:13px;font-weight:500;background:#f4eee4;color:#1f1d1e">${esc(v.text)}${v.link ? ` <span style="color:#67625f;font-weight:400">${esc((v.link_text || "Learn more").replace(/[\s→>»]+$/, ""))} →</span>` : ""}${v.on ? "" : ` <span style="opacity:.6">(hidden)</span>`}</div>` : `<div class="dim" style="font-size:12.5px">Type a message to see it here.</div>`; };
+  const preview = () => { const v = read(); el.querySelector("[data-preview]").innerHTML = v.text ? `<div style="padding:9px 14px;border-radius:8px;text-align:center;font-size:calc(13px + var(--fs-up, 0px));font-weight:500;background:#f4eee4;color:#1f1d1e">${esc(v.text)}${v.link ? ` <span style="color:#67625f;font-weight:400">${esc((v.link_text || "Learn more").replace(/[\s→>»]+$/, ""))} →</span>` : ""}${v.on ? "" : ` <span style="opacity:.6">(hidden)</span>`}</div>` : `<div class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))">Type a message to see it here.</div>`; };
   el.addEventListener("input", preview); el.addEventListener("change", preview); preview();
   el.querySelector("[data-save]").addEventListener("click", async (e) => {
     const v = read();
@@ -320,7 +320,7 @@ async function siteCompare(el, cfg, save) {
     setTimeout(() => done([]), 8000); document.body.appendChild(f);
   });
   const inp = (name, value, ph, w = "") => `<input class="input" name="${name}" value="${esc(value ?? "")}" placeholder="${esc(ph ?? "")}" style="${w}">`;
-  el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:13px">Figures and notes for Pricing → Compare. Leave a box empty to keep the default (shown in grey). Delivrie's own prices come from your plans and aren't edited here.</p>
+  el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:calc(13px + var(--fs-up, 0px))">Figures and notes for Pricing → Compare. Leave a box empty to keep the default (shown in grey). Delivrie's own prices come from your plans and aren't edited here.</p>
     <div class="card card-pad" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
       <div class="field"><label>₦ per $1</label>${inp("fx", c.fx, "1350")}</div>
       <div class="field"><label>Prices checked on</label>${inp("date", c.date, "13 November 2026")}</div>
@@ -328,7 +328,7 @@ async function siteCompare(el, cfg, save) {
     </div>
     <h3 class="section-title">Rows</h3>
     <div style="display:flex;flex-direction:column;gap:10px">${(rows.length ? rows : Object.keys(c.rows).map((id) => ({ id, label: id, explain: "" }))).map((r) => { const o = c.rows?.[r.id] || {}; return `<div class="card card-pad" data-row="${r.id}" style="display:flex;flex-direction:column;gap:10px">
-      <div class="row-flex" style="gap:10px"><b style="font-weight:500">${esc(r.label)}</b><span class="grow"></span><label class="row-flex dim" style="gap:6px;font-size:12px">Show row <input type="checkbox" class="toggle" name="show" ${o.hidden ? "" : "checked"}></label></div>
+      <div class="row-flex" style="gap:10px"><b style="font-weight:500">${esc(r.label)}</b><span class="grow"></span><label class="row-flex dim" style="gap:6px;font-size:calc(12px + var(--fs-up, 0px))">Show row <input type="checkbox" class="toggle" name="show" ${o.hidden ? "" : "checked"}></label></div>
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">
         <div class="field"><label>Row name</label>${inp("label", o.label, r.label)}</div>
         <div class="field"><label>Delivrie</label>${inp("delivrie", o.delivrie, "Default")}</div>
@@ -356,24 +356,24 @@ function siteEditor(el, cfg, save) {
   let pending = {}, selected = null, frameWin = null;
   el.innerHTML = `<div class="row-flex" style="gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <select class="input" data-path style="width:auto;min-width:200px">${SITE_PAGES.map(([p, n]) => `<option value="${p}" ${p === path ? "selected" : ""}>${esc(n)}  (${p})</option>`).join("")}</select>
-      <span class="dim" style="font-size:12.5px">Click any text on the page to edit it. Links can also change where they go.</span><span class="grow"></span>
-      <span class="dim" data-count style="font-size:12.5px"></span>
+      <span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))">Click any text on the page to edit it. Links can also change where they go.</span><span class="grow"></span>
+      <span class="dim" data-count style="font-size:calc(12.5px + var(--fs-up, 0px))"></span>
       <button class="btn btn-ghost" data-discard>Discard</button><button class="btn btn-primary" data-save>Save changes</button></div>
     <div style="display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start">
       <div class="card" style="overflow:hidden;height:calc(100vh - 230px);min-height:520px"><iframe data-frame title="Page editor" style="width:100%;height:100%;border:0;background:#fff"></iframe></div>
-      <div class="card card-pad" data-side style="position:sticky;top:12px;display:flex;flex-direction:column;gap:12px;font-size:13px"></div></div>`;
+      <div class="card card-pad" data-side style="position:sticky;top:12px;display:flex;flex-direction:column;gap:12px;font-size:calc(13px + var(--fs-up, 0px))"></div></div>`;
   const frame = el.querySelector("[data-frame]"), side = el.querySelector("[data-side]");
   const count = () => { const n = Object.keys(pending).length; el.querySelector("[data-count]").textContent = n ? `${n} unsaved change${n === 1 ? "" : "s"}` : ""; };
   const sideIdle = () => {
     const saved = Object.entries(cfg.edits[path] || {});
-    side.innerHTML = `<b style="font-weight:500">Edits on this page</b>${saved.length ? `<div style="display:flex;flex-direction:column;gap:8px">${saved.map(([k, v]) => `<div class="row-flex" style="gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="dim" style="font-size:11.5px;text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.orig || "")}</div><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(stripTags(v.html))}</div></div><button class="ibtn" title="Undo this edit" data-undo="${esc(k)}">${icon("x", 12)}</button></div>`).join("")}</div>` : `<div class="dim">None yet. Click text on the page to change it.</div>`}
-      <div class="dim" style="font-size:11.5px;line-height:1.5">If a page is later rewritten in code, edits to text that no longer exists simply stop applying.</div>`;
+    side.innerHTML = `<b style="font-weight:500">Edits on this page</b>${saved.length ? `<div style="display:flex;flex-direction:column;gap:8px">${saved.map(([k, v]) => `<div class="row-flex" style="gap:8px;align-items:flex-start"><div style="flex:1;min-width:0"><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.orig || "")}</div><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(stripTags(v.html))}</div></div><button class="ibtn" title="Undo this edit" data-undo="${esc(k)}">${icon("x", 12)}</button></div>`).join("")}</div>` : `<div class="dim">None yet. Click text on the page to change it.</div>`}
+      <div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));line-height:1.5">If a page is later rewritten in code, edits to text that no longer exists simply stop applying.</div>`;
   };
   const sideSelected = (k) => {
     const isLink = k.el.tagName === "A";
-    side.innerHTML = `<b style="font-weight:500">Editing</b><div class="dim" style="font-size:12px">Original: ${esc(k.text).slice(0, 160)}</div>
+    side.innerHTML = `<b style="font-weight:500">Editing</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Original: ${esc(k.text).slice(0, 160)}</div>
       ${isLink ? fieldHtml({ name: "href", label: "Link goes to", value: k.el.getAttribute("href") || "", placeholder: "/signup" }) : ""}
-      <div class="dim" style="font-size:11.5px">Use Ctrl/⌘ + B or I for bold and italic.</div>
+      <div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">Use Ctrl/⌘ + B or I for bold and italic.</div>
       <div class="row-flex" style="gap:8px"><button class="btn btn-secondary btn-sm" data-revert>Back to original</button><button class="btn btn-ghost btn-sm" data-done>Done</button></div>`;
     side.querySelector("[name=href]")?.addEventListener("input", (e) => { k.el.setAttribute("href", e.target.value.trim()); record(k); });
   };
@@ -434,14 +434,14 @@ const stripTags = (h) => String(h || "").replace(/<[^>]+>/g, "");
 // Customers write from the chat button in the dashboard. New messages also email every platform admin.
 async function support(body) {
   let filter = "open", threads = [], current = new URLSearchParams(location.search).get("t"), conv = null, timer = null, lastSig = "";
-  body.innerHTML = `<div class="row-flex" style="margin-bottom:12px;gap:10px"><span class="dim" style="font-size:12.5px" data-sum></span><span class="grow"></span><button class="btn btn-secondary btn-sm" data-notify hidden>${icon("bell", 12)} Turn on desktop alerts</button></div>
+  body.innerHTML = `<div class="row-flex" style="margin-bottom:12px;gap:10px"><span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))" data-sum></span><span class="grow"></span><button class="btn btn-secondary btn-sm" data-notify hidden>${icon("bell", 12)} Turn on desktop alerts</button></div>
     <div class="sp"><div class="sp-list"><div class="sp-filter">${[["open", "Open"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => `<button class="seg-tab ${k === filter ? "on" : ""}" data-f="${k}" style="display:inline-flex;align-items:center">${l}</button>`).join("")}</div><div class="sp-items" data-items></div></div>
     <div class="sp-conv" data-conv><div class="sp-empty">Pick a conversation.</div></div></div>`;
   const items = body.querySelector("[data-items]"), convEl = body.querySelector("[data-conv]"), notifyBtn = body.querySelector("[data-notify]");
   if ("Notification" in window && Notification.permission === "default") notifyBtn.hidden = false;
   notifyBtn.addEventListener("click", async () => { await Notification.requestPermission(); notifyBtn.hidden = Notification.permission !== "default"; });
 
-  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:11.5px">${ago(t.last_message_at)}</span></div><div class="r2">${t.team ? esc(t.team) + " · " : ""}${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">No ${filter === "all" ? "" : filter + " "}conversations.</div>`;
+  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${ago(t.last_message_at)}</span></div><div class="r2">${t.team ? esc(t.team) + " · " : ""}${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">No ${filter === "all" ? "" : filter + " "}conversations.</div>`;
   const loadList = async (alert = false) => {
     const r = await api("GET", `/support/admin/threads?status=${filter}`);
     const before = new Map(threads.map((t) => [t.id, t.last_message_at]));

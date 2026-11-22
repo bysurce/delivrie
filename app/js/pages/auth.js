@@ -75,7 +75,7 @@ export async function verify(ctx) {
     <form novalidate><div class="field"><label for="code">Code</label><input class="input mono" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="${"12345678".slice(0, CODE_LENGTH)}" style="letter-spacing:.35em;text-align:center;font-size:20px;height:48px"></div>
     <button class="btn btn-primary btn-lg btn-block" type="submit">Continue</button></form>
     ${inbox ? `<a class="btn btn-secondary btn-lg btn-block" href="${inbox[1]}" target="_blank" rel="noopener">${icon("mail", 14)} ${inbox[0]}</a>` : ""}
-    <p class="sub" style="font-size:12.5px">Didn’t get it? Check spam, or <a href="#" data-resend>send a new code</a> · <a href="/login">Back to log in</a></p>`);
+    <p class="sub" style="font-size:calc(12.5px + var(--fs-up, 0px))">Didn’t get it? Check spam, or <a href="#" data-resend>send a new code</a> · <a href="/login">Back to log in</a></p>`);
   const input = card.querySelector("#code"), form = card.querySelector("form"), btn = form.querySelector("button");
   input.focus();
   input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); input.classList.remove("error"); if (input.value.length === CODE_LENGTH) form.requestSubmit(); });
@@ -142,9 +142,9 @@ export async function login(ctx) {
   const last = localStorage.getItem("dlv_last_method");
   const card = layout(ctx.root, `${mark}<h1>Log in to Delivrie</h1><p class="sub">Don’t have an account? <a href="/signup${location.search}">Sign up</a></p>${sso(last)}
     <form novalidate style="position:relative">${last === "email" ? '<span class="last-used" style="top:-8px">Last used</span>' : ""}<div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" placeholder="you@company.com" autocomplete="email" required></div>
-    <div class="field"><div class="row-flex" style="justify-content:space-between"><label for="password" class="label">Password</label><a href="/reset" class="dim" style="font-size:12px">Forgot password?</a></div><div class="input-wrap"><input class="input" id="password" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="ibtn trail" data-eye>${icon("eye", 14)}</button></div></div>
+    <div class="field"><div class="row-flex" style="justify-content:space-between"><label for="password" class="label">Password</label><a href="/reset" class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Forgot password?</a></div><div class="input-wrap"><input class="input" id="password" type="password" placeholder="••••••••" autocomplete="current-password"><button type="button" class="ibtn trail" data-eye>${icon("eye", 14)}</button></div></div>
     <button class="btn btn-primary btn-lg btn-block" type="submit">Log in</button></form>
-    <p class="sub" style="font-size:12.5px;margin-top:-4px"><a href="#" data-code>Email me a sign-in code instead</a> · <a href="#" data-sso>Use single sign-on</a></p>
+    <p class="sub" style="font-size:calc(12.5px + var(--fs-up, 0px));margin-top:-4px"><a href="#" data-code>Email me a sign-in code instead</a> · <a href="#" data-sso>Use single sign-on</a></p>
     <p class="legal">By signing up, you agree to our <a href="/docs">Terms of Service</a> and <a href="/docs">Privacy Policy</a>.</p>`);
   bindEye(card); bindSso(card);
   if (ctx.query.deleted) toast("Your account has been deleted");
@@ -195,7 +195,7 @@ export async function mfa(ctx) {
   const card = layout(ctx.root, `${mark}<h1>Two-factor authentication</h1><p class="sub">Enter the 6-digit code from your authenticator app.</p>
     <div class="otp">${Array.from({ length: 6 }, (_, i) => `<input inputmode="numeric" maxlength="1" data-i="${i}" aria-label="Digit ${i + 1}">`).join("")}</div>
     <button class="btn btn-primary btn-lg btn-block" data-go>Continue</button>
-    <p class="sub" style="font-size:12.5px"><a href="#" data-rec>Use a recovery code</a> · <a href="#" data-back>Back to log in</a></p>`);
+    <p class="sub" style="font-size:calc(12.5px + var(--fs-up, 0px))"><a href="#" data-rec>Use a recovery code</a> · <a href="#" data-back>Back to log in</a></p>`);
   const ins = [...card.querySelectorAll(".otp input")];
   ins[0].focus();
   ins.forEach((inp, i) => {

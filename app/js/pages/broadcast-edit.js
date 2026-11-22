@@ -21,7 +21,7 @@ export default async function broadcastEdit(ctx) {
 
   const root = ctx.root;
   root.innerHTML = `<div class="editor-shell">
-    <div class="editor-top"><a class="ibtn" href="/broadcasts" title="Back">${icon("arrow-left", 15)}</a><span class="dim">Broadcasts</span><span class="dim">/</span><input class="name-input" data-name value="${esc(b.name)}" size="${Math.max(8, b.name.length)}"><span class="dim" data-saved style="font-size:12px">Saved</span>
+    <div class="editor-top"><a class="ibtn" href="/broadcasts" title="Back">${icon("arrow-left", 15)}</a><span class="dim">Broadcasts</span><span class="dim">/</span><input class="name-input" data-name value="${esc(b.name)}" size="${Math.max(8, b.name.length)}"><span class="dim" data-saved style="font-size:calc(12px + var(--fs-up, 0px))">Saved</span>
       <span class="grow"></span><button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test email</button><button class="btn btn-primary btn-sm" data-review>Review</button></div>
     <div class="editor-main"><div class="editor-canvas"><div class="editor-doc">
       <div class="hdr-fields">
@@ -111,7 +111,7 @@ function reviewModal(b, segs, topics, ctx) {
       const ok = m.querySelector("[data-ok]"), at = m.querySelector("[data-at]");
       m.querySelectorAll("input[name=when]").forEach((r) => r.onchange = () => { const later = r.value === "later" && r.checked; at.classList.toggle("hidden", !later); m.querySelector("[data-tz]").classList.toggle("hidden", !later); ok.textContent = later ? "Schedule" : "Send now"; });
       if (b.segment_id) {
-        try { const r = await api("GET", `/broadcasts/${b.id}/recipients`); m.querySelector("[data-count]").innerHTML = `${num(r.recipients)} contacts <span class="dim">${r.total - r.recipients ? `· ${num(r.total - r.recipients)} skipped (unsubscribed${r.topic_opt_out ? ", opted out of topic" : ""} or suppressed)` : ""}</span>`; if (!r.recipients) { ok.disabled = true; m.querySelector("[data-count]").innerHTML += `<div style="color:var(--orange);font-size:12px">This segment has no one to send to yet.</div>`; } }
+        try { const r = await api("GET", `/broadcasts/${b.id}/recipients`); m.querySelector("[data-count]").innerHTML = `${num(r.recipients)} contacts <span class="dim">${r.total - r.recipients ? `· ${num(r.total - r.recipients)} skipped (unsubscribed${r.topic_opt_out ? ", opted out of topic" : ""} or suppressed)` : ""}</span>`; if (!r.recipients) { ok.disabled = true; m.querySelector("[data-count]").innerHTML += `<div style="color:var(--orange);font-size:calc(12px + var(--fs-up, 0px))">This segment has no one to send to yet.</div>`; } }
         catch (e) { m.querySelector("[data-count]").textContent = e.message; }
       } else m.querySelector("[data-count]").textContent = "—";
       ok.onclick = async () => {

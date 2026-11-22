@@ -246,7 +246,7 @@ function apiPage(body, slug, ctx) {
       ${ptable("Headers", "headers", e.headers || [["Authorization", "string", true, `Bearer token. ${e.scope}.`]])}
       ${ptable("Path parameters", "path", e.params)}${ptable("Query parameters", "query", e.query)}${ptable("Body parameters", "body", e.body)}
       <h2 id="errors">Errors</h2><div class="d-table"><table><thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead><tbody>${errs.map(([s, c, m]) => `<tr><td class="st">${s}</td><td><code>${esc(c)}</code></td><td>${esc(m)}</td></tr>`).join("")}</tbody></table></div>
-      <p class="dim" style="font-size:13px">Every error returns JSON with <code>statusCode</code>, <code>name</code> and <code>message</code>. See <a href="/docs/errors">Errors</a>.</p>
+      <p class="dim" style="font-size:calc(13px + var(--fs-up, 0px))">Every error returns JSON with <code>statusCode</code>, <code>name</code> and <code>message</code>. See <a href="/docs/errors">Errors</a>.</p>
       ${helpful(i > 0 ? [`/docs/api/${ALL_ENDPOINTS[i - 1].slug}`, ALL_ENDPOINTS[i - 1].title] : ["/docs", "Guides"], i < ALL_ENDPOINTS.length - 1 ? [`/docs/api/${ALL_ENDPOINTS[i + 1].slug}`, ALL_ENDPOINTS[i + 1].title] : ["/docs/mcp", "MCP server"])}
     </article>
     <aside class="d-aside">${codeTabs(samples(e, BASE))}
@@ -275,7 +275,7 @@ function mcpPage(body) {
       <div class="d-cards three">${CLIENTS.map((c) => `<a class="d-card client" href="#c-${c.id}" data-client="${c.id}"><div class="row-flex">${logo(c.id, 16)}<span class="grow"></span>${icon("arrow-up-right", 12, "dim")}</div><b>${c.name}</b><span class="dim">${c.sub}</span><span class="tagm">${c.how}</span></a>`).join("")}</div>
       <h2 id="install">Install</h2><p>Add the server to your client. Clients that support OAuth open a Delivrie page where you pick the team and approve what the agent can do; it then shows under <a href="/settings/connected-apps">Settings → Connected apps</a>. For other clients, create an API key in <a href="/api-keys">API keys</a> and send it as a header in place of <code>dlv_live_••••</code>.</p>
       ${codeTabs(tabs, { id: "install-tabs" })}
-      <p class="dim" id="install-file" style="font-size:12.5px"></p>
+      <p class="dim" id="install-file" style="font-size:calc(12.5px + var(--fs-up, 0px))"></p>
       ${CLIENTS.map((c) => `<span id="c-${c.id}" class="anchor"></span>`).join("")}
       <div id="remote">${callout("info", "Remote server", `The server lives at <code>${MCP_URL}</code> and speaks MCP over streamable HTTP. Unauthenticated requests get a 401 that points clients at Delivrie's OAuth server (dynamic client registration and PKCE). With an API key, send <code>Authorization: Bearer dlv_…</code>. Either way the agent acts as one team.`)}</div>
       <h2 id="tools">Tools</h2><p>${TOOLS.length} tools across sending, the Inbox, automations, domains, contacts, broadcasts, templates, webhooks and logs. Each needs one OAuth scope: <b>send</b>, <b>read</b> or <b>manage</b>. Sending-access API keys only reach the send tools.</p>

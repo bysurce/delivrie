@@ -114,7 +114,7 @@ function payBanner(s) {
     : banner("warn", "Billing has moved to Naira", `Your ${esc(cap1(L.plan))} plan is paid in US dollars until ${fullDate(L.ends)}${L.status === "cancelling" ? " and ends then. After that," : " and still renews through Stripe for now. Cancel it under Payment methods and, when it ends,"} choose a plan in Naira to keep going. Top-ups are in Naira from now on.`, "");
   if (s.payments_paused) return legacy + `<div class="banner">${icon("info", 14)} Payments are paused right now. Your plan and credits keep working; upgrades and top-ups will be back shortly.</div>`;
   if (!s.payments_ready) return legacy + `<div class="banner">${icon("info", 14)} Payments aren't connected yet. Plans can't be bought until the ${ps ? "Paystack" : "Stripe"} key is added.</div>`;
-  if (s.mode === "test") return legacy + `<div class="banner">${icon("info", 14)} Test mode: ${ps ? "use Paystack's test card <b>4084 0840 8408 4081</b>, any future expiry, CVV <b>408</b>" : "pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC"}. No real money moves.</div>`;
+  if (s.mode === "test") return legacy + `<div class="banner">${icon("info", 14)} <span>Test mode: ${ps ? "use Paystack's test card <b>4084 0840 8408 4081</b>, any future expiry, CVV <b>408</b>" : "pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC"}. No real money moves.</span></div>`;
   return legacy;
 }
 
@@ -140,7 +140,7 @@ function overviewPaid(B) {
     <div class="bgrid"><div class="bcol">
       <div class="card bcard plan-card"><div class="pc-top"><span class="pc-ico">${icon("bolt", 16)}</span><div class="grow"><div class="row-flex" style="gap:8px;flex-wrap:wrap"><h3 class="pc-name">${esc(plan.name)}</h3><span class="badge yellow">Current plan</span><span class="badge gray">${yearly ? "Yearly" : "Monthly"}</span>${status}</div>
         <p class="dim sm">${money(subPrice, pc)} / ${yearly ? "year" : "month"}${s.tax_ready && s.provider === "stripe" ? " + tax" : ""} · ${num(plan.emails)} emails · ${money(plan.overage[cur], cur, true)} per extra 1,000</p></div>
-        ${s.admin ? `<div class="row-flex" style="gap:8px"><button class="btn btn-secondary btn-sm" data-plan>Change plan</button>${!yearly && save > 0 && s.payments_ready ? `<button class="btn btn-secondary btn-sm" data-yearly>${icon("sparkle", 12)} Switch to yearly · save ${money(save, pc)}</button>` : ""}</div>` : ""}</div>
+        ${s.admin ? `<div class="row-flex" style="gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" data-plan>Change plan</button>${!yearly && save > 0 && s.payments_ready ? `<button class="btn btn-secondary btn-sm" data-yearly>${icon("sparkle", 12)} Switch to yearly · save ${money(save, pc)}</button>` : ""}</div>` : ""}</div>
         <div class="pc-facts">
           <div><span class="k">Customer since</span><b>${fullDate(s.customer_since)}</b><span class="dim">${since(s.customer_since)}</span></div>
           <div><span class="k">On ${esc(plan.name)} since</span><b>${fullDate(s.plan_since)}</b><span class="dim">${s.plan_since ? since(s.plan_since) : "—"}</span></div>

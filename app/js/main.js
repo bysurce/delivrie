@@ -98,7 +98,7 @@ function shellHtml() {
     </nav>
     <div class="main"><section class="panel">
       <header class="topbar"><button class="ibtn mobile-only" id="side-toggle">${icon("sidebar", 15)}</button><div class="crumbs" id="crumbs"></div>
-        <div class="top-links"><button class="btn btn-ghost" id="feedback-btn">${icon("edit", 13)} Feedback</button><a class="btn btn-ghost" href="/help">Help</a><a class="btn btn-ghost" href="/docs">Docs</a></div>
+        <div class="top-links"><button class="btn btn-ghost" id="feedback-btn">${icon("edit", 13)}<span class="tl-label">Feedback</span></button><a class="btn btn-ghost" href="/help">Help</a><a class="btn btn-ghost" href="/docs">Docs</a></div>
       </header>
       <div class="content" id="content"></div>
     </section></div></div>`;
@@ -138,7 +138,7 @@ function accountMenu(anchor) {
   const u = state.user;
   const name = state.profile?.full_name || u.email.split("@")[0];
   menu(anchor, [
-    { html: `<span class="row-flex" style="gap:8px"><span class="avatar">${esc(initials(name))}</span><span style="display:flex;flex-direction:column;line-height:1.25"><span>${esc(name)}</span><span class="dim" style="font-size:11.5px">${esc(u.email)}</span></span></span>`, onClick: () => navigate("/profile") },
+    { html: `<span class="row-flex" style="gap:8px"><span class="avatar">${esc(initials(name))}</span><span style="display:flex;flex-direction:column;line-height:1.25"><span>${esc(name)}</span><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(u.email)}</span></span></span>`, onClick: () => navigate("/profile") },
     { sep: true },
     { label: "My profile", icon: "users", kbd: "G P", onClick: () => navigate("/profile") },
     { label: "Team settings", icon: "gear", kbd: "G S", onClick: () => navigate("/settings/team") },
@@ -165,7 +165,7 @@ export function createTeamModal() {
 
 function feedback(anchor) {
   popover(anchor, `<div style="padding:12px;display:flex;flex-direction:column;gap:10px"><textarea class="textarea" rows="4" placeholder="Have an idea to improve this page? Tell the Delivrie team."></textarea>
-    <div class="row-flex"><span class="dim" style="font-size:12px">Need help? <a class="link" href="/help">Contact us</a></span><button class="btn btn-primary btn-sm" style="margin-left:auto" data-send>Send</button></div></div>`, {
+    <div class="row-flex"><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Need help? <a class="link" href="/help">Contact us</a></span><button class="btn btn-primary btn-sm" style="margin-left:auto" data-send>Send</button></div></div>`, {
     align: "right", width: 340,
     onMount(p, close) {
       const ta = p.querySelector("textarea"); ta.focus();
