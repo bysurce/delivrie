@@ -266,6 +266,7 @@ async function syncSubscription(subOrId: Any) {
   const teamId = sub.metadata?.team_id || await teamForCustomer(sub.customer);
   if (!teamId || !plan || !catalog(kind)[plan]) return null;
   const t = await team(teamId);
+  if (!t) { console.warn("stripe subscription for unknown team", JSON.stringify({ subscription: sub.id, team: String(teamId).slice(0, 64), status: sub.status })); return null; }
   const b = t.billing || {};
   const cur = kind === "marketing" ? (b.marketing || {}) : b;
   // A team that pays through Paystack isn't moved by a stray Stripe subscription (for example one left over from
@@ -307,6 +308,9 @@ async function applySession(id: string, expectTeam?: string) {
   if (!teamId) return { status: "unknown" };
   if (expectTeam && teamId !== expectTeam) throw new HttpError(403, "This payment belongs to a different team.");
   const t = await team(teamId);
+  // A checkout for a team that no longer exists, or one made by another app on the same Stripe account: note it for
+  // the admins and acknowledge it, so Stripe doesn't keep retrying.
+  if (!t) { console.warn("stripe checkout for unknown team", JSON.stringify({ session: s.id, team: String(teamId).slice(0, 64), amount: s.amount_total, currency: s.currency, mode: s.mode, created: s.created, livemode: s.livemode })); return { status: "ignored" }; }
   if (t.billing?.stripe_customer && s.customer && t.billing.stripe_customer !== s.customer) throw new HttpError(403, "This payment belongs to a different customer.");
   const kind = s.metadata?.kind || "transactional";
   if (s.status !== "complete") return { status: s.status, kind, teamId };
@@ -332,6 +336,7 @@ async function applyInvoice(invOrId: Any) {
   const meta = inv.metadata || {};
   const teamId = meta.team_id || (typeof inv.subscription === "object" ? inv.subscription?.metadata?.team_id : null) || await teamForCustomer(inv.customer);
   if (!teamId) return null;
+  if (!(await team(teamId))) { console.warn("stripe invoice for unknown team", JSON.stringify({ invoice: inv.id, team: String(teamId).slice(0, 64), amount: inv.amount_paid ?? inv.amount_due, currency: inv.currency, status: inv.status })); return null; }
   const status = inv.status === "paid" ? "success" : inv.status === "void" ? "void" : "failed";
   const card = cardLabel(inv.payment_intent?.payment_method?.card);
   const tax = Number(inv.tax || 0);
