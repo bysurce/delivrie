@@ -215,6 +215,19 @@ async function saveBilling(teamId: string, patch: Record<string, unknown>, plan?
   const update: Any = { billing };
   if (plan) update.plan_transactional = plan;
   await db.from("teams").update(update).eq("id", teamId);
+  // Plan changes are confirmed by the payment provider, so they're recorded as the system acting.
+  if (plan && plan !== t.plan_transactional) await auditLog(teamId, null, "billing.plan_changed", t.name, { from: t.plan_transactional, to: plan, provider: (billing as Any).provider || null });
+}
+
+// Audit log entries for billing (Enterprise teams can read them in Settings -> Audit log). A user's own action
+// names them; provider-confirmed changes are "system". Never blocks the billing action itself.
+async function auditLog(teamId: string, user: Any | null, action: string, label: string | null, metadata: Record<string, unknown> = {}, req?: Request) {
+  const ip = req ? (req.headers.get("x-forwarded-for") || "").split(",")[0].trim().slice(0, 64) || null : null;
+  const { error } = await db.from("audit_logs").insert({
+    team_id: teamId, actor_type: user ? "user" : "system", actor_id: user?.id || null, actor_label: user ? user.email : "Billing",
+    action, target_type: "billing", target_id: teamId, target_label: label, metadata, ip, user_agent: user ? "Dashboard" : null,
+  });
+  if (error) console.error("audit insert", error.message);
 }
 
 // One Stripe customer per team (per mode, so test and live never mix).
@@ -1121,6 +1134,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     if (b.provider === "stripe" && b.stripe_subscription) {
       await stripe("POST", `/subscriptions/${b.stripe_subscription}`, { cancel_at_period_end: true });
       await syncSubscription(b.stripe_subscription);
+      await auditLog(a.teamId, a.user, "billing.plan_cancelled", t.name, { kind: marketing ? "marketing" : "transactional", plan: b.plan, provider: "stripe" }, req);
       return json(await view());
     }
     if (b.subscription_code && b.email_token) {
@@ -1128,6 +1142,7 @@ async function handle(req: Request, path: string): Promise<Response> {
       const end = b.next_payment_date || new Date().toISOString();
       if (marketing) await saveBilling(a.teamId, { marketing: { ...b, status: "cancelling", cancel_at: end } });
       else await saveBilling(a.teamId, { status: "cancelling", cancel_at: end });
+      await auditLog(a.teamId, a.user, "billing.plan_cancelled", t.name, { kind: marketing ? "marketing" : "transactional", plan: b.plan, provider: "paystack" }, req);
       return json(await view());
     }
     throw new HttpError(400, "There's no active subscription to cancel.");
@@ -1147,6 +1162,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     }
     if (body.alerts) patch.alerts = { ...(b.alerts || {}), ...Object.fromEntries(["p80", "p100", "credits_low"].filter((k) => k in body.alerts).map((k) => [k, !!body.alerts[k]])) };
     await saveBilling(a.teamId, patch);
+    await auditLog(a.teamId, a.user, "billing.settings_updated", t.name, { changed: Object.keys(patch), ...(patch.auto_topup ? { auto_topup: patch.auto_topup.enabled } : {}) }, req);
     return json(await view());
   }
 
@@ -1155,6 +1171,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     const v = body.amount == null || body.amount === "" ? null : Math.round(Number(body.amount) * 100);
     if (v != null && (!isFinite(v) || v < 0)) throw new HttpError(400, "Enter a positive amount, or leave it empty for no cap.");
     await saveBilling(a.teamId, { spend_cap: v || null });
+    await auditLog(a.teamId, a.user, "billing.spending_cap_set", null, { amount: v || null }, req);
     return json(await view());
   }
 
@@ -1169,6 +1186,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     for (const k of ["name", "country", "state", "address", "city", "postal_code", "tax_id_type", "tax_id"]) if (k in body) next[k] = clip(body[k]);
     if ("email" in body) next.email = email;
     await saveBilling(a.teamId, { details: next });
+    await auditLog(a.teamId, a.user, "billing.details_updated", t.name, { changed: Object.keys(body).filter((k) => k !== "tax_id") }, req);
     if (email && t.billing?.stripe_customer && t.billing.stripe_mode === MODE) await stripe("POST", `/customers/${t.billing.stripe_customer}`, { email }).catch((e) => console.error("customer email", e.message));
     return json(await view());
   }

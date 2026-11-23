@@ -53,6 +53,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Broadcasts](https://delivrie.io/docs/broadcasts.md): Send newsletters and announcements to a segment of contacts with Delivrie broadcasts: personalisation, topics, unsubscribe links, test sends and scheduling, from the dashboard or the API.
 - [Contacts, segments and topics](https://delivrie.io/docs/contacts.md): Store your audience in Delivrie: create and import contacts, custom properties, segments for broadcasts and automations, and topics for granular unsubscribes.
 - [Automations and events](https://delivrie.io/docs/automations.md): Send emails automatically when something happens: record events with POST /events, build automations with waits, conditions and branches, and create simple flows with the API.
+- [Audit logs](https://delivrie.io/docs/audit-logs.md): See who changed what in your Delivrie team and when: sign-ins, members, API keys, domains, webhooks, single sign-on, connected apps, billing and content. Enterprise plan.
 
 ## Help
 
@@ -87,6 +88,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [List domains](https://delivrie.io/docs/api/list-domains.md): `GET /domains`. List the team's domains.
 - [Delete domain](https://delivrie.io/docs/api/delete-domain.md): `DELETE /domains/:id`. Remove a domain. Emails can no longer be sent from it.
 - [Create API key](https://delivrie.io/docs/api/create-api-key.md): `POST /api-keys`. Create a key. The token is returned once, so store it somewhere safe.
+- [List audit log entries](https://delivrie.io/docs/api/list-audit-logs.md): `GET /audit-logs`. Who changed what in the team, newest first. Enterprise plan; other plans get 403 plan_required.
 - [List API keys](https://delivrie.io/docs/api/list-api-keys.md): `GET /api-keys`. List keys. Tokens are never shown again.
 - [Delete API key](https://delivrie.io/docs/api/delete-api-key.md): `DELETE /api-keys/:id`. Revoke a key immediately.
 - [Create webhook](https://delivrie.io/docs/api/create-webhook.md): `POST /webhooks`. Send events to an HTTPS endpoint. Each payload is signed; failed deliveries are retried with backoff.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}try{var c=(document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/)||[])[1];document.documentElement.dataset.cur=(c?c==="NG":/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||""))?"NGN":"USD"}catch(e){}try{var a=JSON.parse(localStorage.getItem("sb-hnjejflinvaoxbduxeiu-auth-token")||"null");if(a&&(a.refresh_token||a.currentSession)){document.documentElement.dataset.auth="in";var f=function(){document.querySelectorAll('a[href^="/signup"]').forEach(function(a){var h=a.getAttribute("href"),m=/[?&]plan=([a-z]+)/.exec(h);if(m){a.href="/billing?upgrade="+m[1]+(/interval=yearly/.test(h)?"&interval=yearly":"");return}var t=a.textContent.trim();a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t))a.textContent="Go to dashboard"})};document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}html:not([data-cur=NGN]) .only-ngn,html[data-cur=NGN] .only-usd{display:none!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audit logs · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="See who changed what in your Delivrie team and when: sign-ins, members, API keys, domains, webhooks, single sign-on, connected apps, billing and content.…">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/audit-logs">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/audit-logs.md">
+  <meta property="og:url" content="https://delivrie.io/docs/audit-logs">
+  <meta property="og:title" content="Audit logs · Delivrie Docs">
+  <meta property="og:description" content="See who changed what in your Delivrie team and when: sign-ins, members, API keys, domains, webhooks, single sign-on, connected apps, billing and content.…">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <meta property="og:image:width" content="2400">
+  <meta property="og:image:height" content="1260">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="modulepreload" href="/app/vendor/supabase-js.js">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Audit logs", "description": "See who changed what in your Delivrie team and when: sign-ins, members, API keys, domains, webhooks, single sign-on, connected apps, billing and content.…", "url": "https://delivrie.io/docs/audit-logs", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-23"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Audit logs", "item": "https://delivrie.io/docs/audit-logs"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io"}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Audit logs</h1><p>See who changed what in your Delivrie team and when: sign-ins, members, API keys, domains, webhooks, single sign-on, connected apps, billing and content. Enterprise plan.</p><p>The audit log records who changed what in your team, and when. It&#39;s part of the <b>Enterprise</b> plan. Delivrie records activity for every team, so the full history is there as soon as you upgrade.</p>
+<p>Team admins open it from <b>Settings → Audit log</b>. Entries can&#39;t be edited or deleted, by you or by us through the dashboard, and you can export them as CSV for security reviews.</p>
+<h2 id="what-s-recorded">What&#39;s recorded</h2>
+<div class="d-table"><table><thead><tr><th>Area</th><th>Examples</th></tr></thead><tbody><tr><td>Sign-ins</td><td>Every sign-in to the dashboard, with the method (password, code, Google, GitHub, SSO)</td></tr><tr><td>Members and access</td><td>Members added or removed, role changes, invites sent or revoked, single sign-on changes, apps connected or disconnected</td></tr><tr><td>API keys</td><td>Keys created, renamed or deleted (never the key itself)</td></tr><tr><td>Domains</td><td>Domains added or removed, settings changed, DNS checks, Cloudflare setup</td></tr><tr><td>Webhooks</td><td>Endpoints added, changed or deleted, test events</td></tr><tr><td>Billing</td><td>Plan changes, cancellations, spending cap, auto top-up and billing details</td></tr><tr><td>Content and sending</td><td>Templates published or deleted, broadcasts sent or scheduled, automations published or paused, suppressions removed, contacts deleted</td></tr></tbody></table></div>
+<p>Each entry shows <b>who</b> did it (a person, an API key, a connected app, or the system for changes confirmed by the payment provider), <b>what</b> changed, the <b>target</b> (for example the domain name), and the IP address when the change came through the API.</p>
+<p>Sending email isn&#39;t a change to your account, so individual sends aren&#39;t in the audit log; they&#39;re in <a href="https://delivrie.io/logs" data-native>Logs</a> and on each email&#39;s page. Only the names of the fields that changed are recorded, never secrets or message content.</p>
+<h2 id="with-the-api">With the API</h2>
+<p><code>GET /audit-logs</code> returns the newest entries first.</p>
+<pre><code class="language-bash">curl &quot;https://delivrie.io/api/audit-logs?limit=50&amp;action=api_key.&quot; \
+  -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre>
+<div class="d-table"><table><thead><tr><th>Query</th><th>Description</th></tr></thead><tbody><tr><td><code>limit</code></td><td>1 to 200, default 50</td></tr><tr><td><code>before</code></td><td>An entry <code>id</code>: returns older entries (for paging)</td></tr><tr><td><code>action</code></td><td>Only actions starting with this, e.g. <code>domain.</code> or <code>billing.plan_changed</code></td></tr><tr><td><code>actor</code></td><td>Only entries by this user id or API key id</td></tr></tbody></table></div>
+<pre><code class="language-json">{
+  &quot;object&quot;: &quot;list&quot;,
+  &quot;has_more&quot;: true,
+  &quot;data&quot;: [
+    {
+      &quot;object&quot;: &quot;audit_log&quot;,
+      &quot;id&quot;: &quot;1842&quot;,
+      &quot;created_at&quot;: &quot;2026-11-23T14:02:11.000Z&quot;,
+      &quot;actor_type&quot;: &quot;user&quot;,
+      &quot;actor_label&quot;: &quot;ada@acme.com&quot;,
+      &quot;action&quot;: &quot;api_key.created&quot;,
+      &quot;target_type&quot;: &quot;api_key&quot;,
+      &quot;target_label&quot;: &quot;Production&quot;,
+      &quot;metadata&quot;: { &quot;permission&quot;: &quot;sending&quot;, &quot;prefix&quot;: &quot;dlv_7Hk2&quot; },
+      &quot;ip&quot;: &quot;102.89.34.10&quot;,
+      &quot;user_agent&quot;: &quot;Dashboard&quot;
+    }
+  ]
+}</code></pre>
+<p>Teams on other plans get <code>403 plan_required</code>. The endpoint needs a full-access API key.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

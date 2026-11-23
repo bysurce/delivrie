@@ -29,6 +29,7 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [List domains](https://delivrie.io/docs/api/list-domains.md): `GET /domains`
 - [Delete domain](https://delivrie.io/docs/api/delete-domain.md): `DELETE /domains/:id`
 - [Create API key](https://delivrie.io/docs/api/create-api-key.md): `POST /api-keys`
+- [List audit log entries](https://delivrie.io/docs/api/list-audit-logs.md): `GET /audit-logs`
 - [List API keys](https://delivrie.io/docs/api/list-api-keys.md): `GET /api-keys`
 - [Delete API key](https://delivrie.io/docs/api/delete-api-key.md): `DELETE /api-keys/:id`
 - [Create webhook](https://delivrie.io/docs/api/create-webhook.md): `POST /webhooks`

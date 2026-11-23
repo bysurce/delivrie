@@ -1,4 +1,5 @@
 import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
+import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
@@ -11,24 +12,26 @@ import { registerExtra } from "./extra.ts";
 import { registerSupport } from "./support.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
-interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[] }
+interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
 
 // ---------------------------------------------------------------- auth
 async function authenticate(req: Request): Promise<Ctx> {
   const h = req.headers.get("authorization") || "";
   const token = h.replace(/^Bearer\s+/i, "").trim();
   const ua = req.headers.get("user-agent") || "";
+  // The caller's address for the audit log: the first hop in X-Forwarded-For (Vercel puts the visitor there).
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim().slice(0, 64) || req.headers.get("x-real-ip") || undefined;
   if (!token) throw new HttpError(401, "missing_api_key", "Missing API key in the Authorization header. Use Authorization: Bearer dlv_xxx");
   if (token.startsWith("dlv_")) {
     const { data: key } = await db.from("api_keys").select("*").eq("key_hash", await sha256(token)).maybeSingle();
     if (!key) throw new HttpError(401, "invalid_api_key", "API key is invalid");
     waitUntil(db.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", key.id));
-    return { teamId: key.team_id, userId: null, apiKey: key, permission: key.permission, via: "api", userAgent: ua };
+    return { teamId: key.team_id, userId: null, apiKey: key, permission: key.permission, via: "api", userAgent: ua, ip };
   }
   // Connected apps (OAuth access tokens for MCP clients)
   if (token.startsWith("dlvo_")) {
     const g = await oauthGrantFromToken(token);
-    return { teamId: g.team_id, userId: g.user_id, apiKey: null, permission: "full", via: "api", userAgent: ua || g.client_name, scopes: g.scopes };
+    return { teamId: g.team_id, userId: g.user_id, apiKey: null, permission: "full", via: "api", userAgent: ua || g.client_name, scopes: g.scopes, app: g.client_name || "Connected app", ip };
   }
   const { data: u, error } = await db.auth.getUser(token);
   if (error || !u?.user) throw new HttpError(401, "invalid_api_key", "Session expired. Log in again.");
@@ -36,9 +39,28 @@ async function authenticate(req: Request): Promise<Ctx> {
   if (!teamId) throw new HttpError(400, "missing_team", "x-team-id header is required");
   const { data: m } = await db.from("team_members").select("role").eq("team_id", teamId).eq("user_id", u.user.id).maybeSingle();
   if (!m) throw new HttpError(403, "forbidden", "You are not a member of this team");
-  return { teamId, userId: u.user.id, apiKey: null, permission: "full", via: "dashboard", userAgent: "Dashboard", email: u.user.email };
+  return { teamId, userId: u.user.id, apiKey: null, permission: "full", via: "dashboard", userAgent: "Dashboard", email: u.user.email, ip };
 }
 const needFull = (c: Ctx) => { if (c.permission !== "full") throw forbidden("This API key can only send emails"); };
+
+// ---------------------------------------------------------------- audit log
+// Changes made through the API are recorded here, with who made them (a dashboard user, an API key or a connected
+// app). Changes the dashboard makes directly in the database are recorded by triggers (see the audit_logs
+// migration). Sending email isn't a change to the account, so sends are in the request logs, not here.
+async function audit(c: Ctx, method: string, path: string, body: Any, out: Any) {
+  if (method === "GET" || !AUDITED.test(path)) return;
+  const { action, targetId, resource } = auditAction(method, path);
+  const actor = c.app ? { actor_type: "app", actor_id: c.userId, actor_label: c.app }
+    : c.apiKey ? { actor_type: "api_key", actor_id: c.apiKey.id, actor_label: `${c.apiKey.name || "API key"} (${c.apiKey.prefix || "dlv_"}…)` }
+    : { actor_type: "user", actor_id: c.userId, actor_label: c.email || null };
+  const label = out?.name || out?.email || out?.endpoint || out?.url || body?.name || body?.email || body?.endpoint || null;
+  // Only the names of the fields that were sent, never their values (they can hold secrets or personal data).
+  const fields = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body).filter((k) => !/token|secret|password|key|html|content/i.test(k)).slice(0, 20) : [];
+  await db.from("audit_logs").insert({
+    team_id: c.teamId, ...actor, action, target_type: resource, target_id: targetId || out?.id || null, target_label: label ? String(label).slice(0, 200) : null,
+    metadata: fields.length ? { fields } : {}, ip: c.ip || null, user_agent: c.via === "dashboard" ? "Dashboard" : (c.userAgent || "").slice(0, 200) || null,
+  }).then(({ error }) => { if (error) console.error("audit insert", error.message); });
+}
 
 async function logRequest(c: Ctx, endpoint: string, method: string, status: number, reqBody: unknown, resBody: unknown) {
   const clean = (b: Any) => {
@@ -592,6 +614,25 @@ route("POST", "/domains/:id/cloudflare", async (_r, c, p, _u, b) => {
 route("PATCH", "/domains/:id", async (_r, c, p, _u, b) => { needFull(c); return domainOut(await updateDomainConfig(await getDomain(c, p.id), b || {})); });
 route("DELETE", "/domains/:id", async (_r, c, p) => { needFull(c); const d = await getDomain(c, p.id); await deleteDomain(d); return { object: "domain", id: d.id, deleted: true }; });
 
+// audit log (Enterprise): newest first, filter by action prefix or actor, cursor with ?before=<id>
+route("GET", "/audit-logs", async (_r, c, _p, url) => {
+  needFull(c);
+  const { data: t } = await db.from("teams").select("plan_transactional").eq("id", c.teamId).single();
+  if (t?.plan_transactional !== "enterprise") throw new HttpError(403, "plan_required", "Audit logs are part of the Enterprise plan. Talk to sales to upgrade; your history is already being recorded.");
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
+  let q = db.from("audit_logs").select("id,created_at,actor_type,actor_id,actor_label,action,target_type,target_id,target_label,metadata,ip,user_agent").eq("team_id", c.teamId).order("id", { ascending: false }).limit(limit + 1);
+  const before = Number(url.searchParams.get("before"));
+  if (before) q = q.lt("id", before);
+  const action = url.searchParams.get("action");
+  if (action) q = q.like("action", `${action.replace(/[%_]/g, "")}%`);
+  const actor = url.searchParams.get("actor");
+  if (actor) q = q.eq("actor_id", actor);
+  const { data, error } = await q;
+  if (error) throw new HttpError(500, "internal_error", error.message);
+  const rows = (data || []).slice(0, limit);
+  return { object: "list", has_more: (data || []).length > limit, data: rows.map((r: Any) => ({ object: "audit_log", ...r, id: String(r.id) })) };
+});
+
 // api keys
 route("GET", "/api-keys", async (_r, c) => { needFull(c); const { data } = await db.from("api_keys").select("id,name,prefix,permission,domain_id,last_used_at,created_at").eq("team_id", c.teamId).order("created_at", { ascending: false }); return list(data || []); });
 route("POST", "/api-keys", async (_r, c, _p, _u, b) => {
@@ -1011,6 +1052,7 @@ async function dispatch(req: Request, c: Ctx, method: string, path: string, body
     try {
       const out = await h(req, c, params, url, body);
       if (logged) waitUntil(logRequest(c, path, method, 200, body, out));
+      waitUntil(audit(c, method, path, body, out));
       return out;
     } catch (e) {
       if (logged && e instanceof HttpError) waitUntil(logRequest(c, path, method, e.status, body, { statusCode: e.status, name: e.name, message: e.message }));

@@ -1,0 +1,22 @@
+// node --experimental-strip-types supabase/functions/delivrie/audit_test.ts
+import { AUDITED, auditAction } from "./audit.ts";
+const eq = (a: unknown, b: unknown, m: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); };
+const id = "0fcff450-7f95-4f42-b041-30dd77013bb9";
+eq(auditAction("POST", "/domains"), { action: "domain.created", targetId: null, resource: "domain" }, "create domain");
+eq(auditAction("POST", `/domains/${id}/verify`).action, "domain.verify", "verify");
+eq(auditAction("POST", `/domains/${id}/cloudflare`).action, "domain.cloudflare", "cloudflare");
+eq(auditAction("PATCH", `/domains/${id}`), { action: "domain.updated", targetId: id, resource: "domain" }, "patch domain");
+eq(auditAction("DELETE", `/api-keys/${id}`).action, "api_key.deleted", "delete key");
+eq(auditAction("POST", "/api-keys").action, "api_key.created", "create key");
+eq(auditAction("POST", `/broadcasts/${id}/send`).action, "broadcast.send", "send broadcast");
+eq(auditAction("POST", `/templates/order-confirmation/publish`).action, "template.publish", "publish by alias");
+eq(auditAction("DELETE", "/contacts/ada@example.com"), { action: "contact.deleted", targetId: "ada@example.com", resource: "contact" }, "delete contact by email");
+eq(auditAction("POST", `/automations/${id}/pause`).action, "automation.pause", "pause");
+eq(auditAction("DELETE", "/suppressions/ada@example.com").action, "suppression.deleted", "remove suppression");
+eq(AUDITED.test("/emails"), false, "sends not audited");
+eq(AUDITED.test("/emails/batch"), false, "batch not audited");
+eq(AUDITED.test("/events"), false, "events not audited");
+eq(AUDITED.test("/contacts"), false, "contact upserts not audited");
+eq(AUDITED.test(`/contacts/${id}`), true, "single contact change audited");
+eq(AUDITED.test("/domainsx"), false, "prefix must be whole");
+console.log("audit tests passed");
