@@ -1,5 +1,5 @@
 import { sb, state, api } from "../lib/sb.js";
-import { esc, icon, ago, fmtDateTime, num, toast, errToast, menu, confirmModal, emptyState, skeletonRows, statusBadge, selectHtml, bindSelects, on, codeBlock, drawer } from "../lib/ui.js";
+import { esc, icon, ago, fmtDateTime, num, toast, errToast, menu, confirmModal, emptyState, skeletonRows, statusBadge, selectHtml, bindSelects, on, codeBlock, drawer, modal } from "../lib/ui.js";
 
 const T = () => state.team.id;
 const FLAG = { "us-east-1": "🇺🇸", "us-east-2": "🇺🇸", "us-west-2": "🇺🇸", "eu-west-1": "🇮🇪", "eu-west-2": "🇬🇧", "eu-central-1": "🇩🇪", "eu-north-1": "🇸🇪", "ap-south-1": "🇮🇳", "ap-southeast-1": "🇸🇬", "ap-southeast-2": "🇦🇺", "ap-northeast-1": "🇯🇵", "ca-central-1": "🇨🇦", "sa-east-1": "🇧🇷" };
@@ -112,6 +112,10 @@ export async function detail(ctx) {
   const root = ctx.root;
   let tab = ctx.query.tab === "configuration" ? "configuration" : "records";
   const tl = [["Domain added", raw.created_at, true], ["DNS records found", raw.dns_found_at, !!raw.dns_found_at], ["Domain verified", raw.verified_at, d.status === "verified"]];
+  // Is this domain's DNS hosted on Cloudflare? Looked up once in the background; it only decides how prominent the
+  // "Set up with Cloudflare" button is.
+  let onCloudflare = false;
+  if (d.status !== "verified") cloudflareNs(d.name).then((yes) => { if (yes) { onCloudflare = true; draw(); } });
   function draw() {
     root.innerHTML = `<div class="page wide"><div class="page-head"><div><div class="eyebrow">${statusBadge(d.status)}<span class="dim" style="margin-left:8px">${FLAG[d.region] || ""} ${esc(d.region_label || d.region)}</span></div><h1 style="margin-top:6px">${esc(d.name)}</h1></div>
       <div class="actions"><button class="btn btn-secondary" data-verify>${icon("refresh", 13)} Verify DNS</button><button class="ibtn boxed" data-more>${icon("more")}</button></div></div>
@@ -120,6 +124,7 @@ export async function detail(ctx) {
       <div class="card card-pad" style="margin-bottom:18px"><div class="timeline">${tl.map(([n, t, ok]) => `<div class="tl-item"><div class="tl-dot" style="${ok ? "border-color:#2e5b45;background:rgba(63,166,114,.12);color:var(--green-2)" : "color:var(--fg-3)"}">${icon(ok ? "check" : "clock", 13)}</div><div class="n">${n}</div><div class="t">${t ? fmtDateTime(t) : d.status === "pending" ? "Checking…" : "—"}</div></div>`).join("")}</div></div>
       <div class="ul-tabs"><button class="ul-tab ${tab === "records" ? "on" : ""}" data-tab="records">DNS records</button><button class="ul-tab ${tab === "configuration" ? "on" : ""}" data-tab="configuration">Configuration</button></div>
       <div style="margin-top:18px">${tab === "records" ? `
+        ${d.status !== "verified" ? `<div class="card card-pad cf-card" style="margin-bottom:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div style="flex:1;min-width:220px"><div style="font-weight:500">${onCloudflare ? "Your DNS is on Cloudflare" : "DNS on Cloudflare?"}</div><div class="muted" style="font-size:calc(12.5px + var(--fs-up, 0px))">Add all of these records automatically instead of copying them one by one.</div></div><button class="btn ${onCloudflare ? "btn-primary" : "btn-secondary"} btn-sm" data-cloudflare>${icon("zap", 13)} Set up with Cloudflare</button></div>` : ""}
         <h3 class="section-title" style="margin-top:0">Domain verification <span class="badge gray">DKIM</span></h3>${recordsTable(d, ["dkim"])}
         <h3 class="section-title">Enable sending <span class="badge gray">SPF</span></h3>${recordsTable(d, ["sending"])}<p class="hint" style="margin-top:8px">The MX record points to our sending network’s feedback server. It’s how bounces and spam complaints come back to Delivrie, so copy it exactly as shown.</p>
         <h3 class="section-title">DMARC <span class="dim" style="font-weight:400">Recommended</span></h3>${recordsTable(d, ["dmarc"])}<p class="hint" style="margin-top:8px">Start with <span class="mono">p=none</span>, then move to <span class="mono">quarantine</span> once everything passes. <a class="link" href="/docs#dmarc">Learn more</a></p>
@@ -135,6 +140,7 @@ export async function detail(ctx) {
   on(root, "click", "[data-tab]", (_e, b) => { tab = b.dataset.tab; history.replaceState({}, "", `/domains/${id}${tab === "configuration" ? "?tab=configuration" : ""}`); draw(); });
   on(root, "change", "[data-cfg]", (_e, cb) => patch({ [cb.dataset.cfg]: cb.checked }));
   on(root, "click", "[data-saverp]", () => patch({ return_path: root.querySelector("[data-rp]").value.trim().toLowerCase() }));
+  on(root, "click", "[data-cloudflare]", () => cloudflareModal(d, (u) => { d = u; ctx.query.new = null; draw(); }));
   on(root, "click", "[data-verify]", async (_e, b) => { b.disabled = true; b.innerHTML = `<span class="spinner"></span> Checking`; const u = await verify(id); if (u) d = u; ctx.query.new = null; draw(); });
   on(root, "click", "[data-more]", (_e, b) => menu(b, [
     { label: "Copy records as text", icon: "copy", onClick: () => navigator.clipboard.writeText((d.records || []).map((r) => `${r.type}\t${r.name}.${d.name}\t${r.priority ? r.priority + " " : ""}${r.value}`).join("\n")).then(() => toast("Records copied")) },
@@ -142,4 +148,64 @@ export async function detail(ctx) {
     { label: "Copy ID", icon: "copy", onClick: () => navigator.clipboard.writeText(id).then(() => toast("ID copied")) },
     { sep: true }, { label: "Delete domain", icon: "trash", danger: true, onClick: () => del(d, ctx) }], { align: "right" }));
   draw();
+}
+
+// ---- One-click DNS on Cloudflare -----------------------------------------------------------------------------------
+// Cloudflare doesn't let other apps sign in to a customer's account, so the customer makes a token limited to
+// "Zone: Read" + "DNS: Edit" on a pre-filled Cloudflare page, pastes it, and the server adds the missing records.
+// The token is sent once and never stored.
+
+async function cloudflareNs(name) {
+  const labels = name.split(".");
+  for (let i = 0; i <= labels.length - 2; i++) {
+    try {
+      const r = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(labels.slice(i).join("."))}&type=NS`, { headers: { accept: "application/dns-json" } });
+      const ns = ((await r.json()).Answer || []).filter((a) => a.type === 2).map((a) => String(a.data).toLowerCase());
+      if (ns.length) return ns.some((n) => /\.ns\.cloudflare\.com\.?$/.test(n));
+    } catch { return false; }
+  }
+  return false;
+}
+
+const CF_TOKEN_URL = "https://dash.cloudflare.com/profile/api-tokens?" + new URLSearchParams({
+  permissionGroupKeys: JSON.stringify([{ key: "zone", type: "read" }, { key: "dns", type: "edit" }]),
+  accountId: "*", zoneId: "all", name: "Delivrie DNS setup",
+}).toString();
+
+function cloudflareModal(d, done) {
+  const list = (rows, cls) => rows.map((r) => `<li class="${cls}"><span class="mono">${esc(r.type)}</span> <span class="mono">${esc(r.name)}</span>${r.reason ? `<div class="dim" style="font-size:calc(12px + var(--fs-up, 0px));margin-top:2px">${esc(r.reason)}</div>` : ""}</li>`).join("");
+  return modal({ title: "Set up DNS with Cloudflare", body: `<div data-step="form">
+      <ol class="cf-steps" style="margin:0 0 14px;padding-left:18px;display:flex;flex-direction:column;gap:10px">
+        <li><a class="btn btn-secondary btn-sm" href="${esc(CF_TOKEN_URL)}" target="_blank" rel="noopener">${icon("external", 12)} Create a Cloudflare token</a>
+          <div class="hint" style="margin-top:6px">The permissions are filled in for you. Under <b>Zone Resources</b>, choose <b>Specific zone</b> and pick <b>${esc(d.name.split(".").slice(-2).join("."))}</b>, then create the token and copy it.</div></li>
+        <li><div class="field" style="margin:0"><label for="cftok">Paste the token</label><input class="input mono" id="cftok" type="password" autocomplete="off" spellcheck="false" placeholder="Cloudflare API token"></div></li>
+      </ol>
+      <p class="hint" style="margin:0">We use the token once to add the records and don't keep it. Existing records are never changed or deleted. You can delete the token in Cloudflare afterwards.</p></div>
+      <div data-step="done" hidden></div>`,
+    foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go>Add records</button>`,
+    onMount(m, close) {
+      const input = m.querySelector("#cftok"), go = m.querySelector("[data-go]");
+      go.onclick = async () => {
+        if (go.dataset.finished) { close(); return; }
+        const token = input.value.trim();
+        if (!token) { input.focus(); return toast("Paste the Cloudflare token first", "err"); }
+        go.disabled = true; go.innerHTML = `<span class="spinner"></span> Adding records`;
+        try {
+          const u = await api("POST", `/domains/${d.id}/cloudflare`, { api_token: token });
+          input.value = "";
+          const r = u.cloudflare;
+          m.querySelector('[data-step="form"]').hidden = true;
+          const box = m.querySelector('[data-step="done"]'); box.hidden = false;
+          box.innerHTML = `${r.created.length ? `<p style="margin:0 0 8px"><b>Added ${r.created.length} record${r.created.length === 1 ? "" : "s"}</b> to ${esc(r.zone)} on Cloudflare.</p><ul class="cf-list">${list(r.created, "ok")}</ul>` : `<p style="margin:0 0 8px">No new records were needed.</p>`}
+            ${r.existing.length ? `<p class="muted" style="margin:12px 0 6px">Already there</p><ul class="cf-list">${list(r.existing, "")}</ul>` : ""}
+            ${r.skipped.length ? `<p style="margin:12px 0 6px;color:var(--orange)">Needs your attention</p><ul class="cf-list">${list(r.skipped, "warn")}</ul>` : ""}
+            <p class="hint" style="margin:12px 0 0">${u.status === "verified" ? "The domain is verified and ready to send." : "Verification usually finishes within a few minutes. We keep checking in the background; click Verify DNS to check now."}</p>`;
+          m.querySelector("[data-cancel]").hidden = true;
+          go.disabled = false; go.dataset.finished = "1"; go.textContent = "Done";
+          done(u);
+        } catch (e) { errToast(e); go.disabled = false; go.textContent = "Add records"; }
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") go.click(); });
+      setTimeout(() => input.focus(), 50);
+    } });
 }

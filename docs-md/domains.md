@@ -35,6 +35,25 @@ For `mail.acme.com`, you'll see records like these:
 
 The `feedback-smtp...amazonses.com` and `inbound-smtp...amazonaws.com` hosts belong to Delivrie's mail infrastructure. Use the exact values from your dashboard; the DKIM key is unique to your domain. **Copy records as text** in the domain's menu gives you all of them at once.
 
+## Set up automatically on Cloudflare
+
+If your domain's DNS is on Cloudflare, Delivrie can add the records for you:
+
+1. Open the domain and click **Set up with Cloudflare**.
+2. Click **Create a Cloudflare token**. Cloudflare opens with the permissions filled in (**Zone: Read** and **DNS: Edit**). Under **Zone Resources**, pick the specific zone for your domain, create the token and copy it.
+3. Paste the token and click **Add records**.
+
+Delivrie uses the token once and doesn't keep it, and it's blanked out of your request logs. You can delete the token in Cloudflare afterwards.
+
+Records are only ever **added**. Nothing already in your DNS is changed or deleted:
+
+- A record that's already there with the same value is left as it is.
+- If the name already has an SPF record, it's flagged so you can merge ours into it by hand (a name can only have one).
+- If the domain already has a DMARC policy, yours is kept.
+- If the name already has an MX record from another mail service, it's flagged and left alone, so your existing email keeps working.
+
+You can do the same with the API: `POST /domains/:id/cloudflare` with `{ "api_token": "…" }` returns the domain plus a `cloudflare` object listing the records `created`, `existing` and `skipped` (with the reason).
+
 ## Entering records at your DNS provider
 
 Most providers add your root domain to the name automatically. If your DNS zone is `acme.com`, enter only the part before it:

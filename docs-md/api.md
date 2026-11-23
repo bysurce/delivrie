@@ -23,6 +23,7 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`
 - [Create domain](https://delivrie.io/docs/api/create-domain.md): `POST /domains`
 - [Retrieve domain](https://delivrie.io/docs/api/retrieve-domain.md): `GET /domains/:id`
+- [Set up DNS on Cloudflare](https://delivrie.io/docs/api/cloudflare-domain.md): `POST /domains/:id/cloudflare`
 - [Verify domain](https://delivrie.io/docs/api/verify-domain.md): `POST /domains/:id/verify`
 - [Update domain](https://delivrie.io/docs/api/update-domain.md): `PATCH /domains/:id`
 - [List domains](https://delivrie.io/docs/api/list-domains.md): `GET /domains`

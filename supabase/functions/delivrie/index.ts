@@ -1,3 +1,4 @@
+import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
@@ -42,7 +43,7 @@ const needFull = (c: Ctx) => { if (c.permission !== "full") throw forbidden("Thi
 async function logRequest(c: Ctx, endpoint: string, method: string, status: number, reqBody: unknown, resBody: unknown) {
   const clean = (b: Any) => {
     if (!b || typeof b !== "object") return b ?? null;
-    const s = JSON.stringify(b, (k, v) => (k === "content" && typeof v === "string" && v.length > 200 ? `<${v.length} bytes base64>` : k === "token" ? "dlv_••••" : v));
+    const s = JSON.stringify(b, (k, v) => (k === "content" && typeof v === "string" && v.length > 200 ? `<${v.length} bytes base64>` : k === "token" ? "dlv_••••" : /(^|_)(api_token|secret|password)$|^api_token$/i.test(k) && typeof v === "string" ? "••••" : v));
     return s.length > 20000 ? { truncated: true, preview: s.slice(0, 2000) } : JSON.parse(s);
   };
   await db.from("request_logs").insert({ team_id: c.teamId, api_key_id: c.apiKey?.id ?? null, endpoint, method, status, user_agent: c.via === "dashboard" ? "Dashboard" : c.userAgent, request_body: clean(reqBody), response_body: clean(resBody) });
@@ -570,6 +571,21 @@ route("POST", "/domains/:id/verify", async (_r, c, p) => {
   const u = await verifyDomain(d);
   if (u.status !== d.status) await emit(c.teamId, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
   return domainOut(u);
+});
+// One-click DNS on Cloudflare: the customer's own Cloudflare token (Zone: Read + DNS: Edit) is used for this request
+// only, never stored, and blanked out of request logs. Records are only ever added, never changed or deleted.
+route("POST", "/domains/:id/cloudflare", async (_r, c, p, _u, b) => {
+  needFull(c);
+  const d = await getDomain(c, p.id);
+  let result;
+  try { result = await cloudflareSetup(String(b?.api_token || ""), d.name, d.records || []); }
+  catch (e) {
+    if (e instanceof CloudflareError) throw new HttpError(e.code === "cloudflare_unreachable" || e.code === "cloudflare_error" ? 502 : 422, e.code, e.message);
+    throw e;
+  }
+  const u = result.created.length ? await verifyDomain(d) : d;
+  if (u.status !== d.status) await emit(c.teamId, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
+  return { ...domainOut(u), cloudflare: result };
 });
 route("PATCH", "/domains/:id", async (_r, c, p, _u, b) => { needFull(c); return domainOut(await updateDomainConfig(await getDomain(c, p.id), b || {})); });
 route("DELETE", "/domains/:id", async (_r, c, p) => { needFull(c); const d = await getDomain(c, p.id); await deleteDomain(d); return { object: "domain", id: d.id, deleted: true }; });

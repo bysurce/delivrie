@@ -81,6 +81,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`. Archive or reopen, mark read or unread, or set labels.
 - [Create domain](https://delivrie.io/docs/api/create-domain.md): `POST /domains`. Add a sending domain. The response includes the DNS records to add at your DNS provider.
 - [Retrieve domain](https://delivrie.io/docs/api/retrieve-domain.md): `GET /domains/:id`. Get a domain with its DNS records and their status.
+- [Set up DNS on Cloudflare](https://delivrie.io/docs/api/cloudflare-domain.md): `POST /domains/:id/cloudflare`. Add the domain's DNS records to its Cloudflare zone using your Cloudflare API token (Zone: Read and DNS: Edit). The token is used for this request only and never stored. Existing records are never changed or deleted.
 - [Verify domain](https://delivrie.io/docs/api/verify-domain.md): `POST /domains/:id/verify`. Check the DNS records again. Verification usually completes within minutes of the records going live.
 - [Update domain](https://delivrie.io/docs/api/update-domain.md): `PATCH /domains/:id`. Change tracking, TLS, the return path or receiving settings.
 - [List domains](https://delivrie.io/docs/api/list-domains.md): `GET /domains`. List the team's domains.
