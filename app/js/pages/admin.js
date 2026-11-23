@@ -12,7 +12,6 @@ const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
 let ROLE = null;
 const can = (min) => (RANK[ROLE] || 0) >= RANK[min];
 const money = (amount, currency) => new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format((amount || 0) / 100);
-const moneyMap = (m) => Object.keys(m || {}).length ? Object.entries(m).map(([c, a]) => money(a, c)).join(" · ") : "—";
 const pct = (a, b, d = 1) => b ? `${((a / b) * 100).toFixed(d)}%` : "0%";
 const planBadge = (p) => badge(p === "free" ? "Free" : p.replace(/^\w/, (c) => c.toUpperCase()), p === "free" ? "gray" : p === "scale" || p === "enterprise" ? "blue" : "yellow");
 
@@ -53,11 +52,12 @@ async function overview(body) {
   const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${sub}</div>` : ""}</div>`;
   const draw = (rows) => {
     body.innerHTML = `
-      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">
         ${stat("Users", num(o.users), `+${num(o.users_7d)} this week · +${num(o.users_30d)} in 30 days`)}
         ${stat("Active (7 days)", num(o.active_7d), `${pct(o.users_confirmed, o.users)} confirmed email`)}
         ${stat("Teams", num(o.teams), `${num(paid)} paying`)}
-        ${stat("Revenue (30 days)", esc(moneyMap(o.revenue_30d)), `All time ${esc(moneyMap(o.revenue_all))}`)}
+        ${stat("Naira revenue (30 days)", esc(money(o.revenue_30d?.NGN || 0, "NGN")), `Paystack · all time ${esc(money(o.revenue_all?.NGN || 0, "NGN"))}`)}
+        ${stat("Dollar revenue (30 days)", esc(money(o.revenue_30d?.USD || 0, "USD")), `Stripe · all time ${esc(money(o.revenue_all?.USD || 0, "USD"))}`)}
       </div>
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
         ${stat("Emails (30 days)", num(sent), `${num(o.emails_today)} today`)}
@@ -208,15 +208,24 @@ async function admins(body) {
 
 // ---------------------------------------------------------------- revenue
 async function revenue(body) {
-  const [o, inv] = await Promise.all([rpc("admin_overview"), rpc("admin_invoices", { p_limit: 100 })]);
-  const kinds = {};
-  for (const i of inv) if (i.status === "success") { const k = `${i.kind}:${i.currency}`; kinds[k] = (kinds[k] || 0) + Number(i.amount); }
-  body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat"><div class="k">Last 30 days</div><div class="v">${esc(moneyMap(o.revenue_30d))}</div></div>
-      <div class="stat"><div class="k">All time</div><div class="v">${esc(moneyMap(o.revenue_all))}</div></div>
-      <div class="stat"><div class="k">Paying teams</div><div class="v">${num(Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0))}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${Object.entries(kinds).map(([k, a]) => `${k.split(":")[0]} ${money(a, k.split(":")[1])}`).join(" · ") || "No payments yet"}</div></div>
-    </div>
-    <h3 class="section-title">Payments</h3>${inv.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${inv.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, i.currency)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: "Paystack payments show up here as they land." })}</div>`}`;
+  const [o, inv] = await Promise.all([rpc("admin_overview"), rpc("admin_invoices", { p_limit: 200 })]);
+  const paying = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
+  // Naira (Paystack) and dollars (Stripe) are kept apart: never added together or converted.
+  const section = (cur, title, provider) => {
+    const rows = inv.filter((i) => (i.currency || "").toUpperCase() === cur);
+    const paidRows = rows.filter((i) => i.status === "success");
+    return `<h3 class="section-title">${title} <span class="dim" style="font-weight:400">${provider}</span></h3>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><div class="k">Last 30 days</div><div class="v">${esc(money(o.revenue_30d?.[cur] || 0, cur))}</div></div>
+        <div class="stat"><div class="k">All time</div><div class="v">${esc(money(o.revenue_all?.[cur] || 0, cur))}</div></div>
+        <div class="stat"><div class="k">Payments</div><div class="v">${num(paidRows.length)}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${num(rows.length - paidRows.length)} failed</div></div>
+      </div>
+      ${rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${rows.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, cur)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="card">${emptyState({ icon: "card", title: `No ${cur === "NGN" ? "Naira" : "dollar"} payments yet`, desc: `${provider} payments show up here as they land.` })}</div>`}`;
+  };
+  body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><div class="k">Paying teams</div><div class="v">${num(paying)}</div></div></div>
+    ${section("NGN", "Naira payments", "Paystack")}
+    ${section("USD", "Dollar payments", "Stripe")}`;
 }
 
 // ---------------------------------------------------------------- inbox

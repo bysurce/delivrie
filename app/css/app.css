@@ -1256,6 +1256,9 @@ body:has(.overlay) .sc { display: none; } /* the support chat button would cover
   .page-head .actions { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
   .page-head h1 { font-size: 22px; }
   .ul-tab { white-space: nowrap; flex: none; }
+  /* Admin header: logo, role and "Back to app" only; the signed-in email is hidden so nothing runs off screen. */
+  .admin-top { flex-wrap: wrap; row-gap: 8px; padding-left: 16px; padding-right: 16px; }
+  .admin-top > span.dim { display: none; }
   /* Top bar: the page name gets the room; Feedback shows as its icon. */
   .topbar { padding: 0 8px 0 12px; }
   .crumbs { flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
