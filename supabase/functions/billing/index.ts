@@ -183,8 +183,8 @@ async function priceId(kind: string, plan: string, interval: string) {
     const made = await stripe("POST", "/prices", {
       currency: "usd", unit_amount: amount, lookup_key: key, tax_behavior: "exclusive",
       recurring: { interval: interval === "yearly" ? "year" : "month" },
-      product_data: { name, metadata: { kind, plan } },
-      metadata: { kind, plan, interval },
+      product_data: { name, metadata: { kind, plan, ...APP_TAG } },
+      metadata: { kind, plan, interval, ...APP_TAG },
     }, `price-${MODE}-${key}`);
     id = made.id;
   }
@@ -222,7 +222,7 @@ async function customerFor(teamId: string, fallbackEmail?: string) {
   const t = await team(teamId);
   const b = t.billing || {};
   if (b.stripe_customer && b.stripe_mode === MODE) return b.stripe_customer as string;
-  const c = await stripe("POST", "/customers", { email: b.details?.email || b.email || fallbackEmail, name: t.name, metadata: { team_id: teamId } }, `customer-${MODE}-${teamId}`);
+  const c = await stripe("POST", "/customers", { email: b.details?.email || b.email || fallbackEmail, name: t.name, metadata: { team_id: teamId, ...APP_TAG } }, `customer-${MODE}-${teamId}`);
   await saveBilling(teamId, { stripe_customer: c.id, stripe_mode: MODE, stripe_pm: null });
   return c.id as string;
 }
@@ -373,7 +373,7 @@ async function chargeInvoice(teamId: string, lines: { amount: number; descriptio
   const t = await team(teamId);
   const b = t.billing || {};
   if (!b.stripe_customer || !b.stripe_pm || b.stripe_mode !== MODE) throw new HttpError(400, "There's no saved card. Pay with checkout instead.");
-  const base = { customer: b.stripe_customer, collection_method: "charge_automatically", auto_advance: false, default_payment_method: b.stripe_pm, pending_invoice_items_behavior: "exclude", metadata: { team_id: teamId, ...metadata }, description: lines.map((l) => l.description).join(" · ") };
+  const base = { customer: b.stripe_customer, collection_method: "charge_automatically", auto_advance: false, default_payment_method: b.stripe_pm, pending_invoice_items_behavior: "exclude", metadata: { ...APP_TAG, team_id: teamId, ...metadata }, description: lines.map((l) => l.description).join(" · ") };
   let inv: Any;
   const tax = await taxReady();
   try { inv = await stripe("POST", "/invoices", { ...base, automatic_tax: { enabled: tax } }, `${idem}-inv`); }
@@ -857,6 +857,13 @@ async function cronAuth(req: Request) {
   if (!secret || req.headers.get("x-cron-secret") !== secret) throw new HttpError(401, "Unauthorized");
 }
 
+// Every object Delivrie creates in Stripe (customers, prices, checkouts, subscriptions, invoices) carries
+// metadata app=delivrie. The Stripe account may also serve other products, and Stripe sends their events to this
+// webhook too: anything tagged for another app is ignored, and untagged objects are only handled when they belong
+// to a known Delivrie team (objects made before the tag existed).
+const APP_TAG = { app: "delivrie" } as const;
+const otherApp = (o: Any) => !!o?.metadata?.app && o.metadata.app !== APP_TAG.app;
+
 async function stripeWebhook(req: Request) {
   const raw = await req.text();
   if (!(await verifyStripeSignature(raw, req.headers.get("stripe-signature") || "", WHSEC))) {
@@ -868,6 +875,7 @@ async function stripeWebhook(req: Request) {
   const evt = JSON.parse(raw);
   const o = evt.data?.object || {};
   if (MODE && (evt.livemode ? "live" : "test") !== MODE) return json({ received: true, ignored: "other mode" });
+  if (otherApp(o) || otherApp(o.subscription_details) || otherApp(o.parent?.subscription_details)) return json({ received: true, ignored: "other app" });
   try {
     switch (evt.type) {
       case "checkout.session.completed":
@@ -974,7 +982,7 @@ async function handle(req: Request, path: string): Promise<Response> {
       const item = sub.items.data[0];
       const updated = await stripe("POST", `/subscriptions/${sub.id}`, {
         items: [{ id: item.id, price }], proration_behavior: "always_invoice", payment_behavior: "error_if_incomplete",
-        cancel_at_period_end: false, metadata: { team_id: a.teamId, kind, plan, interval },
+        cancel_at_period_end: false, metadata: { team_id: a.teamId, kind, plan, interval, ...APP_TAG },
       }, `change-${sub.id}-${price}-${Date.now().toString(36)}`);
       await syncSubscription(updated.id);
       return json({ changed: true, ...(await view()) });
@@ -982,7 +990,7 @@ async function handle(req: Request, path: string): Promise<Response> {
 
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
-    const meta = { team_id: a.teamId, kind, plan, interval };
+    const meta = { team_id: a.teamId, kind, plan, interval, ...APP_TAG };
     // Continuing a Naira (Paystack) plan in dollars: Stripe starts charging when the paid Naira period ends.
     const trialEnd = cur.provider === "paystack" && ["active", "cancelling"].includes(cur.status) && cur.plan && cur.plan !== "free" ? trialEndFor(cur.cancel_at || cur.next_payment_date) : null;
     const s = await stripe("POST", "/checkout/sessions", {
@@ -1048,7 +1056,7 @@ async function handle(req: Request, path: string): Promise<Response> {
     const customer = await customerFor(a.teamId, a.user.email);
     const tax = await taxReady();
     const ref = `cs_ref_${a.teamId.slice(0, 8)}_${Date.now().toString(36)}`;
-    const meta = { team_id: a.teamId, kind: "credits", emails: String(emails), ref };
+    const meta = { team_id: a.teamId, kind: "credits", emails: String(emails), ref, ...APP_TAG };
     const s = await stripe("POST", "/checkout/sessions", {
       mode: "payment", customer, client_reference_id: a.teamId,
       line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: amount, tax_behavior: "exclusive", product_data: { name: `Delivrie credits · ${emails.toLocaleString("en-US")} emails` } } }],
