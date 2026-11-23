@@ -451,7 +451,7 @@ function changePlan(B, kind, startMode, preselect) {
         } else {
           const yr = mode === "yearly";
           list = row("free", "Free", "4,000 emails/month · 133/day", money(0, cur) + "<em>/mo</em>", s.plan === "free")
-            + s.plans.map((p) => row(p.id, p.name, `${num(p.emails)} emails/month · ${money(p.overage[cur], cur, true)} per extra 1k${yr ? ` · ${money(p.yearly[cur], cur)} billed yearly` : ""}`, money(yr ? Math.round(p.yearly[cur] / 12) : p.monthly[cur], cur, yr) + "<em>/mo</em>", isCurrent(p.id))).join("")
+            + s.plans.map((p) => row(p.id, p.name, `${num(p.emails)} emails/month${p.id === "starter" ? " · 1,500/day" : ""} · ${money(p.overage[cur], cur, true)} per extra 1k${yr ? ` · ${money(p.yearly[cur], cur)} billed yearly` : ""}`, money(yr ? Math.round(p.yearly[cur] / 12) : p.monthly[cur], cur, yr) + "<em>/mo</em>", isCurrent(p.id))).join("")
             + `<a class="pick" href="/contact-sales" target="_blank" data-native><span class="radio" style="visibility:hidden"></span><span class="grow"><b>Enterprise</b><span class="dim">Custom volume, SSO, SLA</span></span><span class="pr">Talk to sales</span></a>`;
         }
         mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span><span class="dim sm">${currency === "NGN" ? "Prices in Naira, paid through Paystack" : `Prices in USD${s.tax_ready ? ", plus tax where it applies" : ""}`}</span></div>

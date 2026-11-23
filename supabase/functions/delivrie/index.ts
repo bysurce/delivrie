@@ -97,8 +97,10 @@ async function checkQuota(c: Ctx, n: number) {
   const count = async (from: string) => (await db.from("emails").select("id", { count: "exact", head: true }).eq("team_id", c.teamId).is("broadcast_id", null).eq("direction", "outbound").not("tags", "cs", JSON.stringify([{ name: "system" }])).gte("created_at", from)).count || 0;
 
   // Paid plans never hard-stop at the monthly allowance: emails over it are billed as overage at month end,
-  // unless the team set a spending cap in Billing.
+  // unless the team set a spending cap in Billing. A paid plan with a daily limit (Starter: 1,500) stops for the day
+  // when it's reached; credits don't lift it.
   if (L.overage) {
+    if (L.day && (await count(day)) + n > L.day) throw new HttpError(429, "daily_quota_exceeded", `You've reached the ${name} plan's daily limit of ${L.day.toLocaleString("en-US")} emails. It resets at midnight UTC, or upgrade to Pro for no daily limit.`);
     const cap = Number(t?.billing?.spend_cap || 0);
     if (!cap || !L.month) return;
     // The cap is in the currency the team pays in: Naira on Paystack, US dollars on Stripe.

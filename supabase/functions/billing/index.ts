@@ -72,7 +72,7 @@ const VAT_RATE = Math.max(0, Number(env("VAT_RATE") || 0)) || 0;
 const vatOf = (amount: number) => Math.round(amount * VAT_RATE / 100);
 const PLAN_LIMITS: Record<string, { domains: number; members: number; retention_days: number; day: number }> = {
   free: { domains: 1, members: 1, retention_days: 30, day: 133 },
-  starter: { domains: 10, members: 5, retention_days: 30, day: 0 },
+  starter: { domains: 10, members: 5, retention_days: 30, day: 1500 },
   pro: { domains: 10, members: 5, retention_days: 30, day: 0 },
   scale: { domains: 1000, members: 0, retention_days: 30, day: 0 },
 };

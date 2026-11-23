@@ -7,7 +7,7 @@ description: Email allowances, daily limits, domains, webhooks, data retention a
 | | Free | Starter | Pro | Scale |
 | --- | --- | --- | --- | --- |
 | Emails a month | 4,000 | 20,000 | 60,000 | 100,000 |
-| Daily limit | 133 | None | None | None |
+| Daily limit | 133 | 1,500 | None | None |
 | Over the allowance | Sending pauses (or uses credits) | Keeps sending, billed per 1,000 | Keeps sending, billed per 1,000 | Keeps sending, billed per 1,000 |
 | Domains | 1 | 10 | 10 | 1,000 |
 | Webhook endpoints | 1 | 10 | 10 | Unlimited |
@@ -40,7 +40,9 @@ Check where you are with `GET /usage` or in [Billing](https://delivrie.io/billin
 
 **Free plan.** At 133 emails in a day or 4,000 in a month, sends fail with `429 daily_quota_exceeded` or `429 monthly_quota_exceeded`. If you've bought pay-as-you-go credits, Delivrie uses them instead and keeps sending. One credit is one email, and credits never expire. Daily limits reset at midnight UTC; monthly limits on the 1st (UTC).
 
-**Paid plans.** Sending never stops at the allowance. Emails over it are billed per 1,000 at the end of the month. To put a ceiling on that, set a spending cap in [Billing](https://delivrie.io/billing); a send that would go past it fails with `429 spending_cap_reached`.
+**Starter daily limit.** Starter sends up to 1,500 emails a day. Past that, sends fail with `429 daily_quota_exceeded` until midnight UTC; credits don't lift it. Pro and Scale have no daily limit.
+
+**Paid plans.** Sending never stops at the monthly allowance. Emails over it are billed per 1,000 at the end of the month. To put a ceiling on that, set a spending cap in [Billing](https://delivrie.io/billing); a send that would go past it fails with `429 spending_cap_reached`.
 
 **Domains and webhooks.** Adding more than your plan allows fails with `403 plan_limit_reached`.
 
