@@ -6,7 +6,7 @@ import { lineChart } from "../lib/chart.js";
 
 // Roles: owner (everything, manages admins), admin (everything else), viewer (read-only usage oversight).
 // The database enforces this; the page only hides what a role can't use.
-const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["revenue", "Revenue", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
+const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["blocked", "Blocked IPs", "admin"], ["revenue", "Revenue", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
 const RANK = { viewer: 1, admin: 2, owner: 3 };
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
 let ROLE = null;
@@ -35,7 +35,7 @@ export default async function admin(ctx) {
     return;
   }
   if (can("admin")) api("GET", "/support/admin/unread").then((r) => { const a = root.querySelector('.ul-tab[href="/admin/support"]'); if (a && r.unread_threads) a.insertAdjacentHTML("beforeend", ` <span class="badge yellow" style="margin-left:4px">${r.unread_threads}</span>`); }).catch(() => {});
-  const fn = { overview, users, teams, revenue, support, inbox, website, admins }[tab];
+  const fn = { overview, users, teams, blocked, revenue, support, inbox, website, admins }[tab];
   const need = TABS.find((t) => t[0] === tab)?.[2];
   if (!fn || !need || !can(need)) return ctx.navigate("/admin", { replace: true });
   try { await fn(body, ctx); } catch (e) { errToast(e); body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; }
@@ -112,20 +112,58 @@ async function users(body) {
   const list = body.querySelector("[data-list]");
   const load = async () => {
     const rows = await rpc("admin_users", { p_search: q, p_limit: size, p_offset: page * size });
+    const banned = new Set(rows.length ? await rpc("admin_banned_users", { p_ids: rows.map((u) => u.id) }).catch(() => []) : []);
+    byId = new Map(rows.map((u) => [u.id, u]));
     const total = rows[0]?.total || 0;
     body.querySelector("[data-total]").textContent = `${num(total)} users`;
-    list.innerHTML = rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>User</th><th>Sign-in</th><th>Teams</th><th>Signed up</th><th>Last seen</th></tr></thead><tbody>${rows.map((u) => `<tr>
+    list.innerHTML = rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>User</th><th>Sign-in</th><th>Teams</th><th>Signed up</th><th>Last seen</th>${can("admin") ? "<th></th>" : ""}</tr></thead><tbody>${rows.map((u) => `<tr>
         <td><div class="cell"><span class="avatar" style="width:24px;height:24px;font-size:calc(10.5px + var(--fs-up, 0px))">${esc(initials(u.name || u.email))}</span><div><div>${esc(u.name || u.email)}</div>${u.name ? `<div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${esc(u.email)}</div>` : ""}</div></div></td>
         <td>${badge(u.provider === "email" ? "Email" : u.provider.replace(/^\w/, (c) => c.toUpperCase()), "gray")} ${u.confirmed ? "" : badge("Unconfirmed", "orange")}</td>
         <td>${(u.teams || []).map((t) => `<span class="row-flex" style="gap:6px;font-size:calc(12.5px + var(--fs-up, 0px))">${esc(t.name)} ${planBadge(t.plan)}</span>`).join("") || `<span class="dim">—</span>`}</td>
         <td class="muted" title="${esc(fmtDateTime(u.created_at))}">${fmtDate(u.created_at)}</td>
-        <td class="muted">${u.last_sign_in_at ? ago(u.last_sign_in_at) : "Never"}</td></tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No users found" })}</div>`;
+        <td class="muted">${banned.has(u.id) ? badge("Banned", "red") : u.last_sign_in_at ? ago(u.last_sign_in_at) : "Never"}</td>
+        ${can("admin") ? `<td style="text-align:right">${banned.has(u.id) ? `<button class="btn btn-secondary btn-sm" data-unban="${esc(u.id)}">Unban</button>` : `<button class="btn btn-ghost btn-sm" data-ban="${esc(u.id)}" style="color:var(--red)">Ban</button>`}</td>` : ""}</tr>`).join("")}</tbody></table></div>${pagerHtml(page, total, size)}` : `<div class="card">${emptyState({ icon: "users", title: "No users found" })}</div>`;
   };
+  let byId = new Map();
+  on(body, "click", "[data-ban]", (_e, b) => {
+    const u = byId.get(b.dataset.ban); if (!u) return;
+    formModal({
+      title: "Ban account", danger: true, submit: "Ban account",
+      desc: `<b>${esc(u.email)}</b> will be signed out and can't sign in again. Teams they run alone stop sending. The addresses they've used the dashboard from are blocked for 90 days (from the API, the dashboard and new sign-ups), except ones a paying customer or an admin also uses. You can lift any of it later.`,
+      fields: [{ name: "reason", label: "Reason (kept for your records)", placeholder: "Phishing" }],
+      onSubmit: async (v) => { const r = await rpc("admin_ban_user", { p_user: u.id, p_banned: true, p_reason: v.reason || null }); toast(`Banned. ${r.ips_blocked} address${r.ips_blocked === 1 ? "" : "es"} blocked.`, "ok"); await load(); },
+    });
+  });
+  on(body, "click", "[data-unban]", async (_e, b) => {
+    const u = byId.get(b.dataset.unban); if (!u) return;
+    if (!(await confirmModal({ title: "Unban account", desc: `<b>${esc(u.email)}</b> will be able to sign in again, and the addresses blocked with their ban are unblocked. Sending stays paused for their teams until you resume it under Teams.`, confirm: "Unban", danger: false }))) return;
+    try { await rpc("admin_ban_user", { p_user: u.id, p_banned: false }); toast("Unbanned", "ok"); await load(); } catch (e) { errToast(e); }
+  });
   on(body, "input", "[data-q]", debounce((_e, i) => { q = body.querySelector("[data-q]").value.trim(); page = 0; load().catch(errToast); }, 300));
   on(body, "click", "[data-page]", (_e, b) => { page = Number(b.dataset.page); load().catch(errToast); });
   await load();
 }
 const pagerHtml = (page, total, size) => total > size ? `<div class="row-flex" style="margin-top:12px;justify-content:flex-end;gap:8px"><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${num(page * size + 1)}–${num(Math.min(total, (page + 1) * size))} of ${num(total)}</span><button class="btn btn-secondary btn-sm" data-page="${page - 1}" ${page ? "" : "disabled"}>Previous</button><button class="btn btn-secondary btn-sm" data-page="${page + 1}" ${(page + 1) * size < total ? "" : "disabled"}>Next</button></div>` : "";
+
+// ---------------------------------------------------------------- blocked IPs
+// Addresses blocked when an account was banned. Each block ends after 90 days; lift one sooner if it's hitting
+// someone else (mobile networks share addresses).
+async function blocked(body) {
+  const load = async () => {
+    const rows = await rpc("admin_blocked_ips");
+    body.innerHTML = `<p class="muted" style="margin:0 0 14px;max-width:720px">Addresses of banned accounts. They can't use the API or dashboard, or sign up. Blocks end on their own after 90 days. If one is stopping a real customer (mobile networks share addresses), unblock it.</p>
+      ${rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Address</th><th>Banned account</th><th>Reason</th><th>Other accounts seen</th><th>Blocked</th><th>Ends</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr>
+        <td class="mono">${esc(r.ip)}</td><td>${esc(r.user_email || "—")}</td><td class="muted">${esc(r.reason || "—")}</td>
+        <td>${r.other_accounts ? badge(`${num(r.other_accounts)} other`, "orange") : `<span class="dim">None</span>`}</td>
+        <td class="muted" title="${esc(fmtDateTime(r.created_at))}">${ago(r.created_at)}</td><td class="muted">${r.expires_at ? fmtDate(r.expires_at) : "Never"}</td>
+        <td style="text-align:right"><button class="btn btn-secondary btn-sm" data-unblock="${esc(r.ip)}">Unblock</button></td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="card">${emptyState({ icon: "shield", title: "No blocked addresses", desc: "Banning an account in Users blocks the addresses it used." })}</div>`}`;
+  };
+  on(body, "click", "[data-unblock]", async (_e, b) => {
+    try { await rpc("admin_unblock_ip", { p_ip: b.dataset.unblock }); toast("Unblocked", "ok"); await load(); } catch (e) { errToast(e); }
+  });
+  await load();
+}
 
 // ---------------------------------------------------------------- teams
 async function teams(body) {

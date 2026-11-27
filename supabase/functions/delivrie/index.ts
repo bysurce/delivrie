@@ -14,6 +14,30 @@ import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
 
+// ---------------------------------------------------------------- blocked addresses
+// Addresses of banned accounts (see the ip_bans migration) can't use the API or the dashboard. Every address in
+// X-Forwarded-For is checked, so adding a made-up one in front doesn't get around it. The list is cached for a minute.
+let blocked: { at: number; ips: Set<string> } = { at: 0, ips: new Set() };
+async function assertNotBlocked(req: Request) {
+  if (Date.now() - blocked.at > 60_000) {
+    const { data, error } = await db.from("blocked_ips").select("ip").or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).limit(5000);
+    blocked = { at: Date.now(), ips: error ? blocked.ips : new Set((data || []).map((r: Any) => r.ip)) };
+  }
+  if (!blocked.ips.size) return;
+  const hops = [...(req.headers.get("x-forwarded-for") || "").split(","), req.headers.get("x-real-ip") || ""].map((x) => x.trim()).filter(Boolean);
+  if (hops.some((x) => blocked.ips.has(x))) throw new HttpError(403, "access_blocked", "Access from this network is blocked. Contact support@delivrie.io if you think this is a mistake.");
+}
+// The addresses people use the dashboard from, so a ban can block them later. At most hourly per person and address.
+const noted = new Map<string, number>();
+function noteIp(userId: string, teamId: string, ip?: string) {
+  if (!ip) return;
+  const k = `${userId}|${ip}`;
+  if ((noted.get(k) || 0) > Date.now() - 3600_000) return;
+  noted.set(k, Date.now());
+  if (noted.size > 5000) noted.clear();
+  waitUntil(db.rpc("note_ip", { p_user: userId, p_team: teamId, p_ip: ip }).then(({ error }) => { if (error) console.error("note_ip", error.message); }));
+}
+
 // ---------------------------------------------------------------- auth
 async function authenticate(req: Request): Promise<Ctx> {
   const h = req.headers.get("authorization") || "";
@@ -21,6 +45,7 @@ async function authenticate(req: Request): Promise<Ctx> {
   const ua = req.headers.get("user-agent") || "";
   // The caller's address for the audit log: the first hop in X-Forwarded-For (Vercel puts the visitor there).
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim().slice(0, 64) || req.headers.get("x-real-ip") || undefined;
+  await assertNotBlocked(req);
   if (!token) throw new HttpError(401, "missing_api_key", "Missing API key in the Authorization header. Use Authorization: Bearer dlv_xxx");
   if (token.startsWith("dlv_")) {
     const { data: key } = await db.from("api_keys").select("*").eq("key_hash", await sha256(token)).maybeSingle();
@@ -39,6 +64,7 @@ async function authenticate(req: Request): Promise<Ctx> {
   if (!teamId) throw new HttpError(400, "missing_team", "x-team-id header is required");
   const { data: m } = await db.from("team_members").select("role").eq("team_id", teamId).eq("user_id", u.user.id).maybeSingle();
   if (!m) throw new HttpError(403, "forbidden", "You are not a member of this team");
+  noteIp(u.user.id, teamId, ip);
   return { teamId, userId: u.user.id, apiKey: null, permission: "full", via: "dashboard", userAgent: "Dashboard", email: u.user.email, ip };
 }
 const needFull = (c: Ctx) => { if (c.permission !== "full") throw forbidden("This API key can only send emails"); };
