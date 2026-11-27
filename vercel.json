@@ -27,7 +27,7 @@
       "destination": "/docs-static/api/:slug.html"
     },
     {
-      "source": "/docs/:slug(api-keys|audit-logs|automations|broadcasts|build-with-ai|cloudflare-workers|contacts|cors|deliverability|dmarc|domain-not-verifying|domains|email-status|errors|express|getting-started|go|idempotency|inbox|limits|mcp|migrate-from-resend|nextjs|php|python|quickstart|receiving|ruby|rust|sdks|send-email|smtp|supabase|suppressions|templates|test-mode|troubleshooting|webhooks)",
+      "source": "/docs/:slug(api-keys|audit-logs|automations|broadcasts|build-with-ai|cli|cloudflare-workers|contacts|cors|deliverability|dmarc|domain-not-verifying|domains|email-status|errors|express|getting-started|go|idempotency|inbox|limits|mcp|migrate-from-resend|nextjs|php|python|quickstart|receiving|ruby|rust|sdks|send-email|smtp|supabase|suppressions|templates|test-mode|troubleshooting|webhooks)",
       "destination": "/docs-static/:slug.html"
     },
     {

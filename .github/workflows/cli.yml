@@ -68,4 +68,4 @@ jobs:
       - name: Tag the release
         run: |
           v=$(node -p "require('./package.json').version")
-          git tag "cli-v$v" && git push origin "cli-v$v"
+          if git ls-remote --exit-code --tags origin "cli-v$v" >/dev/null; then echo "cli-v$v already tagged"; else git tag "cli-v$v" && git push origin "cli-v$v"; fi

@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Go · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Send email from Go with Delivrie using net/http, with typed request and error structs, and verify webhooks.">
+  <meta name="description" content="Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/go">
   <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/go.md">
   <meta property="og:url" content="https://delivrie.io/docs/go">
   <meta property="og:title" content="Go · Delivrie Docs">
-  <meta property="og:description" content="Send email from Go with Delivrie using net/http, with typed request and error structs, and verify webhooks.">
+  <meta property="og:description" content="Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
   <meta property="og:image:width" content="2400">
   <meta property="og:image:height" content="1260">
@@ -27,117 +27,78 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="stylesheet" href="/app/css/chat.css">
   <link rel="modulepreload" href="/app/vendor/supabase-js.js">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Go", "description": "Send email from Go with Delivrie using net/http, with typed request and error structs, and verify webhooks.", "url": "https://delivrie.io/docs/go", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-27"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Go", "item": "https://delivrie.io/docs/go"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Go", "description": "Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.", "url": "https://delivrie.io/docs/go", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-27"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Go", "item": "https://delivrie.io/docs/go"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Go</h1><p>Send email from Go with Delivrie using net/http, with typed request and error structs, and verify webhooks.</p><p>There&#39;s no Go module yet; <code>net/http</code> and <code>encoding/json</code> are all you need. (Already using <code>resend-go</code>? Set <code>RESEND_BASE_URL=https://delivrie.io/api/</code> and it talks to Delivrie; see <a href="/docs/migrate-from-resend">Migrate from Resend</a>.)</p>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Go</h1><p>Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.</p><p>The Go SDK is standard library only and needs Go 1.21 or later.</p>
+<pre><code class="language-bash">go get github.com/codeddesigner/delivrie/sdk/go</code></pre>
 <h2 id="send-an-email">Send an email</h2>
 <pre><code class="language-go">package main
 
 import (
-	&quot;bytes&quot;
-	&quot;encoding/json&quot;
+	&quot;context&quot;
 	&quot;fmt&quot;
-	&quot;net/http&quot;
+	&quot;log&quot;
 	&quot;os&quot;
-	&quot;time&quot;
+
+	delivrie &quot;github.com/codeddesigner/delivrie/sdk/go&quot;
 )
-
-type Email struct {
-	From    string   `json:&quot;from&quot;`
-	To      []string `json:&quot;to&quot;`
-	Subject string   `json:&quot;subject&quot;`
-	HTML    string   `json:&quot;html,omitempty&quot;`
-	Text    string   `json:&quot;text,omitempty&quot;`
-	ReplyTo string   `json:&quot;reply_to,omitempty&quot;`
-}
-
-type APIError struct {
-	StatusCode int    `json:&quot;statusCode&quot;`
-	Name       string `json:&quot;name&quot;`
-	Message    string `json:&quot;message&quot;`
-}
-
-func (e *APIError) Error() string { return e.Name + &quot;: &quot; + e.Message }
-
-var client = &amp;http.Client{Timeout: 30 * time.Second}
-
-func Send(email Email, idempotencyKey string) (string, error) {
-	body, _ := json.Marshal(email)
-	req, _ := http.NewRequest(&quot;POST&quot;, &quot;https://delivrie.io/api/emails&quot;, bytes.NewReader(body))
-	req.Header.Set(&quot;Authorization&quot;, &quot;Bearer &quot;+os.Getenv(&quot;DELIVRIE_API_KEY&quot;))
-	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
-	if idempotencyKey != &quot;&quot; {
-		req.Header.Set(&quot;Idempotency-Key&quot;, idempotencyKey)
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return &quot;&quot;, err
-	}
-	defer res.Body.Close()
-	if res.StatusCode &gt;= 400 {
-		var apiErr APIError
-		json.NewDecoder(res.Body).Decode(&amp;apiErr)
-		return &quot;&quot;, &amp;apiErr
-	}
-	var out struct{ ID string `json:&quot;id&quot;` }
-	return out.ID, json.NewDecoder(res.Body).Decode(&amp;out)
-}
 
 func main() {
-	id, err := Send(Email{
+	client := delivrie.New(os.Getenv(&quot;DELIVRIE_API_KEY&quot;))
+
+	sent, err := client.Emails.Send(context.Background(), &amp;delivrie.SendEmailRequest{
 		From:    &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
 		To:      []string{&quot;ada@example.com&quot;},
-		Subject: &quot;Welcome&quot;,
-		HTML:    &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
-	}, &quot;welcome-42&quot;)
+		Subject: &quot;Your receipt&quot;,
+		HTML:    &quot;&lt;p&gt;Thanks for your order.&lt;/p&gt;&quot;,
+	}, delivrie.WithIdempotencyKey(&quot;order-1042&quot;))
 	if err != nil {
-		fmt.Println(&quot;send failed:&quot;, err)
+		log.Fatal(err)
+	}
+	fmt.Println(sent.ID)
+}</code></pre>
+<p>The idempotency key makes the send safe to retry: the same key returns the original email instead of sending it again. With a key, the SDK also retries rate limits, server errors and network errors for you (twice, with backoff).</p>
+<h2 id="templates-attachments-and-scheduling">Templates, attachments and scheduling</h2>
+<pre><code class="language-go">client.Emails.Send(ctx, &amp;delivrie.SendEmailRequest{
+	To:          []string{&quot;ada@example.com&quot;},
+	Template:    &amp;delivrie.TemplateRef{ID: &quot;welcome&quot;, Variables: map[string]any{&quot;name&quot;: &quot;Ada&quot;}},
+	Attachments: []delivrie.Attachment{{Filename: &quot;invoice.pdf&quot;, Content: pdfBytes}},
+	ScheduledAt: &quot;tomorrow at 9am&quot;,
+})</code></pre>
+<p><code>Content</code> is the raw file; the SDK encodes it. <code>ScheduledAt</code> takes an RFC 3339 time or a phrase like <code>in 1 hour</code> (UTC), up to 30 days ahead.</p>
+<h2 id="handle-errors">Handle errors</h2>
+<p>API errors are <code>*delivrie.Error</code>, with the HTTP status, Delivrie&#39;s error name and a message:</p>
+<pre><code class="language-go">if err != nil {
+	var apiErr *delivrie.Error
+	if errors.As(err, &amp;apiErr) &amp;&amp; apiErr.Name == &quot;validation_error&quot; {
+		log.Printf(&quot;fix the request: %s&quot;, apiErr.Message)
+	}
+}</code></pre>
+<p><code>delivrie.IsNotFound(err)</code> and <code>delivrie.IsRateLimited(err)</code> cover the common checks. See <a href="/docs/errors">Errors</a> for every name.</p>
+<h2 id="everything-else">Everything else</h2>
+<p>The client covers the whole API: <code>client.Domains</code>, <code>client.APIKeys</code>, <code>client.Webhooks</code>, <code>client.Contacts</code>, <code>client.Segments</code>, <code>client.Broadcasts</code>, <code>client.Templates</code>, <code>client.Suppressions</code>, <code>client.Events</code>, <code>client.Automations</code>, <code>client.Inbox</code>, <code>client.Metrics</code>, <code>client.Logs</code> and <code>client.Usage</code>.</p>
+<pre><code class="language-go">domain, _ := client.Domains.Create(ctx, &amp;delivrie.CreateDomainRequest{Name: &quot;mail.acme.com&quot;})
+for _, r := range domain.Records {
+	fmt.Println(r.Type, r.Name, r.Value)
+}</code></pre>
+<p><code>client.Do(ctx, &quot;GET&quot;, &quot;/path&quot;, nil, &amp;out)</code> calls any endpoint the SDK doesn&#39;t wrap yet.</p>
+<h2 id="verify-webhooks">Verify webhooks</h2>
+<pre><code class="language-go">func handler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	event, err := delivrie.VerifyWebhook(body, r.Header, os.Getenv(&quot;DELIVRIE_WEBHOOK_SECRET&quot;))
+	if err != nil {
+		http.Error(w, &quot;invalid signature&quot;, http.StatusBadRequest)
 		return
 	}
-	fmt.Println(&quot;sent&quot;, id)
+	log.Println(event.Type) // &quot;email.delivered&quot;, &quot;email.bounced&quot;, …
+	w.WriteHeader(http.StatusOK)
 }</code></pre>
-<h2 id="verify-webhooks">Verify webhooks</h2>
-<pre><code class="language-go">import (
-	&quot;crypto/hmac&quot;
-	&quot;crypto/sha256&quot;
-	&quot;encoding/base64&quot;
-	&quot;errors&quot;
-	&quot;io&quot;
-	&quot;net/http&quot;
-	&quot;strconv&quot;
-	&quot;strings&quot;
-	&quot;time&quot;
-)
-
-func VerifyWebhook(r *http.Request, secret string) ([]byte, error) {
-	payload, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	id, ts := r.Header.Get(&quot;webhook-id&quot;), r.Header.Get(&quot;webhook-timestamp&quot;)
-	t, err := strconv.ParseInt(ts, 10, 64)
-	if err != nil || time.Since(time.Unix(t, 0)).Abs() &gt; 5*time.Minute {
-		return nil, errors.New(&quot;bad timestamp&quot;)
-	}
-	key, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, &quot;whsec_&quot;))
-	if err != nil {
-		return nil, err
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(id + &quot;.&quot; + ts + &quot;.&quot;))
-	mac.Write(payload)
-	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	for _, sig := range strings.Split(r.Header.Get(&quot;webhook-signature&quot;), &quot; &quot;) {
-		if v, value, ok := strings.Cut(sig, &quot;,&quot;); ok &amp;&amp; v == &quot;v1&quot; &amp;&amp; hmac.Equal([]byte(value), []byte(expected)) {
-			return payload, nil
-		}
-	}
-	return nil, errors.New(&quot;invalid signature&quot;)
-}</code></pre>
-<p>Decode the returned payload into a struct with <code>Type string</code> and <code>Data json.RawMessage</code> fields, then switch on <code>Type</code>.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+<p>Read the body before decoding it: the signature covers the exact bytes. Requests older than 5 minutes are rejected as replays. See <a href="/docs/webhooks">Webhooks</a>.</p>
+<p>Already using <code>resend-go</code>? Set <code>RESEND_BASE_URL=https://delivrie.io/api/</code> and it talks to Delivrie; see <a href="/docs/migrate-from-resend">Migrate from Resend</a>.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>
