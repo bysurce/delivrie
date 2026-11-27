@@ -25,7 +25,9 @@ def ld(*items):
     return '<script type="application/ld+json" data-seo>' + json.dumps({"@context": "https://schema.org", "@graph": list(items)}, ensure_ascii=False).replace("</", "<\\/") + "</script>"
 
 ORG = {"@type": "Organization", "@id": f"{SITE}/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": SITE,
-       "logo": f"{SITE}/assets/delivrie-icon.png", "email": "support@delivrie.io"}
+       "logo": f"{SITE}/assets/delivrie-icon.png", "email": "support@delivrie.io",
+       "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Ste R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"},
+       "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}
 
 def pricing_data():
     js = rd("pricing.js")

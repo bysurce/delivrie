@@ -1175,3 +1175,15 @@ a.b-primary[href="/signup"]:hover { background: #ffe033; }
 .dd-install.done .dd-copied { display: block; }
 @media (max-width: 900px) { .nav-dd-panel { display: none; } }
 @media (prefers-reduced-motion: reduce) { .nav-dd-panel, .nav-dd-btn svg { transition: none; } }
+
+/* Footer: company address and social links. The platform marks come from Simple Icons (CC0, pinned version) and are
+   drawn as masks in currentColor, so they follow the theme like the rest of the footer. */
+.footer .faddr { margin: 18px 0 0; font-style: normal; font-size: 13px; line-height: 1.6; color: var(--fg-2); }
+.footer .fsocial { display: flex; gap: 8px; margin-top: 16px; }
+.footer .fsocial a { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-app); color: var(--fg-2); display: grid; place-items: center; transition: color .15s, background .15s, border-color .15s; }
+.footer .fsocial a::before { content: ""; width: 15px; height: 15px; background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+.footer .fsocial a:hover { color: var(--fg); background: var(--bg-hover); border-color: var(--border-strong); }
+.footer .fsocial .s-x { --ic: url("https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/x.svg"); }
+.footer .fsocial .s-yt { --ic: url("https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/youtube.svg"); }
+.footer .fsocial .s-li { --ic: url("https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/linkedin.svg"); }
+.footer .fsocial .s-li::before { width: 14px; height: 14px; }
