@@ -20,8 +20,10 @@ interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permi
 let blocked: { at: number; ips: Set<string> } = { at: 0, ips: new Set() };
 async function assertNotBlocked(req: Request) {
   if (Date.now() - blocked.at > 60_000) {
-    const { data, error } = await db.from("blocked_ips").select("ip").or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).limit(5000);
-    blocked = { at: Date.now(), ips: error ? blocked.ips : new Set((data || []).map((r: Any) => r.ip)) };
+    const { data, error } = await db.from("blocked_ips").select("ip,expires_at").limit(5000);
+    if (error) console.error("blocked_ips load", error.message);
+    const now = Date.now();
+    blocked = { at: now, ips: error ? blocked.ips : new Set((data || []).filter((r: Any) => !r.expires_at || new Date(r.expires_at).getTime() > now).map((r: Any) => String(r.ip).trim())) };
   }
   if (!blocked.ips.size) return;
   const hops = [...(req.headers.get("x-forwarded-for") || "").split(","), req.headers.get("x-real-ip") || ""].map((x) => x.trim()).filter(Boolean);
