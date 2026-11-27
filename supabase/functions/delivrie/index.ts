@@ -11,6 +11,7 @@ import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
 import { onInboundMail, registerInbox } from "./inbox.ts";
 import { initAgent } from "./agent.ts";
+import { registerDedicated } from "./dedicated.ts";
 import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
 import * as Mail from "../_shared/emails.ts";
 import { senderFrom } from "../_shared/brand-email.ts";
@@ -727,6 +728,7 @@ function route(method: string, path: string, h: Handler) {
 const list = (data: unknown[], extra: Any = {}) => ({ object: "list", data, ...extra });
 // inboxes and the Inbox, then automations, events, usage, received mail (registered first so /emails/received wins over /emails/:id)
 registerInbox(route, { needFull, sendEmails });
+registerDedicated(route, { needFull });
 registerExtra(route, { needFull, sendEmails });
 initAgent({ sendEmails });
 setOnInboundMail(onInboundMail);

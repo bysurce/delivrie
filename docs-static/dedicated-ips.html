@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}document.documentElement.dataset.cur="USD";try{var a=JSON.parse(localStorage.getItem("sb-hnjejflinvaoxbduxeiu-auth-token")||"null");if(a&&(a.refresh_token||a.currentSession)){document.documentElement.dataset.auth="in";var f=function(){document.querySelectorAll('a[href^="/signup"]').forEach(function(a){var h=a.getAttribute("href"),m=/[?&]plan=([a-z]+)/.exec(h);if(m){a.href="/billing?upgrade="+m[1]+(/interval=yearly/.test(h)?"&interval=yearly":"");return}var t=a.textContent.trim();a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t)){a.textContent="Go to dashboard";a.classList.add("go-dash")}})};document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}a.go-dash{background:#fad600!important;color:#1f1d1e!important;border-color:#fad600!important;box-shadow:none!important}a.go-dash:hover{background:#ffe033!important;border-color:#ffe033!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dedicated IPs · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Send from IP addresses only your team uses, warmed up and scaled automatically. Available on Scale and Enterprise.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/dedicated-ips">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/dedicated-ips.md">
+  <meta property="og:url" content="https://delivrie.io/docs/dedicated-ips">
+  <meta property="og:title" content="Dedicated IPs · Delivrie Docs">
+  <meta property="og:description" content="Send from IP addresses only your team uses, warmed up and scaled automatically. Available on Scale and Enterprise.">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <meta property="og:image:width" content="2400">
+  <meta property="og:image:height" content="1260">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="stylesheet" href="/app/css/chat.css">
+  <link rel="modulepreload" href="/app/vendor/supabase-js.js">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Dedicated IPs", "description": "Send from IP addresses only your team uses, warmed up and scaled automatically. Available on Scale and Enterprise.", "url": "https://delivrie.io/docs/dedicated-ips", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-28"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Dedicated IPs", "item": "https://delivrie.io/docs/dedicated-ips"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Dedicated IPs</h1><p>Send from IP addresses only your team uses, warmed up and scaled automatically. Available on Scale and Enterprise.</p><p>By default, Delivrie sends your mail from a shared pool of IP addresses with a strong reputation. With dedicated IPs, your mail goes out from addresses only your team uses, so your sending reputation depends only on what you send.</p>
+<p>Dedicated IPs are available on the <b>Scale</b> and <b>Enterprise</b> plans. They suit senders with steady volume, usually <b>3,000 emails a day or more</b>. Below that, shared IPs give you a better reputation, and Amazon may move low-volume mail back to them anyway.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Delivrie uses Amazon SES managed dedicated IPs. When yours are switched on:</p>
+<ul><li>Each region your domains send from gets its own pool of IPs for your team, and your domains are moved onto it. Your API calls, SMTP settings and DNS records don&#39;t change.</li><li>The IPs are <b>warmed up automatically</b>, separately for each mailbox provider (Gmail, Outlook, Yahoo and so on). During warm-up, which takes a few weeks, some of your mail still goes out through the shared pool so delivery stays steady.</li><li>More IPs are added as your volume grows, and removed if it drops for a long time.</li><li>If you add a domain in a new region later, it gets a pool there too.</li></ul>
+<p>Your reputation is now yours alone, so keep bounce and complaint rates low: send only to people who asked for your mail, and remove addresses that bounce. The <a href="/docs/deliverability">deliverability guide</a> covers the details.</p>
+<h2 id="get-dedicated-ips">Get dedicated IPs</h2>
+<ol><li>Go to <b>Settings → Dedicated IPs</b> (team admins only).</li><li>Choose <b>Request dedicated IPs</b> and tell us your expected volume.</li><li>We review requests within one business day. Your team&#39;s admins get an email when the IPs are on.</li></ol>
+<p>To turn them off, choose <b>Turn off dedicated IPs</b> on the same page. Your domains go back to the shared IPs straight away and the dedicated IPs are released. If you want them again later, they need warming up again.</p>
+<h2 id="check-the-status-from-the-api">Check the status from the API</h2>
+<p><code>GET /dedicated-ips</code> returns the status (<code>off</code>, <code>requested</code>, <code>active</code>, <code>declined</code> and so on), the regions with a pool, your plan and your average daily volume over the last 14 days. Requesting and turning them off happen in the dashboard.</p>
+<pre><code class="language-bash">curl https://delivrie.io/api/dedicated-ips -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/dedicated-ips">Dedicated IPs</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

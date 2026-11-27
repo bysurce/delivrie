@@ -3,11 +3,12 @@
 import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, num, fmtDate, fmtDateTime, ago, badge, toast, errToast, on, debounce, confirmModal, formModal, fieldHtml, emptyState, initials } from "../lib/ui.js";
 import { lineChart } from "../lib/chart.js";
+import { adminDedicated } from "./dedicated.js";
 
 // Roles: owner (everything, manages admins), admin (everything else), viewer (read-only usage oversight).
 // The database enforces this; the page only hides what a role can't use.
 // "support" (answer customers) and "everyone" (any admin role) sit outside the viewer < admin < owner ladder.
-const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["blocked", "Blocked IPs", "admin"], ["revenue", "Revenue", "viewer"], ["support", "Support", "support"], ["leaderboard", "Leaderboard", "everyone"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
+const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["blocked", "Blocked IPs", "admin"], ["revenue", "Revenue", "viewer"], ["support", "Support", "support"], ["leaderboard", "Leaderboard", "everyone"], ["inbox", "Inbox", "admin"], ["dedicated-ips", "Dedicated IPs", "viewer"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
 const RANK = { support: 0, viewer: 1, admin: 2, owner: 3 };
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer", support: "Support" };
 let ROLE = null;
@@ -36,7 +37,7 @@ export default async function admin(ctx) {
     return;
   }
   if (can("support")) api("GET", "/support/admin/unread").then((r) => { const n = r.waiting || r.unread_threads; const a = root.querySelector("[data-support-count]"); if (a && n) a.innerHTML = ` <span class="badge yellow" style="margin-left:4px" title="${r.waiting ? `${r.waiting} waiting to be accepted` : "unread"}">${n}</span>`; }).catch(() => {});
-  const fn = { overview, users, teams, blocked, revenue, support, leaderboard, inbox, website, admins }[tab];
+  const fn = { overview, users, teams, blocked, revenue, support, leaderboard, inbox, website, admins, "dedicated-ips": (b) => adminDedicated(b, can("admin")) }[tab];
   const need = TABS.find((t) => t[0] === tab)?.[2];
   if (!fn || !need || !can(need)) return ctx.navigate(ROLE === "support" ? "/admin/support" : "/admin", { replace: true });
   try { await fn(body, ctx); } catch (e) { errToast(e); body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; }

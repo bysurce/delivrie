@@ -1,6 +1,7 @@
 import { awsQuery, AwsError, credsFromEnv, sesv2, SES_RECEIVING_REGIONS, SES_REGIONS, type AwsCreds } from "./aws.ts";
 import { type Any, db, FUNCTION_URL, HttpError, setting, setSetting } from "./util.ts";
 import { b64 } from "./mime.ts";
+import { ensureTeamPool, teamPool } from "./dedicated.ts";
 
 // SPF include customers add to their return-path subdomain. TXT _spf.delivrie.io = "v=spf1 include:amazonses.com ~all".
 export const SPF_INCLUDE = "_spf.delivrie.io";
@@ -114,7 +115,9 @@ export async function createDomain(teamId: string, name: string, region: string,
   if (error) throw new HttpError(422, "validation_error", error.message);
   try {
     const configSet = `dlv-${d.id}`;
-    await sesv2(c, region, "POST", "/v2/email/configuration-sets", { ConfigurationSetName: configSet, DeliveryOptions: { TlsPolicy: d.tls === "enforced" ? "REQUIRE" : "OPTIONAL" }, ReputationOptions: { ReputationMetricsEnabled: true }, SendingOptions: { SendingEnabled: true } });
+    // A team with dedicated IPs sends this domain through its pool in this region (created now if it's a new region).
+    const pool = await ensureTeamPool(teamId, region);
+    await sesv2(c, region, "POST", "/v2/email/configuration-sets", { ConfigurationSetName: configSet, DeliveryOptions: { TlsPolicy: d.tls === "enforced" ? "REQUIRE" : "OPTIONAL", ...(pool ? { SendingPoolName: pool } : {}) }, ReputationOptions: { ReputationMetricsEnabled: true }, SendingOptions: { SendingEnabled: true } });
     const topic = await ensureTopic(region);
     await sesv2(c, region, "POST", `/v2/email/configuration-sets/${configSet}/event-destinations`, { EventDestinationName: "delivrie", EventDestination: eventDestination(topic, d) });
     await createIdentity(c, { ...d, config_set: configSet }, priv);
@@ -302,7 +305,11 @@ export async function updateDomainConfig(d: Any, patch: Any) {
     const topic = await ensureTopic(d.region);
     await sesv2(c, d.region, "PUT", `/v2/email/configuration-sets/${configSet}/event-destinations/delivrie`, { EventDestination: eventDestination(topic, next) });
   }
-  if ("tls" in patch) await sesv2(c, d.region, "PUT", `/v2/email/configuration-sets/${configSet}/delivery-options`, { TlsPolicy: next.tls === "enforced" ? "REQUIRE" : "OPTIONAL" });
+  if ("tls" in patch) {
+    // Setting delivery options replaces them, so keep the team's dedicated IP pool on.
+    const pool = await teamPool(d.team_id, d.region);
+    await sesv2(c, d.region, "PUT", `/v2/email/configuration-sets/${configSet}/delivery-options`, { TlsPolicy: next.tls === "enforced" ? "REQUIRE" : "OPTIONAL", ...(pool ? { SendingPoolName: pool } : {}) });
+  }
   if ("return_path" in patch && patch.return_path !== d.return_path) {
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(next.return_path)) throw new HttpError(422, "validation_error", "Return path must be a single subdomain label like send");
     // A parked domain isn't in SES; the new return path is used when it's put back (createIdentity reads the row).
