@@ -1,5 +1,6 @@
 # Tests the Go SDK (sdk/go) on every change. Releasing is a git tag: sdk/go/v0.1.0 makes
 # `go get github.com/codeddesigner/delivrie/sdk/go@v0.1.0` work (the Go module proxy picks it up from the public repo).
+# Run this workflow by hand with "release" ticked to tag the version in sdk/go/client.go (const Version).
 name: Go SDK
 
 on:
@@ -8,6 +9,12 @@ on:
     paths: ["sdk/go/**", ".github/workflows/sdk-go.yml"]
   pull_request:
     paths: ["sdk/go/**"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Tag the version in sdk/go/client.go as sdk/go/v<version>
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -27,3 +34,23 @@ jobs:
       - run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
       - run: go vet ./...
       - run: go test -race ./...
+
+  release:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag the release
+        run: |
+          v=$(sed -n 's/^const Version = "\(.*\)"/\1/p' sdk/go/client.go)
+          test -n "$v"
+          if git ls-remote --exit-code --tags origin "refs/tags/sdk/go/v$v" >/dev/null; then echo "sdk/go/v$v already exists"; exit 0; fi
+          git tag "sdk/go/v$v" && git push origin "sdk/go/v$v"
+      - name: Ask the Go module proxy to fetch it
+        run: |
+          v=$(sed -n 's/^const Version = "\(.*\)"/\1/p' sdk/go/client.go)
+          for i in 1 2 3 4 5; do curl -fsS "https://proxy.golang.org/github.com/codeddesigner/delivrie/sdk/go/@v/v$v.info" && exit 0; sleep 10; done
+          echo "::warning::The module proxy hasn't listed v$v yet; it usually does within a few minutes."
