@@ -99,5 +99,6 @@ Then send from any address on that domain, like `orders@mail.acme.com`, to anyon
 
 - Track deliveries, bounces and opens with [webhooks](/docs/webhooks).
 - Reuse designs with [templates](/docs/templates).
-- Find your framework under SDKs and frameworks: [Next.js](/docs/nextjs), [Express](/docs/express), [Python](/docs/python), [PHP and Laravel](/docs/php), [Ruby and Rails](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust), [Supabase](/docs/supabase), [Cloudflare Workers](/docs/cloudflare-workers).
+- Prefer the terminal? Try the [CLI](/docs/cli).
+- Find your language or framework under SDKs and frameworks: [Next.js](/docs/nextjs), [Express](/docs/express), [Python](/docs/python), [PHP and Laravel](/docs/php), [Ruby and Rails](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust), [Supabase](/docs/supabase), [Cloudflare Workers](/docs/cloudflare-workers).
 - Before you go live, read the [Deliverability guide](/docs/deliverability).

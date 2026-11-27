@@ -69,6 +69,7 @@ Create a key at https://delivrie.io/api-keys. In CI, set DELIVRIE_API_KEY instea
       --header Name:value    Custom header, repeatable
       --schedule <when>      ISO time or "in 1 hour", "tomorrow at 9am" (UTC)
       --idempotency-key <k>  Retrying with the same key never sends twice (one is made for you if left out)
+  -q, --quiet                Print only the email id
 
 Examples
   delivrie send -f "Acme <hi@acme.com>" -t ada@example.com -s "Hello" --text "It works"

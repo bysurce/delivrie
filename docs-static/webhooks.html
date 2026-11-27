@@ -111,26 +111,25 @@ export async function POST(req: Request) {
   } catch {
     return new Response(&quot;invalid signature&quot;, { status: 400 });
   }
-}</code></pre><p><b>Python</b></p><pre><code class="language-python">import base64, hashlib, hmac, json, time
+}</code></pre><p><b>Python</b></p><pre><code class="language-python">from delivrie import verify_webhook, WebhookVerificationError
 
-def verify_webhook(payload: bytes, headers: dict, secret: str) -&gt; dict:
-    msg_id, ts = headers[&quot;webhook-id&quot;], headers[&quot;webhook-timestamp&quot;]
-    if abs(time.time() - int(ts)) &gt; 300:
-        raise ValueError(&quot;timestamp too old&quot;)
-    key = base64.b64decode(secret.removeprefix(&quot;whsec_&quot;))
-    expected = base64.b64encode(hmac.new(key, f&quot;{msg_id}.{ts}.&quot;.encode() + payload, hashlib.sha256).digest()).decode()
-    if not any(s.startswith(&quot;v1,&quot;) and hmac.compare_digest(s[3:], expected) for s in headers[&quot;webhook-signature&quot;].split()):
-        raise ValueError(&quot;invalid signature&quot;)
-    return json.loads(payload)</code></pre><p><b>PHP</b></p><pre><code class="language-php">function verify_webhook(string $payload, array $h, string $secret): array {
-    if (abs(time() - (int) $h[&#39;webhook-timestamp&#39;]) &gt; 300) throw new Exception(&#39;timestamp too old&#39;);
-    $key = base64_decode(preg_replace(&#39;/^whsec_/&#39;, &#39;&#39;, $secret));
-    $expected = base64_encode(hash_hmac(&#39;sha256&#39;, &quot;{$h[&#39;webhook-id&#39;]}.{$h[&#39;webhook-timestamp&#39;]}.$payload&quot;, $key, true));
-    foreach (explode(&#39; &#39;, $h[&#39;webhook-signature&#39;]) as $sig) {
-        if (str_starts_with($sig, &#39;v1,&#39;) &amp;&amp; hash_equals($expected, substr($sig, 3))) return json_decode($payload, true);
-    }
-    throw new Exception(&#39;invalid signature&#39;);
+# Flask; in Django pass request.body, in FastAPI await request.body()
+try:
+    event = verify_webhook(request.get_data(), request.headers, os.environ[&quot;DELIVRIE_WEBHOOK_SECRET&quot;])
+except WebhookVerificationError:
+    return &quot;&quot;, 400</code></pre><p><b>Go</b></p><pre><code class="language-go">body, _ := io.ReadAll(r.Body)
+event, err := delivrie.VerifyWebhook(body, r.Header, os.Getenv(&quot;DELIVRIE_WEBHOOK_SECRET&quot;))
+if err != nil {
+	http.Error(w, &quot;invalid signature&quot;, http.StatusBadRequest)
+	return
+}</code></pre><p><b>PHP</b></p><pre><code class="language-php">try {
+    $event = \Delivrie\Webhook::verify(file_get_contents(&#39;php://input&#39;), getallheaders(), getenv(&#39;DELIVRIE_WEBHOOK_SECRET&#39;));
+} catch (\Delivrie\Exception\WebhookVerificationException $e) {
+    http_response_code(400);
+    exit;
 }</code></pre>
-<p>Ruby, Go and Rust versions are in their guides: <a href="/docs/ruby">Ruby</a>, <a href="/docs/go">Go</a>, <a href="/docs/rust">Rust</a>. Standard Webhooks libraries (<code>standardwebhooks</code> on npm and PyPI, and others) also work with your <code>whsec_</code> secret.</p>
+<p>Each SDK checks the signature and the timestamp and returns the parsed event.</p>
+<p>No SDK in your language? The <a href="/docs/ruby">Ruby</a> and <a href="/docs/rust">Rust</a> guides show the check written by hand, and Standard Webhooks libraries (<code>standardwebhooks</code> on npm and PyPI, and others) also work with your <code>whsec_</code> secret.</p>
 <h2 id="respond-quickly">Respond quickly</h2>
 <p>Return any <code>2xx</code> status within 15 seconds. Do slow work (database writes, calling other APIs) in a background job after responding. Redirects aren&#39;t followed and count as failures.</p>
 <h2 id="retries">Retries</h2>

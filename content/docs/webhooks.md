@@ -138,32 +138,36 @@ export async function POST(req: Request) {
 ```
 
 ```python Python
-import base64, hashlib, hmac, json, time
+from delivrie import verify_webhook, WebhookVerificationError
 
-def verify_webhook(payload: bytes, headers: dict, secret: str) -> dict:
-    msg_id, ts = headers["webhook-id"], headers["webhook-timestamp"]
-    if abs(time.time() - int(ts)) > 300:
-        raise ValueError("timestamp too old")
-    key = base64.b64decode(secret.removeprefix("whsec_"))
-    expected = base64.b64encode(hmac.new(key, f"{msg_id}.{ts}.".encode() + payload, hashlib.sha256).digest()).decode()
-    if not any(s.startswith("v1,") and hmac.compare_digest(s[3:], expected) for s in headers["webhook-signature"].split()):
-        raise ValueError("invalid signature")
-    return json.loads(payload)
+# Flask; in Django pass request.body, in FastAPI await request.body()
+try:
+    event = verify_webhook(request.get_data(), request.headers, os.environ["DELIVRIE_WEBHOOK_SECRET"])
+except WebhookVerificationError:
+    return "", 400
 ```
 
-```php PHP
-function verify_webhook(string $payload, array $h, string $secret): array {
-    if (abs(time() - (int) $h['webhook-timestamp']) > 300) throw new Exception('timestamp too old');
-    $key = base64_decode(preg_replace('/^whsec_/', '', $secret));
-    $expected = base64_encode(hash_hmac('sha256', "{$h['webhook-id']}.{$h['webhook-timestamp']}.$payload", $key, true));
-    foreach (explode(' ', $h['webhook-signature']) as $sig) {
-        if (str_starts_with($sig, 'v1,') && hash_equals($expected, substr($sig, 3))) return json_decode($payload, true);
-    }
-    throw new Exception('invalid signature');
+```go Go
+body, _ := io.ReadAll(r.Body)
+event, err := delivrie.VerifyWebhook(body, r.Header, os.Getenv("DELIVRIE_WEBHOOK_SECRET"))
+if err != nil {
+	http.Error(w, "invalid signature", http.StatusBadRequest)
+	return
 }
 ```
 
-Ruby, Go and Rust versions are in their guides: [Ruby](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust). Standard Webhooks libraries (`standardwebhooks` on npm and PyPI, and others) also work with your `whsec_` secret.
+```php PHP
+try {
+    $event = \Delivrie\Webhook::verify(file_get_contents('php://input'), getallheaders(), getenv('DELIVRIE_WEBHOOK_SECRET'));
+} catch (\Delivrie\Exception\WebhookVerificationException $e) {
+    http_response_code(400);
+    exit;
+}
+```
+
+Each SDK checks the signature and the timestamp and returns the parsed event.
+
+No SDK in your language? The [Ruby](/docs/ruby) and [Rust](/docs/rust) guides show the check written by hand, and Standard Webhooks libraries (`standardwebhooks` on npm and PyPI, and others) also work with your `whsec_` secret.
 
 ## Respond quickly
 

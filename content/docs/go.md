@@ -53,7 +53,7 @@ client.Emails.Send(ctx, &delivrie.SendEmailRequest{
 })
 ```
 
-`Content` is the raw file; the SDK encodes it. `ScheduledAt` takes an RFC 3339 time or a phrase like `in 1 hour` (UTC), up to 30 days ahead.
+With a template, `From` and `Subject` are optional: the template's own are used. `Content` is the raw file; the SDK encodes it. `ScheduledAt` takes an RFC 3339 time or a phrase like `in 1 hour` (UTC), up to 30 days ahead.
 
 ## Handle errors
 

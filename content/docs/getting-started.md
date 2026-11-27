@@ -6,12 +6,13 @@ description: What Delivrie is, how the API works, and where to start: base URL, 
 ---
 Delivrie is an email platform for developers. Send transactional email (receipts, sign-in codes, password resets) and marketing email (broadcasts, automations) from your own domain, receive replies in an inbox, and get every delivery event as a webhook.
 
-You can reach Delivrie four ways. They all share the same account, limits, logs and webhooks.
+You can reach Delivrie in several ways. They all share the same account, limits, logs and webhooks.
 
 | Way in | Use it when | Start here |
 | --- | --- | --- |
-| REST API | You're writing code in any language | [Quickstart](/docs/quickstart) |
-| Node.js SDK | You're on Node.js, Bun, Deno, Workers or Vercel Edge | [Node.js SDK](/docs/sdks) |
+| An official SDK | You write Node.js, Python, Go or PHP | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php) |
+| REST API | You write any other language, or prefer plain HTTP | [Quickstart](/docs/quickstart) |
+| CLI | You want to send or check email from a terminal, script or CI job | [CLI](/docs/cli) |
 | SMTP relay | A framework, CMS or plugin already sends email over SMTP | [SMTP](/docs/smtp) |
 | MCP server | An AI assistant should send email or manage your account | [MCP server](/docs/mcp) |
 

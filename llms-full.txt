@@ -17,12 +17,13 @@ What Delivrie is, how the API works, and where to start: base URL, authenticatio
 
 Delivrie is an email platform for developers. Send transactional email (receipts, sign-in codes, password resets) and marketing email (broadcasts, automations) from your own domain, receive replies in an inbox, and get every delivery event as a webhook.
 
-You can reach Delivrie four ways. They all share the same account, limits, logs and webhooks.
+You can reach Delivrie in several ways. They all share the same account, limits, logs and webhooks.
 
 | Way in | Use it when | Start here |
 | --- | --- | --- |
-| REST API | You're writing code in any language | [Quickstart](/docs/quickstart) |
-| Node.js SDK | You're on Node.js, Bun, Deno, Workers or Vercel Edge | [Node.js SDK](/docs/sdks) |
+| An official SDK | You write Node.js, Python, Go or PHP | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php) |
+| REST API | You write any other language, or prefer plain HTTP | [Quickstart](/docs/quickstart) |
+| CLI | You want to send or check email from a terminal, script or CI job | [CLI](/docs/cli) |
 | SMTP relay | A framework, CMS or plugin already sends email over SMTP | [SMTP](/docs/smtp) |
 | MCP server | An AI assistant should send email or manage your account | [MCP server](/docs/mcp) |
 
@@ -192,7 +193,8 @@ Then send from any address on that domain, like `orders@mail.acme.com`, to anyon
 
 - Track deliveries, bounces and opens with [webhooks](/docs/webhooks).
 - Reuse designs with [templates](/docs/templates).
-- Find your framework under SDKs and frameworks: [Next.js](/docs/nextjs), [Express](/docs/express), [Python](/docs/python), [PHP and Laravel](/docs/php), [Ruby and Rails](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust), [Supabase](/docs/supabase), [Cloudflare Workers](/docs/cloudflare-workers).
+- Prefer the terminal? Try the [CLI](/docs/cli).
+- Find your language or framework under SDKs and frameworks: [Next.js](/docs/nextjs), [Express](/docs/express), [Python](/docs/python), [PHP and Laravel](/docs/php), [Ruby and Rails](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust), [Supabase](/docs/supabase), [Cloudflare Workers](/docs/cloudflare-workers).
 - Before you go live, read the [Deliverability guide](/docs/deliverability).
 
 
@@ -1283,6 +1285,8 @@ $delivrie->emails->send([
 ]);
 ```
 
+With a template, `from` and `subject` are optional: the template's own are used. `path` reads the file and encodes it for you.
+
 The SDK covers the whole API: `$delivrie->domains`, `apiKeys`, `webhooks`, `contacts`, `segments`, `broadcasts`, `templates`, `suppressions`, `events`, `automations`, `inbox`, `logs`, plus `usage()` and `metrics()`.
 
 In Laravel, bind it once in a service provider:
@@ -1440,7 +1444,7 @@ client.Emails.Send(ctx, &delivrie.SendEmailRequest{
 })
 ```
 
-`Content` is the raw file; the SDK encodes it. `ScheduledAt` takes an RFC 3339 time or a phrase like `in 1 hour` (UTC), up to 30 days ahead.
+With a template, `From` and `Subject` are optional: the template's own are used. `Content` is the raw file; the SDK encodes it. `ScheduledAt` takes an RFC 3339 time or a phrase like `in 1 hour` (UTC), up to 30 days ahead.
 
 ## Handle errors
 
@@ -3045,32 +3049,36 @@ export async function POST(req: Request) {
 ```
 
 ```python Python
-import base64, hashlib, hmac, json, time
+from delivrie import verify_webhook, WebhookVerificationError
 
-def verify_webhook(payload: bytes, headers: dict, secret: str) -> dict:
-    msg_id, ts = headers["webhook-id"], headers["webhook-timestamp"]
-    if abs(time.time() - int(ts)) > 300:
-        raise ValueError("timestamp too old")
-    key = base64.b64decode(secret.removeprefix("whsec_"))
-    expected = base64.b64encode(hmac.new(key, f"{msg_id}.{ts}.".encode() + payload, hashlib.sha256).digest()).decode()
-    if not any(s.startswith("v1,") and hmac.compare_digest(s[3:], expected) for s in headers["webhook-signature"].split()):
-        raise ValueError("invalid signature")
-    return json.loads(payload)
+# Flask; in Django pass request.body, in FastAPI await request.body()
+try:
+    event = verify_webhook(request.get_data(), request.headers, os.environ["DELIVRIE_WEBHOOK_SECRET"])
+except WebhookVerificationError:
+    return "", 400
 ```
 
-```php PHP
-function verify_webhook(string $payload, array $h, string $secret): array {
-    if (abs(time() - (int) $h['webhook-timestamp']) > 300) throw new Exception('timestamp too old');
-    $key = base64_decode(preg_replace('/^whsec_/', '', $secret));
-    $expected = base64_encode(hash_hmac('sha256', "{$h['webhook-id']}.{$h['webhook-timestamp']}.$payload", $key, true));
-    foreach (explode(' ', $h['webhook-signature']) as $sig) {
-        if (str_starts_with($sig, 'v1,') && hash_equals($expected, substr($sig, 3))) return json_decode($payload, true);
-    }
-    throw new Exception('invalid signature');
+```go Go
+body, _ := io.ReadAll(r.Body)
+event, err := delivrie.VerifyWebhook(body, r.Header, os.Getenv("DELIVRIE_WEBHOOK_SECRET"))
+if err != nil {
+	http.Error(w, "invalid signature", http.StatusBadRequest)
+	return
 }
 ```
 
-Ruby, Go and Rust versions are in their guides: [Ruby](/docs/ruby), [Go](/docs/go), [Rust](/docs/rust). Standard Webhooks libraries (`standardwebhooks` on npm and PyPI, and others) also work with your `whsec_` secret.
+```php PHP
+try {
+    $event = \Delivrie\Webhook::verify(file_get_contents('php://input'), getallheaders(), getenv('DELIVRIE_WEBHOOK_SECRET'));
+} catch (\Delivrie\Exception\WebhookVerificationException $e) {
+    http_response_code(400);
+    exit;
+}
+```
+
+Each SDK checks the signature and the timestamp and returns the parsed event.
+
+No SDK in your language? The [Ruby](/docs/ruby) and [Rust](/docs/rust) guides show the check written by hand, and Standard Webhooks libraries (`standardwebhooks` on npm and PyPI, and others) also work with your `whsec_` secret.
 
 ## Respond quickly
 

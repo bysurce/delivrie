@@ -17,30 +17,25 @@ const { data, error } = await delivrie.emails.send({
   html: '${html}',
 });`, "js"],
     PHP: [`<?php
-$ch = curl_init('${base}/emails');
-curl_setopt_array($ch, [
-  CURLOPT_POST => true,
-  CURLOPT_RETURNTRANSFER => true,
-  CURLOPT_HTTPHEADER => ['Authorization: Bearer ${key}', 'Content-Type: application/json'],
-  CURLOPT_POSTFIELDS => json_encode([
-    'from' => '${from}',
-    'to' => '${to}',
-    'subject' => '${subject}',
-    'html' => '${html}',
-  ]),
-]);
-echo curl_exec($ch);`, "js"],
-    Python: [`import requests
+// composer require delivrie/delivrie-php
+$delivrie = new \\Delivrie\\Delivrie('${key}');
 
-requests.post(
-    "${base}/emails",
-    headers={"Authorization": "Bearer ${key}"},
-    json={
-        "from": "${from}",
-        "to": "${to}",
-        "subject": "${subject}",
-        "html": "${html}",
-    },
+$email = $delivrie->emails->send([
+  'from' => '${from}',
+  'to' => '${to}',
+  'subject' => '${subject}',
+  'html' => '${html}',
+]);`, "js"],
+    Python: [`# pip install delivrie
+from delivrie import Delivrie
+
+client = Delivrie("${key}")
+
+email = client.emails.send(
+    from_="${from}",
+    to="${to}",
+    subject="${subject}",
+    html="${html}",
 )`, "js"],
     Ruby: [`require "net/http"
 require "json"
@@ -49,14 +44,15 @@ uri = URI("${base}/emails")
 req = Net::HTTP::Post.new(uri, "Authorization" => "Bearer ${key}", "Content-Type" => "application/json")
 req.body = { from: "${from}", to: "${to}", subject: "${subject}", html: "${html}" }.to_json
 Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| puts http.request(req).body }`, "js"],
-    Go: [`body, _ := json.Marshal(map[string]string{
-  "from": "${from}", "to": "${to}",
-  "subject": "${subject}", "html": "${html}",
-})
-req, _ := http.NewRequest("POST", "${base}/emails", bytes.NewReader(body))
-req.Header.Set("Authorization", "Bearer ${key}")
-req.Header.Set("Content-Type", "application/json")
-res, err := http.DefaultClient.Do(req)`, "js"],
+    Go: [`// go get github.com/codeddesigner/delivrie/sdk/go
+client := delivrie.New("${key}")
+
+sent, err := client.Emails.Send(ctx, &delivrie.SendEmailRequest{
+  From:    "${from}",
+  To:      []string{"${to}"},
+  Subject: "${subject}",
+  HTML:    "${html}",
+})`, "js"],
     Rust: [`let res = reqwest::Client::new()
     .post("${base}/emails")
     .bearer_auth("${key}")
