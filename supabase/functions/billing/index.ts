@@ -485,15 +485,24 @@ async function applyCharge(tx: Any) {
   const code = tx.plan_object?.plan_code || tx.plan?.plan_code || (typeof tx.plan === "string" && tx.plan ? tx.plan : null);
   const meta = parseMeta(tx.metadata);
   const fromCode = await planFromCode(code);
-  const kind = meta.kind || fromCode?.kind || "transactional";
+  const kind = fromCode?.kind || meta.kind || "transactional";
   const teamId = meta.team_id || (tx.customer?.customer_code ? await teamForPaystack(tx.customer.customer_code, code) : undefined);
   if (!teamId) return null;
   const before = await team(teamId);
   const old = before.billing || {};
 
+  // What the customer actually paid decides what they get. Metadata names the order, but a transaction can be
+  // started without our secret key (with the public key), so its amount is checked against the price here.
+  const paid = (tx.currency || "NGN") === "NGN" ? Number(tx.amount || 0) : 0;
+
   if (kind === "credits") {
     const emails = Number(meta.emails || 0);
     const done = await psRecord(teamId, tx, "credits", null, `${meta.auto ? "Auto top-up" : "Credit top-up"} · ${emails.toLocaleString("en-US")} emails`);
+    // Packs give up to 10% more emails than the plain rate, so allow for that, never more.
+    if (tx.status === "success" && !done && emails > 0 && paid < Math.floor(creditValue(emails, "NGN") * 0.9)) {
+      console.error("paystack credits: paid less than the credits cost", { teamId, reference: tx.reference, paid, emails });
+      return teamId;
+    }
     if (tx.status === "success" && !done && emails > 0) {
       await db.rpc("add_credits", { p_team: teamId, p_n: emails });
       await saveBilling(teamId, { ...cardPatch(tx, old), currency: "NGN" });
@@ -506,9 +515,15 @@ async function applyCharge(tx: Any) {
     return teamId;
   }
 
-  const plan = meta.plan || fromCode?.plan;
-  const interval = meta.interval || fromCode?.interval || "monthly";
+  // A plan code we created sets the price, so it decides the plan. Without one, the amount must cover the plan.
+  const plan = fromCode?.plan || meta.plan;
+  const interval = fromCode?.interval || meta.interval || "monthly";
   if (!plan || !catalog(kind)[plan]) return null;
+  if (!fromCode && tx.status === "success" && paid < (catalog(kind)[plan] as Any)[INTERVALS.includes(interval) ? interval : "monthly"].NGN) {
+    console.error("paystack plan: paid less than the plan costs", { teamId, reference: tx.reference, paid, plan, interval });
+    await psRecord(teamId, tx, kind, plan, `${catalog(kind)[plan].name} · ${interval}`);
+    return teamId;
+  }
   await psRecord(teamId, tx, kind, plan, `${catalog(kind)[plan].name} · ${interval}`);
   if (tx.status !== "success") return teamId;
   const sub = await findSub(tx.customer?.id, code);
