@@ -2,9 +2,9 @@
 
 `PATCH https://delivrie.io/api/inbox/threads/:id`
 
-Archive or reopen, mark read or unread, or set labels.
+Move a thread between folders, mark it read or unread, assign it, or set its labels.
 
-Access: Sending or full access. MCP tool: `update_thread`.
+Access: Needs a full access key.. MCP tool: `update_thread`.
 
 ## Headers
 
@@ -22,9 +22,10 @@ Access: Sending or full access. MCP tool: `update_thread`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `status` | string | No | open or archived. |
+| `status` | string | No | open, archived, spam or trash. |
 | `unread` | boolean | No | Read state. |
-| `labels` | string[] | No | Label names. New labels are created. |
+| `assignee` | string \| null | No | A team member's email, me, or null to unassign. |
+| `labels` | string[] | No | Label names. Replaces the thread's labels; new labels are created. |
 
 ## Example request
 
@@ -36,7 +37,8 @@ curl -X PATCH 'https://delivrie.io/api/inbox/threads/4ef9a417' \
     "status": "archived",
     "labels": [
       "refunds"
-    ]
+    ],
+    "assignee": "sam@acme.com"
   }'
 ```
 

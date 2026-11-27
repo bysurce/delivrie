@@ -24,7 +24,9 @@ Access: Sending or full access. MCP tool: `reply_to_thread`.
 | --- | --- | --- | --- |
 | `text` | string | No | Plain-text reply, wrapped in simple HTML for you. Provide text or html. |
 | `html` | string | No | HTML reply. |
-| `from` | string | No | Sender. Defaults to the thread's mailbox address. |
+| `from` | string | No | Sender. Defaults to the thread's address. |
+| `cc` | string[] | No | Cc recipients. |
+| `draft_id` | string | No | Marks this draft as sent. |
 
 ## Example request
 

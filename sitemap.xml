@@ -80,10 +80,19 @@
   <url><loc>https://delivrie.io/docs/api/create-automation</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-automation-runs</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/publish-automation</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/list-inboxes</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/create-inbox</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/update-inbox</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/delete-inbox</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-inbox-threads</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/retrieve-inbox-thread</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/reply-to-thread</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/update-thread</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/run-inbox-agent</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/add-thread-note</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/list-drafts</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/create-draft</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/send-draft</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-domain</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/retrieve-domain</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/cloudflare-domain</loc><lastmod>2026-11-27</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>

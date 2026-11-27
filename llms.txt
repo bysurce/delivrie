@@ -41,7 +41,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 ## Receiving
 
 - [Receiving email](https://delivrie.io/docs/receiving.md): Receive email on your domain with Delivrie: set up the MX record, choose which addresses accept mail, get email.received webhooks, read messages with the API and forward them automatically to Gmail or any inbox.
-- [Inbox](https://delivrie.io/docs/inbox.md): A shared inbox for received email: conversations grouped into threads, labels, archiving, replies from the dashboard or API, and AI agents that answer through MCP.
+- [Inbox](https://delivrie.io/docs/inbox.md): Inboxes for people and agents: an inbox per address, an agent that drafts replies, labels and filters spam, shared drafts, internal notes, assignment, Gmail-style search, and the API and MCP tools behind them.
 
 ## Platform
 
@@ -77,10 +77,19 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Create automation](https://delivrie.io/docs/api/create-automation.md): `POST /automations`. Create a straight-line automation: a trigger and up to 30 send and wait steps. Build branches and conditions in the dashboard.
 - [List runs](https://delivrie.io/docs/api/list-automation-runs.md): `GET /automations/:id/runs`. Runs, newest first, with their status, current step and log.
 - [Publish automation](https://delivrie.io/docs/api/publish-automation.md): `POST /automations/:id/publish`. Make the current version live. Pause with /pause and continue with /resume.
-- [List threads](https://delivrie.io/docs/api/list-inbox-threads.md): `GET /inbox/threads`. Conversations from received email, newest first.
-- [Retrieve thread](https://delivrie.io/docs/api/retrieve-inbox-thread.md): `GET /inbox/threads/:id`. A thread with up to 100 messages as text.
+- [List inboxes](https://delivrie.io/docs/api/list-inboxes.md): `GET /inboxes`. Inboxes on your receiving domains, with open, unread and needs-reply counts and each inbox's agent settings.
+- [Create inbox](https://delivrie.io/docs/api/create-inbox.md): `POST /inboxes`. Create an inbox for an address on a receiving domain. Mail to that address lands in it. On a domain that only accepts specific addresses, the address is added to the list.
+- [Update inbox](https://delivrie.io/docs/api/update-inbox.md): `PATCH /inboxes/:id`. Rename an inbox or set up its agent. The agent runs on new mail and acts only within the actions you allow. It drafts replies for people to send and never sends them itself, and it forwards only to the addresses in forward_to.
+- [Delete inbox](https://delivrie.io/docs/api/delete-inbox.md): `DELETE /inboxes/:id`. Remove an inbox and its agent settings. Mail to the address keeps arriving, and its conversations move to Other mail.
+- [List threads](https://delivrie.io/docs/api/list-inbox-threads.md): `GET /inbox/threads`. Conversations from received email, newest first. q takes Gmail-style search: words, "phrases", from: to: subject: label: is:unread|read|assigned|unassigned|needs-reply in:archive|spam|trash|anywhere has:attachment|draft before: after:.
+- [Retrieve thread](https://delivrie.io/docs/api/retrieve-inbox-thread.md): `GET /inbox/threads/:id`. A thread with up to 100 messages as text, its internal notes, open drafts and the agent's recent runs.
 - [Reply to thread](https://delivrie.io/docs/api/reply-to-thread.md): `POST /inbox/threads/:id/reply`. Reply in the thread. Threading headers and the Re: subject are set for you.
-- [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`. Archive or reopen, mark read or unread, or set labels.
+- [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`. Move a thread between folders, mark it read or unread, assign it, or set its labels.
+- [Run inbox agent](https://delivrie.io/docs/api/run-inbox-agent.md): `POST /inbox/threads/:id/agent`. Run the inbox's agent on this conversation now, with the inbox's agent settings. It works on the latest received email and drafts rather than sends.
+- [Add note](https://delivrie.io/docs/api/add-thread-note.md): `POST /inbox/threads/:id/notes`. Leave an internal note on a conversation for the team. Notes are never emailed.
+- [List drafts](https://delivrie.io/docs/api/list-drafts.md): `GET /inbox/drafts`. Open drafts in the Inbox, including the ones the inbox agent wrote.
+- [Create draft](https://delivrie.io/docs/api/create-draft.md): `POST /inbox/drafts`. Save a draft for the team: a reply in a thread (thread_id), or a new email from an inbox. Nothing is sent.
+- [Send draft](https://delivrie.io/docs/api/send-draft.md): `POST /inbox/drafts/:id/send`. Send a draft. Replies keep their Message-ID threading. Also available: PATCH /inbox/drafts/:id to edit and DELETE /inbox/drafts/:id to discard.
 - [Create domain](https://delivrie.io/docs/api/create-domain.md): `POST /domains`. Add a sending domain. The response includes the DNS records to add at your DNS provider.
 - [Retrieve domain](https://delivrie.io/docs/api/retrieve-domain.md): `GET /domains/:id`. Get a domain with its DNS records and their status.
 - [Set up DNS on Cloudflare](https://delivrie.io/docs/api/cloudflare-domain.md): `POST /domains/:id/cloudflare`. Add the domain's DNS records to its Cloudflare zone using your Cloudflare API token (Zone: Read and DNS: Edit). The token is used for this request only and never stored. Existing records are never changed or deleted.

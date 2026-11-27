@@ -2,7 +2,7 @@
 
 `GET https://delivrie.io/api/inbox/threads/:id`
 
-A thread with up to 100 messages as text.
+A thread with up to 100 messages as text, its internal notes, open drafts and the agent's recent runs.
 
 Access: Needs a full access key.. MCP tool: `get_inbox_thread`.
 
@@ -39,6 +39,34 @@ curl -X GET 'https://delivrie.io/api/inbox/threads/4ef9a417' \
       "from": "ada@example.com",
       "text": "Hi, I'd like a refund…",
       "created_at": "2026-11-14T10:22:30Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "n1…",
+      "body": "Checked Stripe: safe to refund.",
+      "author": {
+        "name": "Sam"
+      }
+    }
+  ],
+  "drafts": [
+    {
+      "id": "dr1…",
+      "source": "agent",
+      "text": "Hi Ada, …",
+      "note": "Confirm the charge before sending."
+    }
+  ],
+  "agent_runs": [
+    {
+      "status": "done",
+      "actions": [
+        {
+          "type": "draft_reply",
+          "ok": true
+        }
+      ]
     }
   ]
 }

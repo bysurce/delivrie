@@ -2550,53 +2550,110 @@ Each received email's `received` event records the receiving server's spam, viru
 
 # Inbox
 
-A shared inbox for received email: conversations grouped into threads, labels, archiving, replies from the dashboard or API, and AI agents that answer through MCP.
+Inboxes for people and agents: an inbox per address, an agent that drafts replies, labels and filters spam, shared drafts, internal notes, assignment, Gmail-style search, and the API and MCP tools behind them.
 
-The [Inbox](https://delivrie.io/inbox) groups [received email](/docs/receiving) into conversations so your team, or an AI agent, can read and reply in one place.
+The [Inbox](https://delivrie.io/inbox) groups [received email](/docs/receiving) into conversations so your team, and an AI agent, can read, sort and answer them in one place.
 
-## How threads work
+## Inboxes
 
-A message joins an existing thread when it replies to an earlier message (its `In-Reply-To` or `References` header points at one), or when the same person writes to the same address with the same subject within 30 days. Otherwise it starts a new thread. Replies you send from the Inbox join their thread.
+An inbox is an address on a receiving domain, like `support@in.acme.com` or `sales@in.acme.com`. Mail to that address lands in it. Create one from the inbox menu in the dashboard (**New inbox**) or with `POST /inboxes`. Each address that already had mail became an inbox automatically. Mail to addresses without an inbox still arrives and shows under **Other mail**.
 
-Each thread has a mailbox (the address mail arrived at), a contact (the other person), a subject, a snippet of the latest message, unread and open/archived status, labels, and `needs_reply`, which is `true` when the latest message is from the contact.
+If the domain only accepts specific addresses, creating an inbox adds its address to that list. If the domain receives on a subdomain (like `in.acme.com`), the inbox has to use an address there.
+
+## The inbox agent
+
+Each inbox can have an agent that reads every new email and acts on it within the limits you set. Turn it on in the inbox's settings, write instructions in plain language (what the inbox is for, your policies, links to share, who handles what), pick a tone, and choose what it may do:
+
+| Action | What the agent does |
+| --- | --- |
+| Draft replies | Writes a reply in the conversation for someone to review and send. **It never sends replies itself.** |
+| Add labels | Sorts conversations with your labels, creating new ones when needed |
+| Mark spam | Moves scams, phishing and bulk mail to Spam |
+| Archive | Files mail that needs no reply, like receipts and notifications |
+| Assign | Hands the conversation to someone on your team |
+| Add notes | Leaves an internal note. Notes are never emailed |
+| Forward | Forwards mail, but only to the addresses you list in its settings (up to 5) |
+
+Email is written by people outside your team, so the agent treats it as untrusted text: it only has the actions you allowed, it can't forward anywhere you didn't list, and it ignores instructions inside an email that try to change what it does. Every run is logged with what it did, shown at the top of the conversation and in the inbox's settings. You can also run it on any conversation from the thread's menu (**Run agent**) or with `POST /inbox/threads/:id/agent`.
+
+Agent runs a month, across all inboxes: Free 100, Starter 1,000, Pro 3,000, Scale 10,000, Enterprise unlimited.
+
+## Conversations
+
+A message joins an existing thread when it replies to an earlier message (its `In-Reply-To` or `References` header points at one), or when the same person writes to the same address with the same subject within 30 days. Otherwise it starts a new thread. Replies you send from the Inbox join their thread with the right headers, so they stay in the same conversation in the customer's mail app.
+
+Each thread has an inbox, a contact, a subject, a snippet, unread status, labels, an assignee and a folder: `open`, `archived`, `spam` or `trash`. `needs_reply` is `true` when the latest message is from the contact. A new conversation that the receiving server flags as spam starts in Spam.
+
+- **Drafts** are shared by the team. A reply you start in the dashboard saves as you type, so a teammate can pick it up. The agent's drafts appear in the reply box with its note on what to check.
+- **Notes** are internal comments on a conversation, from your team or the agent. They're never emailed.
+- **Assignment** gives a conversation an owner. **Assigned to me** lists yours.
+
+## Search
+
+The search box and the API's `q` parameter take Gmail-style syntax. Combine as many as you like:
+
+| Example | Finds |
+| --- | --- |
+| `refund "charged twice"` | Words and exact phrases in the subject, contact or latest message |
+| `from:maria` `to:sales@` `subject:invoice` | Sender, the inbox address, or the subject |
+| `label:billing` | Conversations with that label |
+| `is:unread` `is:read` `is:assigned` `is:unassigned` `is:needs-reply` | Status |
+| `in:archive` `in:spam` `in:trash` `in:anywhere` | A folder other than the open inbox |
+| `has:attachment` `has:draft` | Conversations with attachments, or with an open draft |
+| `after:2026-11-01` `before:2026-12-01` | By the latest message's date |
 
 ## API
 
 | Request | What it does |
 | --- | --- |
-| `GET /inbox/threads` | List threads, newest first. Filters: `status` (`open`, the default, `archived` or `all`), `unread=true`, `needs_reply=true`, `mailbox`, `label`, `q` (searches subject, contact and snippet), `limit` |
-| `GET /inbox/threads/:id` | A thread with its messages (up to 100), as text |
-| `POST /inbox/threads/:id/reply` | Reply with `{ "text": "..." }` or `{ "html": "..." }`. Optional `from`; defaults to the mailbox address |
-| `PATCH /inbox/threads/:id` | Change `status` (`open` or `archived`), `unread` (boolean) or `labels` (names; new labels are created) |
+| `GET /inboxes` | List inboxes with open, unread and needs-reply counts and their agent settings |
+| `POST /inboxes` | Create an inbox: `{ "address": "support@in.acme.com", "name": "Support" }` |
+| `PATCH /inboxes/:id` | Change `name`, `description` or `agent` (see below). `:id` can be the inbox's id or address |
+| `DELETE /inboxes/:id` | Remove an inbox. Its conversations move to Other mail |
+| `GET /inboxes/:id/agent-runs` | The agent's recent runs, with what it did |
+| `GET /inbox/threads` | List threads, newest first. Filters: `inbox` (id, address or `none`), `status` (`open`, the default, `archived`, `spam`, `trash` or `all`), `unread=true`, `needs_reply=true`, `assignee` (`me`, an email or `none`), `label`, `q` (search syntax above), `limit` |
+| `GET /inbox/threads/:id` | A thread with its messages as text, notes, open drafts and recent agent runs |
+| `POST /inbox/threads/:id/reply` | Reply with `{ "text": "..." }` or `{ "html": "..." }`. Optional `from`, `cc`, and `draft_id` to mark a draft as sent |
+| `PATCH /inbox/threads/:id` | Change `status`, `unread`, `assignee` (an email, `me` or `null`) or `labels` (names; new labels are created) |
+| `POST /inbox/threads/:id/agent` | Run the inbox's agent on this conversation now |
+| `GET` / `POST /inbox/threads/:id/notes` | List notes, or add one with `{ "body": "..." }` |
+| `DELETE /inbox/notes/:id` | Delete a note |
+| `GET /inbox/drafts` | Open drafts. Filters: `thread_id`, `inbox`, `source` (`user` or `agent`) |
+| `POST /inbox/drafts` | Save a draft: a reply with `thread_id`, or a new email with `inbox`; plus `to`, `cc`, `bcc`, `subject`, `text` or `html` |
+| `PATCH /inbox/drafts/:id` | Edit a draft |
+| `POST /inbox/drafts/:id/send` | Send a draft (replies keep their threading) |
+| `DELETE /inbox/drafts/:id` | Discard a draft |
 | `GET /inbox/labels` | List labels |
 
+The `agent` object: `enabled` (boolean), `instructions` (up to 4,000 characters), `tone` (`friendly`, `professional`, `concise` or your own words), `actions` (any of `draft_reply`, `add_labels`, `archive`, `mark_spam`, `assign`, `add_note`, `forward`), `forward_to` (up to 5 addresses, required for `forward`) and `signature`. Changing inboxes and their agent needs a full access key, or the `manage` scope for connected apps.
+
 ```bash
-# Threads waiting for an answer
-curl "https://delivrie.io/api/inbox/threads?needs_reply=true" -H "Authorization: Bearer $DELIVRIE_API_KEY"
-
-# Reply, then archive
-curl -X POST https://delivrie.io/api/inbox/threads/THREAD_ID/reply \
+# Turn on the agent for the support inbox
+curl -X PATCH https://delivrie.io/api/inboxes/support@in.acme.com \
   -H "Authorization: Bearer $DELIVRIE_API_KEY" -H "Content-Type: application/json" \
-  -d '{ "text": "Thanks Ada, your refund is on its way." }'
+  -d '{ "agent": { "enabled": true, "instructions": "We sell Acme Projects. Refunds within 30 days of purchase. Billing questions go to Sam.", "actions": ["draft_reply", "add_labels", "mark_spam", "assign"] } }'
 
-curl -X PATCH https://delivrie.io/api/inbox/threads/THREAD_ID \
-  -H "Authorization: Bearer $DELIVRIE_API_KEY" -H "Content-Type: application/json" \
-  -d '{ "status": "archived", "labels": ["refunds"] }'
+# Unread billing conversations that need an answer
+curl -G "https://delivrie.io/api/inbox/threads" --data-urlencode "q=label:billing is:unread is:needs-reply" \
+  -H "Authorization: Bearer $DELIVRIE_API_KEY"
+
+# Send the agent's draft after checking it
+curl -X POST https://delivrie.io/api/inbox/drafts/DRAFT_ID/send -H "Authorization: Bearer $DELIVRIE_API_KEY"
 ```
 
-Plain-text replies are wrapped in simple HTML for you. The reply's subject gets `Re:` and the right threading headers, so it stays in the same conversation in the customer's mail app.
+The Inbox has its own [webhook events](/docs/webhooks): `inbox.email.received`, `inbox.thread.updated`, `inbox.draft.created`, `inbox.agent.completed`, and `inbox.created`, `inbox.updated` and `inbox.deleted`.
 
-## Let an AI agent handle support
+## Work the Inbox from your own agent
 
-Connect an assistant to the [MCP server](/docs/mcp) and it can work the inbox with the `list_inbox_threads`, `get_inbox_thread`, `reply_to_thread` and `update_thread` tools. For example, in Claude:
+Connect an assistant to the [MCP server](/docs/mcp) and it can use the same features: `list_inboxes`, `list_inbox_threads` (with search), `get_inbox_thread`, `create_draft`, `send_draft`, `reply_to_thread`, `update_thread`, `add_thread_note`, `run_inbox_agent` and `update_inbox`. For example, in Claude:
 
 ```text
-Check my Delivrie inbox for threads that need a reply. For each one, read it,
-draft an answer using our refund policy (below), and show me the drafts before
-sending. Archive and label "done" any thread you answer.
+Check the support inbox in Delivrie for conversations that need a reply.
+For each one, read it and save a draft answer using our refund policy (below).
+Don't send anything: I'll review the drafts. Label each one "billing" or "bug".
 ```
 
-Approve the `read` and `send` scopes, and leave out `manage`, if the agent should read and reply but not change your account.
+Approve the `read` and `send` scopes, and leave out `manage`, if the agent should read, draft and reply but not change inbox settings.
 
 
 ---
@@ -2946,6 +3003,11 @@ The response includes `signing_secret` (starts with `whsec_`). It's shown once: 
 | `email.received` | Mail arrived at one of your [receiving](/docs/receiving) addresses |
 | `contact.created`, `contact.updated`, `contact.deleted` | A contact changed |
 | `domain.created`, `domain.updated` | A domain was added or its verification status changed |
+| `inbox.email.received` | Mail arrived in the [Inbox](/docs/inbox): includes `thread_id`, `inbox_id` and the thread's folder (`open` or `spam`) |
+| `inbox.thread.updated` | A conversation was moved, assigned, labelled or marked read; `changes` lists what changed and `by` says who (`member`, `api` or `agent`) |
+| `inbox.draft.created` | A draft was saved in a conversation; `source` is `agent` when the inbox agent wrote it |
+| `inbox.agent.completed` | The inbox agent finished a run; `actions` lists what it did |
+| `inbox.created`, `inbox.updated`, `inbox.deleted` | An inbox was added, changed (including its agent settings) or removed |
 
 ## Payloads
 
@@ -4367,11 +4429,263 @@ curl -X POST 'https://delivrie.io/api/automations/4ef9a417/publish' \
 
 ---
 
+# List inboxes
+
+`GET https://delivrie.io/api/inboxes`
+
+Inboxes on your receiving domains, with open, unread and needs-reply counts and each inbox's agent settings.
+
+Access: Needs a full access key.. MCP tool: `list_inboxes`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/inboxes' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "inbox",
+      "id": "be19…",
+      "name": "Support",
+      "address": "support@in.acme.com",
+      "agent": {
+        "enabled": true,
+        "tone": "friendly",
+        "actions": [
+          "draft_reply",
+          "add_labels",
+          "mark_spam"
+        ],
+        "forward_to": []
+      },
+      "counts": {
+        "open": 12,
+        "unread": 3,
+        "needs_reply": 5
+      }
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Create inbox
+
+`POST https://delivrie.io/api/inboxes`
+
+Create an inbox for an address on a receiving domain. Mail to that address lands in it. On a domain that only accepts specific addresses, the address is added to the list.
+
+Access: Needs a full access key.. MCP tool: `create_inbox`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `address` | string | Yes | An address on a receiving domain, e.g. support@in.acme.com. |
+| `name` | string | No | Display name. Defaults to the address's local part. |
+| `description` | string | No | What the inbox is for. |
+| `agent` | object | No | Agent settings (see Update inbox). |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/inboxes' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "address": "support@in.acme.com",
+    "name": "Support"
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox",
+  "id": "be19…",
+  "name": "Support",
+  "address": "support@in.acme.com",
+  "agent": {
+    "enabled": false
+  }
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 422 | `validation_error` | The address isn't on a domain with receiving turned on, or already has an inbox. |
+
+
+---
+
+# Update inbox
+
+`PATCH https://delivrie.io/api/inboxes/:id`
+
+Rename an inbox or set up its agent. The agent runs on new mail and acts only within the actions you allow. It drafts replies for people to send and never sends them itself, and it forwards only to the addresses in forward_to.
+
+Access: Needs a full access key.. MCP tool: `update_inbox`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The inbox's id or address. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Display name. |
+| `description` | string | No | Description. |
+| `agent.enabled` | boolean | No | Run the agent on new mail. |
+| `agent.instructions` | string | No | Plain-language instructions, up to 4,000 characters. |
+| `agent.tone` | string | No | friendly, professional, concise, or your own words. Default: `friendly`. |
+| `agent.actions` | string[] | No | Any of draft_reply, add_labels, archive, mark_spam, assign, add_note, forward. |
+| `agent.forward_to` | string[] | No | Up to 5 addresses the agent may forward to. Required for forward. |
+| `agent.signature` | string | No | Added to the agent's drafts. |
+
+## Example request
+
+```bash
+curl -X PATCH 'https://delivrie.io/api/inboxes/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "agent": {
+      "enabled": true,
+      "instructions": "We sell Acme Projects. Refunds within 30 days. Billing questions go to Sam.",
+      "actions": [
+        "draft_reply",
+        "add_labels",
+        "mark_spam",
+        "assign"
+      ]
+    }
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox",
+  "id": "be19…",
+  "name": "Support",
+  "agent": {
+    "enabled": true,
+    "tone": "friendly",
+    "actions": [
+      "draft_reply",
+      "add_labels",
+      "mark_spam",
+      "assign"
+    ],
+    "forward_to": [],
+    "signature": ""
+  }
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Delete inbox
+
+`DELETE https://delivrie.io/api/inboxes/:id`
+
+Remove an inbox and its agent settings. Mail to the address keeps arriving, and its conversations move to Other mail.
+
+Access: Needs a full access key..
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The inbox's id or address. |
+
+## Example request
+
+```bash
+curl -X DELETE 'https://delivrie.io/api/inboxes/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox",
+  "id": "be19…",
+  "deleted": true
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
 # List threads
 
 `GET https://delivrie.io/api/inbox/threads`
 
-Conversations from received email, newest first.
+Conversations from received email, newest first. q takes Gmail-style search: words, "phrases", from: to: subject: label: is:unread|read|assigned|unassigned|needs-reply in:archive|spam|trash|anywhere has:attachment|draft before: after:.
 
 Access: Needs a full access key.. MCP tool: `list_inbox_threads`.
 
@@ -4385,13 +4699,14 @@ Access: Needs a full access key.. MCP tool: `list_inbox_threads`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `status` | string | No | open, archived or all. Default: `open`. |
+| `inbox` | string | No | An inbox's id or address, or none for mail outside any inbox. |
+| `status` | string | No | open, archived, spam, trash or all. Default: `open`. |
 | `needs_reply` | boolean | No | Only threads whose latest message is from the contact. |
 | `unread` | boolean | No | Only unread threads. |
-| `mailbox` | string | No | Only one receiving address. |
+| `assignee` | string | No | me, a team member's email, or none. |
 | `label` | string | No | Only threads with this label. |
-| `q` | string | No | Search subject, contact and snippet. |
-| `limit` | number | No | Results, 1 to 100. Default: `50`. |
+| `q` | string | No | Search, using the syntax above. |
+| `limit` | number | No | Results, 1 to 100. Default: `20`. |
 
 ## Example request
 
@@ -4409,13 +4724,21 @@ curl -X GET 'https://delivrie.io/api/inbox/threads' \
     {
       "object": "inbox_thread",
       "id": "th_4…",
+      "inbox_id": "be19…",
       "mailbox": "support@in.acme.com",
       "contact": "ada@example.com",
       "subject": "Refund",
       "snippet": "Hi, I'd like…",
       "unread": true,
+      "status": "open",
       "needs_reply": true,
-      "labels": []
+      "labels": [
+        "billing"
+      ],
+      "assignee": {
+        "email": "sam@acme.com",
+        "name": "Sam"
+      }
     }
   ]
 }
@@ -4435,7 +4758,7 @@ curl -X GET 'https://delivrie.io/api/inbox/threads' \
 
 `GET https://delivrie.io/api/inbox/threads/:id`
 
-A thread with up to 100 messages as text.
+A thread with up to 100 messages as text, its internal notes, open drafts and the agent's recent runs.
 
 Access: Needs a full access key.. MCP tool: `get_inbox_thread`.
 
@@ -4472,6 +4795,34 @@ curl -X GET 'https://delivrie.io/api/inbox/threads/4ef9a417' \
       "from": "ada@example.com",
       "text": "Hi, I'd like a refund…",
       "created_at": "2026-11-14T10:22:30Z"
+    }
+  ],
+  "notes": [
+    {
+      "id": "n1…",
+      "body": "Checked Stripe: safe to refund.",
+      "author": {
+        "name": "Sam"
+      }
+    }
+  ],
+  "drafts": [
+    {
+      "id": "dr1…",
+      "source": "agent",
+      "text": "Hi Ada, …",
+      "note": "Confirm the charge before sending."
+    }
+  ],
+  "agent_runs": [
+    {
+      "status": "done",
+      "actions": [
+        {
+          "type": "draft_reply",
+          "ok": true
+        }
+      ]
     }
   ]
 }
@@ -4513,7 +4864,9 @@ Access: Sending or full access. MCP tool: `reply_to_thread`.
 | --- | --- | --- | --- |
 | `text` | string | No | Plain-text reply, wrapped in simple HTML for you. Provide text or html. |
 | `html` | string | No | HTML reply. |
-| `from` | string | No | Sender. Defaults to the thread's mailbox address. |
+| `from` | string | No | Sender. Defaults to the thread's address. |
+| `cc` | string[] | No | Cc recipients. |
+| `draft_id` | string | No | Marks this draft as sent. |
 
 ## Example request
 
@@ -4550,9 +4903,9 @@ curl -X POST 'https://delivrie.io/api/inbox/threads/4ef9a417/reply' \
 
 `PATCH https://delivrie.io/api/inbox/threads/:id`
 
-Archive or reopen, mark read or unread, or set labels.
+Move a thread between folders, mark it read or unread, assign it, or set its labels.
 
-Access: Sending or full access. MCP tool: `update_thread`.
+Access: Needs a full access key.. MCP tool: `update_thread`.
 
 ## Headers
 
@@ -4570,9 +4923,10 @@ Access: Sending or full access. MCP tool: `update_thread`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `status` | string | No | open or archived. |
+| `status` | string | No | open, archived, spam or trash. |
 | `unread` | boolean | No | Read state. |
-| `labels` | string[] | No | Label names. New labels are created. |
+| `assignee` | string \| null | No | A team member's email, me, or null to unassign. |
+| `labels` | string[] | No | Label names. Replaces the thread's labels; new labels are created. |
 
 ## Example request
 
@@ -4584,7 +4938,8 @@ curl -X PATCH 'https://delivrie.io/api/inbox/threads/4ef9a417' \
     "status": "archived",
     "labels": [
       "refunds"
-    ]
+    ],
+    "assignee": "sam@acme.com"
   }'
 ```
 
@@ -4598,6 +4953,296 @@ curl -X PATCH 'https://delivrie.io/api/inbox/threads/4ef9a417' \
   "labels": [
     "refunds"
   ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Run inbox agent
+
+`POST https://delivrie.io/api/inbox/threads/:id/agent`
+
+Run the inbox's agent on this conversation now, with the inbox's agent settings. It works on the latest received email and drafts rather than sends.
+
+Access: Needs a full access key.. MCP tool: `run_inbox_agent`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The thread id. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/inbox/threads/4ef9a417/agent' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox_agent_run",
+  "id": "r1…",
+  "status": "done",
+  "actions": [
+    {
+      "type": "draft_reply",
+      "ok": true,
+      "draft_id": "dr1…"
+    },
+    {
+      "type": "add_labels",
+      "ok": true,
+      "labels": [
+        "billing"
+      ]
+    }
+  ],
+  "summary": "Drafted a refund reply and labelled it billing."
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Add note
+
+`POST https://delivrie.io/api/inbox/threads/:id/notes`
+
+Leave an internal note on a conversation for the team. Notes are never emailed.
+
+Access: Needs a full access key.. MCP tool: `add_thread_note`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The thread id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `body` | string | Yes | The note, up to 5,000 characters. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/inbox/threads/4ef9a417/notes' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "body": "Checked Stripe: safe to refund one charge."
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox_note",
+  "id": "n1…",
+  "body": "Checked Stripe: safe to refund one charge."
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# List drafts
+
+`GET https://delivrie.io/api/inbox/drafts`
+
+Open drafts in the Inbox, including the ones the inbox agent wrote.
+
+Access: Needs a full access key.. MCP tool: `list_drafts`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `thread_id` | string | No | Only drafts in this thread. |
+| `inbox` | string | No | An inbox's id or address. |
+| `source` | string | No | user or agent. |
+| `limit` | number | No | Results, 1 to 100. Default: `20`. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/inbox/drafts' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "inbox_draft",
+      "id": "dr1…",
+      "thread_id": "th_4…",
+      "source": "agent",
+      "to": [
+        "ada@example.com"
+      ],
+      "subject": "Re: Refund",
+      "text": "Hi Ada, …",
+      "note": "Confirm the charge before sending.",
+      "status": "draft"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Create draft
+
+`POST https://delivrie.io/api/inbox/drafts`
+
+Save a draft for the team: a reply in a thread (thread_id), or a new email from an inbox. Nothing is sent.
+
+Access: Needs a full access key.. MCP tool: `create_draft`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `thread_id` | string | No | Reply in this thread. Recipient, subject and sender default from the thread. |
+| `inbox` | string | No | Or start a new email from this inbox (id or address). |
+| `to` | string[] | No | Recipients. |
+| `cc` | string[] | No | Cc. |
+| `bcc` | string[] | No | Bcc. |
+| `subject` | string | No | Subject. |
+| `text` | string | No | Body as plain text. |
+| `html` | string | No | Body as HTML. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/inbox/drafts' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "thread_id": "th_4…",
+    "text": "Hi Ada, your refund is on its way."
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "inbox_draft",
+  "id": "dr2…",
+  "thread_id": "th_4…",
+  "status": "draft"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Send draft
+
+`POST https://delivrie.io/api/inbox/drafts/:id/send`
+
+Send a draft. Replies keep their Message-ID threading. Also available: PATCH /inbox/drafts/:id to edit and DELETE /inbox/drafts/:id to discard.
+
+Access: Needs a full access key.. MCP tool: `send_draft`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The draft id. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/inbox/drafts/4ef9a417/send' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "email",
+  "id": "7d1f…",
+  "draft_id": "dr2…",
+  "thread_id": "th_4…"
 }
 ```
 

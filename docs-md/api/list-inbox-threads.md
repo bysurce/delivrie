@@ -2,7 +2,7 @@
 
 `GET https://delivrie.io/api/inbox/threads`
 
-Conversations from received email, newest first.
+Conversations from received email, newest first. q takes Gmail-style search: words, "phrases", from: to: subject: label: is:unread|read|assigned|unassigned|needs-reply in:archive|spam|trash|anywhere has:attachment|draft before: after:.
 
 Access: Needs a full access key.. MCP tool: `list_inbox_threads`.
 
@@ -16,13 +16,14 @@ Access: Needs a full access key.. MCP tool: `list_inbox_threads`.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `status` | string | No | open, archived or all. Default: `open`. |
+| `inbox` | string | No | An inbox's id or address, or none for mail outside any inbox. |
+| `status` | string | No | open, archived, spam, trash or all. Default: `open`. |
 | `needs_reply` | boolean | No | Only threads whose latest message is from the contact. |
 | `unread` | boolean | No | Only unread threads. |
-| `mailbox` | string | No | Only one receiving address. |
+| `assignee` | string | No | me, a team member's email, or none. |
 | `label` | string | No | Only threads with this label. |
-| `q` | string | No | Search subject, contact and snippet. |
-| `limit` | number | No | Results, 1 to 100. Default: `50`. |
+| `q` | string | No | Search, using the syntax above. |
+| `limit` | number | No | Results, 1 to 100. Default: `20`. |
 
 ## Example request
 
@@ -40,13 +41,21 @@ curl -X GET 'https://delivrie.io/api/inbox/threads' \
     {
       "object": "inbox_thread",
       "id": "th_4…",
+      "inbox_id": "be19…",
       "mailbox": "support@in.acme.com",
       "contact": "ada@example.com",
       "subject": "Refund",
       "snippet": "Hi, I'd like…",
       "unread": true,
+      "status": "open",
       "needs_reply": true,
-      "labels": []
+      "labels": [
+        "billing"
+      ],
+      "assignee": {
+        "email": "sam@acme.com",
+        "name": "Sam"
+      }
     }
   ]
 }

@@ -17,10 +17,19 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Create automation](https://delivrie.io/docs/api/create-automation.md): `POST /automations`
 - [List runs](https://delivrie.io/docs/api/list-automation-runs.md): `GET /automations/:id/runs`
 - [Publish automation](https://delivrie.io/docs/api/publish-automation.md): `POST /automations/:id/publish`
+- [List inboxes](https://delivrie.io/docs/api/list-inboxes.md): `GET /inboxes`
+- [Create inbox](https://delivrie.io/docs/api/create-inbox.md): `POST /inboxes`
+- [Update inbox](https://delivrie.io/docs/api/update-inbox.md): `PATCH /inboxes/:id`
+- [Delete inbox](https://delivrie.io/docs/api/delete-inbox.md): `DELETE /inboxes/:id`
 - [List threads](https://delivrie.io/docs/api/list-inbox-threads.md): `GET /inbox/threads`
 - [Retrieve thread](https://delivrie.io/docs/api/retrieve-inbox-thread.md): `GET /inbox/threads/:id`
 - [Reply to thread](https://delivrie.io/docs/api/reply-to-thread.md): `POST /inbox/threads/:id/reply`
 - [Update thread](https://delivrie.io/docs/api/update-thread.md): `PATCH /inbox/threads/:id`
+- [Run inbox agent](https://delivrie.io/docs/api/run-inbox-agent.md): `POST /inbox/threads/:id/agent`
+- [Add note](https://delivrie.io/docs/api/add-thread-note.md): `POST /inbox/threads/:id/notes`
+- [List drafts](https://delivrie.io/docs/api/list-drafts.md): `GET /inbox/drafts`
+- [Create draft](https://delivrie.io/docs/api/create-draft.md): `POST /inbox/drafts`
+- [Send draft](https://delivrie.io/docs/api/send-draft.md): `POST /inbox/drafts/:id/send`
 - [Create domain](https://delivrie.io/docs/api/create-domain.md): `POST /domains`
 - [Retrieve domain](https://delivrie.io/docs/api/retrieve-domain.md): `GET /domains/:id`
 - [Set up DNS on Cloudflare](https://delivrie.io/docs/api/cloudflare-domain.md): `POST /domains/:id/cloudflare`

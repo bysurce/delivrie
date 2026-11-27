@@ -33,6 +33,11 @@ The response includes `signing_secret` (starts with `whsec_`). It's shown once: 
 | `email.received` | Mail arrived at one of your [receiving](/docs/receiving) addresses |
 | `contact.created`, `contact.updated`, `contact.deleted` | A contact changed |
 | `domain.created`, `domain.updated` | A domain was added or its verification status changed |
+| `inbox.email.received` | Mail arrived in the [Inbox](/docs/inbox): includes `thread_id`, `inbox_id` and the thread's folder (`open` or `spam`) |
+| `inbox.thread.updated` | A conversation was moved, assigned, labelled or marked read; `changes` lists what changed and `by` says who (`member`, `api` or `agent`) |
+| `inbox.draft.created` | A draft was saved in a conversation; `source` is `agent` when the inbox agent wrote it |
+| `inbox.agent.completed` | The inbox agent finished a run; `actions` lists what it did |
+| `inbox.created`, `inbox.updated`, `inbox.deleted` | An inbox was added, changed (including its agent settings) or removed |
 
 ## Payloads
 
