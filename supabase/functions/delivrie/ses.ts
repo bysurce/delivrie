@@ -151,6 +151,45 @@ export async function parkDomain(d: Any) {
   return data || d;
 }
 
+// Custom MAIL FROM (the return-path subdomain, e.g. send.example.com) on verified domains. SES checks for its MX
+// record for 3 days, then gives up for good and emails the account owner. Every hour:
+//   - SES gave up (FAILED) but the MX record is in DNS now: set it again, which makes SES look again and succeed.
+//   - Still no MX record 2 days in (PENDING or FAILED): switch the custom MAIL FROM off, so SES uses its own
+//     amazonses.com return path (mail still sends, and DKIM keeps DMARC passing) and has nothing to warn about.
+//   - Switched off and the MX record has appeared: switch it back on.
+export async function mailFromWatch(limit = 50) {
+  if (!hasAws()) return { checked: 0 };
+  const c = creds();
+  const { data: doms } = await db.from("domains").select("id,name,region,return_path,records,created_at,verified_at,mailfrom_parked_at,mailfrom_checked_at").eq("status", "verified").order("mailfrom_checked_at", { ascending: true, nullsFirst: true }).limit(limit);
+  let changed = 0;
+  for (const d of doms || []) {
+    const host = `${d.return_path || "send"}.${d.name}`;
+    const want = `feedback-smtp.${d.region}.amazonses.com`;
+    const mxThere = (await doh(host, "MX")).some((a) => a.toLowerCase().includes(want));
+    const setMailFrom = () => sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: host, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
+    const patch: Any = { mailfrom_checked_at: new Date().toISOString() };
+    try {
+      if (d.mailfrom_parked_at) {
+        if (mxThere) { await setMailFrom(); patch.mailfrom_parked_at = null; changed++; console.log("mail-from back on", d.name); }
+      } else {
+        const id = await sesv2(c, d.region, "GET", `/v2/email/identities/${encodeURIComponent(d.name)}`);
+        const st = id?.MailFromAttributes?.MailFromDomainStatus;
+        const since = new Date(d.verified_at || d.created_at).getTime();
+        if (st === "FAILED" && mxThere) { await setMailFrom(); changed++; console.log("mail-from retried", d.name); }
+        else if ((st === "PENDING" || st === "FAILED") && !mxThere && Date.now() - since > PARK_AFTER_MS) {
+          await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, {});
+          patch.mailfrom_parked_at = new Date().toISOString(); changed++;
+          console.log("mail-from off until its MX record appears", d.name);
+        }
+      }
+      // Keep the dashboard's record list honest about the MX record.
+      patch.records = (Array.isArray(d.records) ? d.records : []).map((r: Any) => r.group === "sending" && r.type === "MX" ? { ...r, status: mxThere ? "verified" : "pending" } : r);
+    } catch (e) { console.error("mail-from watch", d.name, (e as Error).message); }
+    await db.from("domains").update(patch).eq("id", d.id);
+  }
+  return { checked: (doms || []).length, changed };
+}
+
 async function cleanupSes(c: AwsCreds, d: Any) {
   await sesv2(c, d.region, "DELETE", `/v2/email/identities/${encodeURIComponent(d.name)}`).catch(() => {});
   await sesv2(c, d.region, "DELETE", `/v2/email/configuration-sets/dlv-${d.id}`).catch(() => {});
@@ -257,7 +296,7 @@ export async function updateDomainConfig(d: Any, patch: Any) {
   if ("return_path" in patch && patch.return_path !== d.return_path) {
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(next.return_path)) throw new HttpError(422, "validation_error", "Return path must be a single subdomain label like send");
     // A parked domain isn't in SES; the new return path is used when it's put back (createIdentity reads the row).
-    if (!d.ses_parked_at) await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: `${next.return_path}.${d.name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
+    if (!d.ses_parked_at && !d.mailfrom_parked_at) await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: `${next.return_path}.${d.name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
   }
   if ("receiving_subdomain" in patch) {
     const sub = String(patch.receiving_subdomain || "").trim().toLowerCase().replace(new RegExp(`\\.?${d.name.replace(/\./g, "\\.")}$`), "");

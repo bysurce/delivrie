@@ -1,7 +1,7 @@
 import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
-import { accountStatus, createDomain, deleteDomain, doh, hasAws, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
+import { accountStatus, createDomain, deleteDomain, doh, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
@@ -496,6 +496,8 @@ async function runCron() {
   }
   // 7. reputation check, once an hour
   if (new Date().getUTCMinutes() === 23) await reputationWatch().catch((e) => console.error("reputation watch failed", e));
+  // 8. custom MAIL FROM records on verified domains, once an hour (see mailFromWatch)
+  if (new Date().getUTCMinutes() === 37) await mailFromWatch().catch((e) => console.error("mail-from watch failed", e));
   return { scheduled_released: due?.length || 0, broadcasts_started: bc?.length || 0 };
 }
 
