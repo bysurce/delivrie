@@ -56,6 +56,7 @@ export const EVENTS: [group: string, events: string[]][] = [
   ["Email", ["email.sent", "email.delivered", "email.delivery_delayed", "email.bounced", "email.complained", "email.opened", "email.clicked", "email.failed", "email.received"]],
   ["Contact", ["contact.created", "contact.updated", "contact.deleted"]],
   ["Domain", ["domain.created", "domain.updated"]],
+  ["Inbox", ["inbox.email.received", "inbox.thread.updated", "inbox.draft.created", "inbox.agent.completed", "inbox.created", "inbox.updated", "inbox.deleted"]],
 ];
 const ALL = EVENTS.flatMap(([, e]) => e);
 

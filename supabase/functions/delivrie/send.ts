@@ -271,6 +271,10 @@ export function setOnBadSignal(fn: (teamId: string) => Promise<void>) { onBadSig
 let quotaCheck: ((teamId: string, n: number) => Promise<void>) | null = null;
 export function setQuotaCheck(fn: (teamId: string, n: number) => Promise<void>) { quotaCheck = fn; }
 
+// Set by index.ts: the Inbox's handling of a received email (spam folder, inbox webhooks, the inbox agent).
+let onInboundMail: ((e: Any, spam: boolean) => Promise<void>) | null = null;
+export function setOnInboundMail(fn: (e: Any, spam: boolean) => Promise<void>) { onInboundMail = fn; }
+
 const FORWARD_MAX_BYTES = 10 * 1024 * 1024;
 
 // Automatic forwarding: send a copy of a received email on to the domain's forwarding addresses (for example a
@@ -347,6 +351,7 @@ async function handleInbound(msg: Any) {
       await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "received", data: { spam: msg.receipt?.spamVerdict?.status, virus: msg.receipt?.virusVerdict?.status, spf: msg.receipt?.spfVerdict?.status, dkim: msg.receipt?.dkimVerdict?.status, dmarc: msg.receipt?.dmarcVerdict?.status } });
       await emit(d.team_id, "email.received", { email_id: e.id, from: e.from, to: e.to, subject: e.subject, created_at: e.created_at, message_id: e.headers?.["message-id"] || null, attachments: (e.attachments || []).map((a: Any) => ({ filename: a.filename, content_type: a.content_type, size: a.size })) });
       await autoForward(d, e, rcpt, parsed, msg).catch((err) => console.error("auto-forward failed", e.id, err));
+      if (onInboundMail) await onInboundMail(e, msg.receipt?.spamVerdict?.status === "FAIL").catch((err) => console.error("inbox handling failed", e.id, err));
     }
   }
 }

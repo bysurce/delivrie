@@ -1,4 +1,4 @@
-// REST routes behind the newer MCP tools: inbox threads, automations and events, usage, received mail.
+// REST routes behind the newer MCP tools: automations and events, usage, received mail. (The Inbox is in inbox.ts.)
 import { type Any, bad, db, HttpError, LIMITS, notFound, setting, SUPABASE_URL } from "./util.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -17,8 +17,6 @@ async function automationsFn(teamId: string, method: string, path: string, body:
   if (!res.ok) throw new HttpError(res.status, out.name || "automation_error", out.message || `Automations returned ${res.status}`);
   return out;
 }
-
-const threadOut = (t: Any, labels: Map<string, string>) => ({ object: "inbox_thread", id: t.id, mailbox: t.mailbox, contact: t.contact, contact_name: t.contact_name, subject: t.subject, snippet: t.snippet, message_count: t.message_count, unread: t.unread, status: t.status, labels: (t.labels || []).map((id: string) => labels.get(id)).filter(Boolean), last_at: t.last_at, needs_reply: !!t.last_inbound_at && (!t.last_outbound_at || t.last_inbound_at > t.last_outbound_at) });
 
 export function registerExtra(route: Route, d: Deps) {
   // ------------------------------------------------------------ usage
@@ -42,75 +40,6 @@ export function registerExtra(route: Route, d: Deps) {
     const { data } = await q;
     return { object: "list", data: (data || []).map((e: Any) => ({ ...e, attachments: (e.attachments || []).map((a: Any) => ({ filename: a.filename, content_type: a.content_type, size: a.size })) })) };
   });
-
-  // ------------------------------------------------------------ inbox
-  const labelMap = async (teamId: string) => {
-    const { data } = await db.from("inbox_labels").select("id,name").eq("team_id", teamId);
-    return { byId: new Map<string, string>((data || []).map((l: Any) => [l.id, l.name])), rows: data || [] };
-  };
-  route("GET", "/inbox/threads", async (_r, c, _p, url) => {
-    d.needFull(c);
-    const { byId, rows } = await labelMap(c.teamId);
-    let q = db.from("inbox_threads").select("*").eq("team_id", c.teamId).order("last_at", { ascending: false }).limit(clampLimit(url));
-    const status = url.searchParams.get("status") || "open";
-    if (status !== "all") q = q.eq("status", status);
-    if (url.searchParams.get("unread") === "true") q = q.eq("unread", true);
-    const mailbox = url.searchParams.get("mailbox"); if (mailbox) q = q.eq("mailbox", mailbox.toLowerCase());
-    const label = url.searchParams.get("label");
-    if (label) { const l = rows.find((x: Any) => x.name.toLowerCase() === label.toLowerCase()); if (!l) return { object: "list", data: [] }; q = q.contains("labels", [l.id]); }
-    const s = (url.searchParams.get("q") || "").replace(/[,%()]/g, " ").trim();
-    if (s) q = q.or(`subject.ilike.%${s}%,contact.ilike.%${s}%,contact_name.ilike.%${s}%,snippet.ilike.%${s}%`);
-    const { data } = await q;
-    let out = (data || []).map((t: Any) => threadOut(t, byId));
-    if (url.searchParams.get("needs_reply") === "true") out = out.filter((t: Any) => t.needs_reply);
-    return { object: "list", data: out };
-  });
-  const getThread = async (c: Any, id: string) => {
-    const { data: t } = await db.from("inbox_threads").select("*").eq("team_id", c.teamId).eq("id", id).maybeSingle();
-    if (!t) throw notFound("Thread");
-    return t;
-  };
-  route("GET", "/inbox/threads/:id", async (_r, c, p) => {
-    d.needFull(c);
-    const t = await getThread(c, p.id);
-    const { byId } = await labelMap(c.teamId);
-    const { data: msgs } = await db.from("emails").select("id,direction,from,to,subject,text,html,status,created_at,headers,attachments").eq("thread_id", t.id).order("created_at").limit(100);
-    const strip = (h: string) => h.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
-    return { ...threadOut(t, byId), messages: (msgs || []).map((m: Any) => ({ id: m.id, direction: m.direction, from: m.from, to: m.to, subject: m.subject, status: m.status, created_at: m.created_at, message_id: m.headers?.["message-id"] || null, text: (m.text || (m.html ? strip(m.html) : "")).slice(0, 20000), attachments: (m.attachments || []).map((a: Any) => a.filename) })) };
-  });
-  route("POST", "/inbox/threads/:id/reply", async (_r, c, p, _u, b) => {
-    const t = await getThread(c, p.id);
-    const text = String(b?.text || "").trim();
-    const html = b?.html ? String(b.html) : text ? `<div style="font:14px/1.6 -apple-system,Segoe UI,sans-serif">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>` : "";
-    if (!text && !html) throw bad("Write a reply in `text` or `html`");
-    const { data: last } = await db.from("emails").select("headers").eq("thread_id", t.id).eq("direction", "inbound").order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const mid = last?.headers?.["message-id"];
-    const refs = [last?.headers?.references, mid].filter(Boolean).join(" ").trim();
-    const subject = /^re:/i.test(t.subject) ? t.subject : `Re: ${t.subject}`;
-    const [out] = await d.sendEmails(c, [{ from: b?.from || t.mailbox, to: [t.contact], subject, text: text || undefined, html, headers: mid ? { "In-Reply-To": mid, References: refs } : {}, tags: [{ name: "source", value: "inbox" }] }], null);
-    return { object: "email", id: out.id, thread_id: t.id };
-  });
-  route("PATCH", "/inbox/threads/:id", async (_r, c, p, _u, b) => {
-    d.needFull(c);
-    const t = await getThread(c, p.id);
-    const patch: Any = {};
-    if (b?.status) { if (!["open", "archived"].includes(b.status)) throw bad("status must be open or archived"); patch.status = b.status; }
-    if (typeof b?.unread === "boolean") patch.unread = b.unread;
-    if (Array.isArray(b?.labels)) {
-      const { rows } = await labelMap(c.teamId);
-      const ids: string[] = [];
-      for (const name of b.labels.map((x: unknown) => String(x).trim()).filter(Boolean)) {
-        let l = rows.find((x: Any) => x.name.toLowerCase() === name.toLowerCase());
-        if (!l) { const { data } = await db.from("inbox_labels").insert({ team_id: c.teamId, name: name.slice(0, 40), color: "#a774f2" }).select("id,name").single(); l = data; rows.push(l); }
-        if (l) ids.push(l.id);
-      }
-      patch.labels = ids;
-    }
-    if (!Object.keys(patch).length) throw bad("Nothing to change. Pass status, unread or labels.");
-    await db.from("inbox_threads").update(patch).eq("id", t.id);
-    return { object: "inbox_thread", id: t.id, ...patch, labels: b?.labels };
-  });
-  route("GET", "/inbox/labels", async (_r, c) => { d.needFull(c); const { rows } = await labelMap(c.teamId); return { object: "list", data: rows }; });
 
   // ------------------------------------------------------------ automations & events
   const autoOut = (a: Any) => ({ object: "automation", id: a.id, name: a.name, status: a.status, trigger: a.trigger, steps: Object.values(a.steps || {}).length, reentry: a.reentry, version: a.version, published_at: a.published_at, updated_at: a.updated_at });

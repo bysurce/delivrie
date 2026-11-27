@@ -2,13 +2,15 @@ import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { accountStatus, createDomain, deleteDomain, doh, ensureAccountSuppression, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, sesReputation, updateDomainConfig, verifyDomain } from "./ses.ts";
-import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setOnWebhookFailing, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
+import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setOnInboundMail, setOnWebhookFailing, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
 import { DOCS, searchDocs } from "./docs.js";
 import { oauthAuthorize, oauthGrantFromToken, oauthPublic, scopeAllows } from "./oauth.ts";
 import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
+import { onInboundMail, registerInbox } from "./inbox.ts";
+import { initAgent } from "./agent.ts";
 import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
 import * as Mail from "../_shared/emails.ts";
 import { senderFrom } from "../_shared/brand-email.ts";
@@ -723,8 +725,11 @@ function route(method: string, path: string, h: Handler) {
   routes.push([method, re, keys, h]);
 }
 const list = (data: unknown[], extra: Any = {}) => ({ object: "list", data, ...extra });
-// inbox, automations, events, usage, received mail (registered first so /emails/received wins over /emails/:id)
+// inboxes and the Inbox, then automations, events, usage, received mail (registered first so /emails/received wins over /emails/:id)
+registerInbox(route, { needFull, sendEmails });
 registerExtra(route, { needFull, sendEmails });
+initAgent({ sendEmails });
+setOnInboundMail(onInboundMail);
 registerSupport(route);
 
 // emails
