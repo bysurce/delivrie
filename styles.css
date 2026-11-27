@@ -309,7 +309,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .fcard, .mini, .ocard, .dns-card, .ins-card, .wcard { background: var(--panel); border: 1px solid var(--border-app); border-radius: 14px; transition: border-color .2s, transform .25s var(--ease), background .2s; }
 .fcard { padding: 24px; display: flex; flex-direction: column; gap: 10px; }
 .fcard:hover, .mini:hover, .wcard:hover { border-color: var(--border-strong); transform: translateY(-2px); }
-.fic { width: 36px; height: 36px; border-radius: 9px; background: var(--bg-muted); border: 1px solid var(--border-strong); display: grid; place-items: center; margin-bottom: 8px; }
+.fic { width: 36px; height: 36px; border-radius: 50%; background: var(--bg-muted); border: 1px solid var(--border-strong); display: grid; place-items: center; margin-bottom: 8px; }
 .fic svg, .mini h3 svg { width: 16px; height: 16px; fill: none; stroke: var(--yellow); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .fcard:hover .fic { animation: wiggle .5s var(--ease); }
 @keyframes wiggle { 30% { transform: rotate(-8deg) scale(1.06); } 60% { transform: rotate(6deg); } }
