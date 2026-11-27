@@ -7,7 +7,7 @@ const BASE = (process.argv[2] || "https://delivrie.io").replace(/\/$/, "");
 const failures = [];
 let passed = 0;
 
-async function check(path, { status = 200, contains = [], type, method = "GET", body, headers } = {}) {
+async function check(path, { status = 200, contains = [], absent = [], type, method = "GET", body, headers } = {}) {
   const t0 = Date.now();
   let res, text = "";
   try {
@@ -19,6 +19,7 @@ async function check(path, { status = 200, contains = [], type, method = "GET", 
   const problems = [];
   if (!want.includes(res.status)) problems.push(`status ${res.status}, expected ${want.join(" or ")}`);
   for (const c of contains) if (!text.includes(c)) problems.push(`missing "${c}"`);
+  for (const c of absent) if (text.includes(c)) problems.push(`should not contain "${c}"`);
   if (type && !(res.headers.get("content-type") || "").includes(type)) problems.push(`content-type ${res.headers.get("content-type")}`);
   if (problems.length) failures.push(`${path}: ${problems.join("; ")}`);
   else { passed++; console.log(`ok  ${String(res.status).padEnd(3)} ${String(ms).padStart(5)}ms  ${path}`); }
@@ -46,7 +47,9 @@ for (const p of posts) await check(p, isOff(p) ? { status: 404 } : { contains: [
 const docs = fs.readdirSync(new URL("../docs-static/", import.meta.url)).filter((f) => f.endsWith(".html")).map((f) => f === "index.html" ? "/docs" : "/docs/" + f.slice(0, -5));
 const api = fs.readdirSync(new URL("../docs-static/api/", import.meta.url)).filter((f) => f.endsWith(".html")).map((f) => "/docs/api/" + f.slice(0, -5));
 for (const p of [...docs, ...api]) await check(p, { contains: ["Delivrie Docs", "data-prerender", '"TechArticle"'] });
-for (const p of ["/docs/changelog", "/login", "/signup", "/emails", "/admin", "/settings"]) await check(p, { contains: ['<div id="app">', "noindex"] });
+for (const p of ["/docs/changelog", "/emails", "/admin", "/settings"]) await check(p, { contains: ['<div id="app">', "noindex"] });
+// Log in and Sign up are indexable on purpose (people search "Delivrie login"), so they must not carry noindex.
+for (const p of ["/login", "/signup"]) await check(p, { contains: ['<div id="app">'], absent: ["noindex"] });
 
 // ---------------------------------------------------------------- files
 await check("/sitemap.xml", { contains: ["<urlset", "/resend-alternative"], type: "xml" });
