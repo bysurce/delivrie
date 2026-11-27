@@ -1124,3 +1124,54 @@ a.b-primary[href="/signup"]:hover { background: #ffe033; }
 .pick p { margin: 0; padding: 16px 20px; border-radius: 12px; background: var(--bg-2); color: var(--fg-2); font-size: 14.5px; line-height: 1.6; }
 .pick b { color: var(--fg); font-weight: 500; }
 @media (max-width: 860px) { .better, .pick { grid-template-columns: 1fr; } .bcard { padding: 22px 20px 6px; } }
+
+/* Desktop nav dropdowns (Figma: Nav dropdown · Menu=Product / Menu=Docs). Markup from tools/build_theme.py,
+   behaviour in site-config.js. Hidden below 900px, where the mobile menu takes over. */
+:root { --dd-bg: #ffffff; --dd-shadow: 0 2px 6px rgba(31, 28, 28, 0.06), 0 16px 40px rgba(31, 28, 28, 0.1); }
+:root[data-theme="dark"] { --dd-bg: #2a2728; --dd-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 16px 40px rgba(0, 0, 0, 0.35); }
+.nav-links { align-self: stretch; align-items: center; }
+.nav-dd { position: relative; height: 100%; display: flex; align-items: center; }
+.nav-dd-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px 6px 10px; margin: -6px -8px -6px -10px; border-radius: 8px; transition: color .15s, background .15s; }
+.nav-dd-btn svg { width: 14px; height: 14px; transition: transform .18s var(--ease); }
+.nav-dd.open .nav-dd-btn { background: var(--bg-hover); color: var(--fg); }
+.nav-dd.open .nav-dd-btn svg { transform: rotate(180deg); }
+.nav-dd-panel { position: absolute; top: calc(100% + 6px); left: -34px; z-index: 30; background: var(--dd-bg); border: 1px solid var(--border-app); border-radius: 16px; box-shadow: var(--dd-shadow); overflow: hidden; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .14s, transform .14s var(--ease), visibility 0s .14s; }
+.nav-dd.open .nav-dd-panel { opacity: 1; visibility: visible; transform: none; transition: opacity .14s, transform .14s var(--ease); }
+.nav-dd-panel.dd-product { width: 800px; }
+.nav-dd-panel.dd-docs { width: 720px; }
+.dd-body { display: flex; gap: 16px; align-items: flex-start; padding: 12px; }
+.dd-docs-body { gap: 8px; padding: 20px 20px 16px; }
+.dd-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dd-grid-col { padding-top: 8px; }
+.dd-grid { display: flex; flex-wrap: wrap; gap: 2px 4px; width: 500px; }
+.dd-grid .dd-item { width: 248px; }
+.dd-label { margin: 0; padding: 0 0 6px 10px; font: 400 11px/normal var(--mono); letter-spacing: 0.66px; color: var(--fg-3); }
+.dd-item { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px 10px 10px; border-radius: 10px; color: var(--fg); transition: background .12s; }
+.dd-item:hover, .dd-item:focus-visible { background: var(--bg-hover); outline: none; }
+.dd-tile { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; background: var(--bg-2); border: 1px solid var(--border-app); color: var(--fg); }
+.dd-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dd-text b { font: 500 14px/normal var(--sans); color: var(--fg); white-space: nowrap; }
+.dd-text small { font: 400 13px/1.4 var(--sans); color: var(--fg-2); }
+.dd-feature { flex: none; width: 252px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border-radius: 12px; background: var(--warm); color: var(--fg); }
+.dd-tag { padding: 3px 8px; border-radius: 6px; background: var(--yellow); color: var(--on-yellow); font: 500 12px/normal var(--sans); }
+.dd-art { align-self: stretch; display: flex; gap: 6px; align-items: center; padding: 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border-app); }
+.dd-step { padding: 4px 8px; border-radius: 6px; background: var(--bg-2); border: 1px solid var(--border-app); color: var(--fg-2); font: 500 11px/normal var(--sans); white-space: nowrap; }
+.dd-step.on { background: var(--accent-soft); border-color: var(--accent-soft-border); color: var(--yellow-text); }
+.dd-feature b { font: 500 15px/normal var(--sans); }
+.dd-feature small { font: 400 13px/1.45 var(--sans); color: var(--fg-2); }
+.dd-more { display: inline-flex; align-items: center; gap: 6px; font: 500 13px/normal var(--sans); color: var(--fg); white-space: nowrap; }
+.dd-more svg { width: 14px; height: 14px; transition: transform .15s var(--ease); }
+.dd-feature:hover .dd-more svg, a.dd-more:hover svg { transform: translateX(2px); }
+.dd-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; background: var(--bg-2); border-top: 1px solid var(--border-app); }
+.dd-foot-l { display: inline-flex; align-items: center; gap: 8px; font: 400 13px/normal var(--sans); color: var(--fg-2); transition: color .15s; }
+.dd-foot-l:hover { color: var(--fg); }
+.dd-foot-l svg { width: 16px; height: 16px; }
+.dd-install { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border-app); font: 400 13px/normal var(--mono); color: var(--fg); cursor: pointer; }
+.dd-install .dd-dollar { color: var(--fg-3); }
+.dd-install svg { width: 14px; height: 14px; display: block; }
+.dd-install .dd-copy { color: var(--fg-3); }
+.dd-install .dd-copied { display: none; color: var(--green); }
+.dd-install.done .dd-copy { display: none; }
+.dd-install.done .dd-copied { display: block; }
+@media (max-width: 900px) { .nav-dd-panel { display: none; } }
+@media (prefers-reduced-motion: reduce) { .nav-dd-panel, .nav-dd-btn svg { transition: none; } }

@@ -200,3 +200,74 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && $("#mmenu") && !$("#mmenu").hidden) open(false); });
   window.addEventListener("resize", function () { if (window.innerWidth > 900 && $("#mmenu") && !$("#mmenu").hidden) open(false); });
 })();
+
+// Desktop nav dropdowns (Figma: Nav dropdown). Hover opens on a mouse; a click, tap, Enter or the down arrow opens
+// for touch and keyboard (a second click follows the link). Escape, a click outside or moving focus away closes.
+(function () {
+  if (window.DLV_V) return;
+  var hover = window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches;
+  var timer = null;
+  function all() { return document.querySelectorAll("[data-dd]"); }
+  function place(dd) {
+    var p = dd.querySelector(".nav-dd-panel"); if (!p) return;
+    p.style.marginLeft = "";
+    var r = p.getBoundingClientRect(), max = document.documentElement.clientWidth - 16;
+    if (r.right > max) p.style.marginLeft = -(r.right - max) + "px";
+    else if (r.left < 16) p.style.marginLeft = (16 - r.left) + "px";
+  }
+  function set(dd, on) {
+    if (!dd) return;
+    if (on) all().forEach(function (o) { if (o !== dd) set(o, false); });
+    dd.classList.toggle("open", on);
+    var b = dd.querySelector(".nav-dd-btn"); if (b) b.setAttribute("aria-expanded", on ? "true" : "false");
+    if (on) place(dd);
+  }
+  function later(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
+  document.addEventListener("mouseover", function (e) {
+    if (!hover || !e.target.closest) return;
+    var dd = e.target.closest("[data-dd]");
+    if (dd) later(function () { set(dd, true); }, dd.classList.contains("open") ? 0 : 80);
+  });
+  document.addEventListener("mouseout", function (e) {
+    if (!hover || !e.target.closest) return;
+    var dd = e.target.closest("[data-dd]");
+    if (dd && !(e.relatedTarget && dd.contains(e.relatedTarget))) later(function () { set(dd, false); }, 160);
+  });
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target : null; if (!t) return;
+    var btn = t.closest(".nav-dd-btn");
+    if (btn) {
+      var dd = btn.closest("[data-dd]");
+      // Opened by hover: the click goes to the page. Otherwise the first click/tap opens the menu.
+      if (!dd.classList.contains("open") || !hover) { e.preventDefault(); clearTimeout(timer); set(dd, !dd.classList.contains("open")); }
+      return;
+    }
+    var copy = t.closest(".dd-install[data-copy]");
+    if (copy) {
+      var done = function () { copy.classList.add("done"); setTimeout(function () { copy.classList.remove("done"); }, 1600); };
+      try { navigator.clipboard.writeText(copy.getAttribute("data-copy")).then(done, function () {}); } catch (err) {}
+      return;
+    }
+    if (!t.closest(".nav-dd-panel") || t.closest("a")) all().forEach(function (o) { set(o, false); });
+  });
+  document.addEventListener("keydown", function (e) {
+    var dd = e.target.closest && e.target.closest("[data-dd]");
+    if (e.key === "Escape") {
+      var open = document.querySelector("[data-dd].open");
+      if (open) { set(open, false); var b = open.querySelector(".nav-dd-btn"); if (b) b.focus(); }
+      return;
+    }
+    if (!dd) return;
+    var items = [].slice.call(dd.querySelectorAll(".nav-dd-panel a, .nav-dd-panel button"));
+    if (e.key === "ArrowDown") {
+      e.preventDefault(); set(dd, true);
+      var i = items.indexOf(document.activeElement); (items[i + 1] || items[0]).focus();
+    } else if (e.key === "ArrowUp" && items.length) {
+      e.preventDefault(); var j = items.indexOf(document.activeElement); (items[j - 1] || items[items.length - 1]).focus();
+    }
+  });
+  document.addEventListener("focusin", function (e) {
+    all().forEach(function (o) { if (o.classList.contains("open") && !o.contains(e.target)) set(o, false); });
+  });
+  window.addEventListener("resize", function () { var o = document.querySelector("[data-dd].open"); if (o) place(o); });
+})();
