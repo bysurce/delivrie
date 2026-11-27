@@ -67,6 +67,7 @@ async function overview(body) {
         ${stat("Bounce rate", pct(hard, attempted), `${num(hard)} hard bounces · keep under 4% · ${num(o.blocked_30d || 0)} bad addresses stopped before sending`)}
         ${stat("Complaint rate", pct(st.complained || 0, attempted, 2), `${num(st.complained || 0)} complaints · keep under 0.08%`)}
       </div>
+      <div data-ses-rep>${sesRepHtml()}</div>
       <div class="admin-grid">
         <div class="card card-pad"><div class="row-flex"><h3 class="h3">Sign-ups</h3><span class="grow"></span><div class="seg">${[7, 30, 90].map((d) => `<button class="${d === days ? "on" : ""}" data-days="${d}">${d}d</button>`).join("")}</div></div><div data-chart="signups" style="margin-top:12px"></div></div>
         <div class="card card-pad"><div class="row-flex"><h3 class="h3">Email volume</h3><span class="grow"></span><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">sent · delivered · bounced</span></div><div data-chart="emails" style="margin-top:12px"></div></div>
@@ -81,11 +82,45 @@ async function overview(body) {
     lineChart(body.querySelector('[data-chart="emails"]'), { labels, height: 200, series: [{ name: "Sent", color: "#8a8f98", values: rows.map((r) => Number(r.sent)) }, { name: "Delivered", color: "#3fa672", values: rows.map((r) => Number(r.delivered)) }, { name: "Bounced", color: "#e5484d", values: rows.map((r) => Number(r.bounced)) }] });
   };
   draw(daily);
+  sesRepCard(body);
   regionsCard(body);
   on(body, "click", "[data-days]", async (_e, b) => {
     days = Number(b.dataset.days);
     try { draw(await rpc("admin_daily", { p_days: days })); } catch (e) { errToast(e); }
   });
+}
+// Amazon's own numbers: the bounce and complaint rates SES publishes for the account (per region), which are what its
+// warnings and reviews go by. Ours above are close but count differently (fixed 30 days, no system mail).
+let SES_REP = null;
+const SES_LIMITS = { bounce: [0.05, 0.10], complaint: [0.001, 0.005] };
+function sesRepHtml() {
+  if (!SES_REP) return `<div class="dim" style="margin:-4px 0 16px;font-size:calc(12px + var(--fs-up, 0px))">Loading Amazon SES reputation…</div>`;
+  if (SES_REP.error) return `<div class="dim" style="margin:-4px 0 16px;font-size:calc(12px + var(--fs-up, 0px))">Amazon SES reputation: ${esc(SES_REP.error)}</div>`;
+  const fmt = (v, d) => v == null ? "—" : `${(v * 100).toFixed(d)}%`;
+  const tone = (v, k) => v == null ? "gray" : v >= SES_LIMITS[k][1] ? "red" : v >= SES_LIMITS[k][0] ? "orange" : "green";
+  const word = (v, k) => v == null ? "No data yet" : v >= SES_LIMITS[k][1] ? "Review level" : v >= SES_LIMITS[k][0] ? "Warning level" : "Healthy";
+  const enf = { HEALTHY: ["Healthy", "green"], PROBATION: ["Under review", "orange"], SHUTDOWN: ["Sending paused by Amazon", "red"] };
+  const small = 'class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px"';
+  return SES_REP.data.map((r) => {
+    const e = enf[r.enforcement] || [r.enforcement || "Unknown", "gray"];
+    const when = r.bounce?.at ? ` · updated ${ago(r.bounce.at)}` : "";
+    const rate = (k, label, d, limits) => `<div class="stat"><div class="k">${label}</div><div class="v">${fmt(r[k]?.rate, d)} ${badge(word(r[k]?.rate, k), tone(r[k]?.rate, k))}</div><div ${small}>14-day peak ${fmt(r[k]?.peak_14d, d)} · ${limits}</div></div>`;
+    return `<h3 class="section-title">What Amazon sees <span class="dim" style="font-weight:400">Amazon SES · ${esc(r.label)}${when}</span></h3>
+      ${r.error ? `<div class="dim" style="margin:-4px 0 10px;font-size:calc(12px + var(--fs-up, 0px))">${esc(r.error)}</div>` : ""}
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat"><div class="k">Account status</div><div class="v">${badge(e[0], e[1])}</div><div ${small}>${r.sending === false ? "Sending is turned off" : "Sending is on"}</div></div>
+        ${rate("bounce", "Bounce rate", 2, "warning at 5% · review at 10%")}
+        ${rate("complaint", "Complaint rate", 3, "warning at 0.1% · review at 0.5%")}
+        <div class="stat"><div class="k">Sent (24 hours)</div><div class="v">${r.sent_24h == null ? "—" : num(r.sent_24h)}</div><div ${small}>${r.max_24h ? `of ${num(r.max_24h)} allowed a day` : ""}</div></div>
+      </div>`;
+  }).join("") || `<div class="dim" style="margin:-4px 0 16px">Amazon SES isn't set up.</div>`;
+}
+async function sesRepCard(body) {
+  if (!SES_REP) {
+    try { SES_REP = await api("GET", "/dashboard/ses-reputation"); } catch (e) { SES_REP = { error: e.message || "couldn't load" }; }
+  }
+  const box = body.querySelector("[data-ses-rep]");
+  if (box) box.innerHTML = sesRepHtml();
 }
 // Sending regions: a region is offered to customers once AWS grants SES production access there.
 async function regionsCard(body, fresh = false) {

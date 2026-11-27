@@ -1,7 +1,7 @@
 import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
-import { accountStatus, createDomain, deleteDomain, doh, ensureAccountSuppression, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
+import { accountStatus, createDomain, deleteDomain, doh, ensureAccountSuppression, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, sesReputation, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
@@ -941,6 +941,15 @@ route("GET", "/dashboard/regions", dash(async (_r, c, _p, url) => {
   const st = await Promise.all(REGION_CANDIDATES.map((r) => regionStatus(r, fresh).catch((e) => ({ region: r, production: false, sending: false, checked_at: new Date().toISOString(), error: String(e?.message || e) }))));
   const offered = await sendingRegions();
   return { object: "list", data: st.map((x) => ({ ...x, label: regionLabel(x.region), offered: offered.includes(x.region) })) };
+}));
+route("GET", "/dashboard/ses-reputation", dash(async (_r, c) => {
+  // Platform admins only: Amazon's own bounce and complaint rates per sending region (what decides its warnings).
+  const { data: adm } = c.userId ? await db.from("platform_admins").select("user_id").eq("user_id", c.userId).maybeSingle() : { data: null };
+  if (!adm) throw forbidden("Only platform admins can see this");
+  if (!hasAws()) return { object: "list", data: [] };
+  const { data: used } = await db.from("domains").select("region");
+  const regions = [...new Set([...(await sendingRegions()), ...(used || []).map((d: Any) => d.region).filter(Boolean)])];
+  return { object: "list", data: await Promise.all(regions.map((r) => sesReputation(r).catch((e) => ({ region: r, label: regionLabel(r), error: String(e?.message || e) })))) };
 }));
 route("POST", "/dashboard/test-email", dash(async (_r, c, _p, _u, b) => {
   const to = asArray(b?.to);

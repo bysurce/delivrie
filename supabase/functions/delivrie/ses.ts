@@ -375,6 +375,39 @@ export async function accountStatus(region = "eu-west-1") {
   if (!hasAws()) return { configured: false };
   try {
     const a = await sesv2(creds(), region, "GET", "/v2/email/account");
-    return { configured: true, production: !!a.ProductionAccessEnabled, sending: !!a.SendingEnabled, max_send_rate: a.SendQuota?.MaxSendRate, max_24h: a.SendQuota?.Max24HourSend, sent_24h: a.SendQuota?.SentLast24Hours, region };
+    return { configured: true, enforcement: a.EnforcementStatus || null, production: !!a.ProductionAccessEnabled, sending: !!a.SendingEnabled, max_send_rate: a.SendQuota?.MaxSendRate, max_24h: a.SendQuota?.Max24HourSend, sent_24h: a.SendQuota?.SentLast24Hours, region };
   } catch (e) { return { configured: true, error: (e as Error).message, region }; }
+}
+
+/** Amazon's own reputation numbers for a region: the bounce and complaint rates SES publishes to CloudWatch
+ *  (Reputation.BounceRate / Reputation.ComplaintRate, the figures behind its warnings and reviews), the 14-day
+ *  peak, and the account's enforcement status. Needs cloudwatch:GetMetricStatistics on the Delivrie IAM user. */
+export async function sesReputation(region: string) {
+  const c = creds();
+  const end = new Date(), start = new Date(end.getTime() - 14 * 86400e3);
+  const metric = async (name: string) => {
+    const r = await awsQuery(c, region, "monitoring", {
+      Action: "GetMetricStatistics", Namespace: "AWS/SES", MetricName: name, "Statistics.member.1": "Average",
+      Period: "3600", StartTime: start.toISOString(), EndTime: end.toISOString(),
+    });
+    const tag = (x: string, t: string) => x.match(new RegExp(`<${t}>([^<]*)</${t}>`))?.[1];
+    const pts = [...r.xml.matchAll(/<member>([\s\S]*?)<\/member>/g)]
+      .map((m) => ({ at: tag(m[1], "Timestamp") || "", v: Number(tag(m[1], "Average")) }))
+      .filter((p) => p.at && Number.isFinite(p.v)).sort((a, b) => a.at.localeCompare(b.at));
+    const last = pts[pts.length - 1];
+    return { rate: last ? last.v : null, at: last?.at || null, peak_14d: pts.length ? Math.max(...pts.map((p) => p.v)) : null, series: pts.filter((_, i) => i % 6 === 0 || i === pts.length - 1).map((p) => [p.at, p.v]) };
+  };
+  const out: Any = { region, label: regionLabel(region) };
+  const [acct, bounce, complaint] = await Promise.allSettled([accountStatus(region), metric("Reputation.BounceRate"), metric("Reputation.ComplaintRate")]);
+  if (acct.status === "fulfilled") Object.assign(out, { enforcement: acct.value.enforcement || null, sending: acct.value.sending, sent_24h: acct.value.sent_24h, max_24h: acct.value.max_24h });
+  if (bounce.status === "fulfilled") out.bounce = bounce.value;
+  if (complaint.status === "fulfilled") out.complaint = complaint.value;
+  const err = [bounce, complaint].find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+  if (err) {
+    const e = err.reason;
+    out.error = e instanceof AwsError && /AccessDenied|not authorized/i.test(`${e.code} ${e.message}`)
+      ? "Delivrie's AWS user can't read CloudWatch yet. Add cloudwatch:GetMetricStatistics to its IAM policy."
+      : String(e?.message || e);
+  }
+  return out;
 }

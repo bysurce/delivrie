@@ -92,9 +92,9 @@ function xmlValue(xml: string, tag: string): string | null {
 }
 
 /** Query-protocol call (SNS or SES v1). Returns raw XML. */
-export async function awsQuery(creds: AwsCreds, region: string, service: "sns" | "ses-v1", params: Record<string, string>) {
-  const host = service === "sns" ? `sns.${region}.amazonaws.com` : `email.${region}.amazonaws.com`;
-  const version = service === "sns" ? "2010-03-31" : "2010-12-01";
+export async function awsQuery(creds: AwsCreds, region: string, service: "sns" | "ses-v1" | "monitoring", params: Record<string, string>) {
+  const host = service === "sns" ? `sns.${region}.amazonaws.com` : service === "monitoring" ? `monitoring.${region}.amazonaws.com` : `email.${region}.amazonaws.com`;
+  const version = service === "sns" ? "2010-03-31" : service === "monitoring" ? "2010-08-01" : "2010-12-01";
   const url = `https://${host}/`;
   const body = Object.entries({ ...params, Version: version }).map(([k, v]) => `${rfc3986(k)}=${rfc3986(v)}`).join("&");
   const headers = await signV4({ method: "POST", url, region, service, creds, body, headers: { "content-type": "application/x-www-form-urlencoded; charset=utf-8" } });
