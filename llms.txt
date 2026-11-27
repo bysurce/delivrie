@@ -20,7 +20,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Next.js](https://delivrie.io/docs/nextjs.md): Send email from Next.js with Delivrie: App Router route handlers, Server Actions, React Email templates, webhooks and deploying on Vercel.
 - [Node.js and Express](https://delivrie.io/docs/express.md): Send email from Node.js, Express, Fastify, NestJS or Hono with Delivrie, and verify webhooks with the raw request body.
 - [Python](https://delivrie.io/docs/python.md): Send email from Python, Django, Flask and FastAPI with the official delivrie package, verify webhooks, or use Django's SMTP backend.
-- [PHP and Laravel](https://delivrie.io/docs/php.md): Send email from PHP and Laravel with Delivrie: Laravel's SMTP mailer, Guzzle or curl, and webhook verification.
+- [PHP and Laravel](https://delivrie.io/docs/php.md): Send email from PHP and Laravel with Delivrie: the PHP SDK, Laravel's SMTP mailer, and webhook verification.
 - [Ruby and Rails](https://delivrie.io/docs/ruby.md): Send email from Ruby on Rails with Action Mailer over SMTP, or from any Ruby app with Net::HTTP, and verify Delivrie webhooks.
 - [Go](https://delivrie.io/docs/go.md): Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.
 - [Rust](https://delivrie.io/docs/rust.md): Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.
