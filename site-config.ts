@@ -278,7 +278,7 @@
 (function () {
   if (window.__dlvSupport || /[?&]dlv_edit=1/.test(location.search)) return;
   window.__dlvSupport = 1;
-  var MARK = '<svg width="19.84" height="14.88" viewBox="0 0 48 36" fill="none" aria-hidden="true"><path d="M45.621 15.8308C47.0004 16.948 47.0004 19.052 45.621 20.1692L33.6 29.9049C31.775 31.3829 29.0518 30.0841 29.0518 27.7357L29.0518 8.26426C29.0518 5.91588 31.775 4.61707 33.6 6.09507L45.621 15.8308Z" fill="#FAD600"/><path d="M27.7507 14.2163C29.6239 16.391 29.624 19.609 27.7507 21.7837L19.8975 30.9006C17.5846 33.5857 13.4253 33.5857 11.1125 30.9006L3.25923 21.7837C1.386 19.609 1.386 16.391 3.25923 14.2163L11.1124 5.09937C13.4253 2.41433 17.5846 2.41432 19.8975 5.09937L27.7507 14.2163Z" fill="#FAD600"/></svg>';
+  var MARK = '<svg width="19.84" height="14.88" viewBox="0 0 48 36" fill="none" aria-hidden="true"><g transform="translate(7.000 -2.8709) scale(0.229730)"><path d="M0 90.85L37 16.85H74C93.626 16.85 112.448 24.6464 126.326 38.5241C140.204 52.4018 148 71.224 148 90.85C148 110.476 140.204 129.298 126.326 143.176C112.448 157.054 93.626 164.85 74 164.85H0L37 90.85H74L55.5 127.85H74C83.813 127.85 93.2241 123.952 100.163 117.013C107.102 110.074 111 100.663 111 90.85C111 81.037 107.102 71.6259 100.163 64.687C93.2241 57.7482 83.813 53.85 74 53.85H55.5L37 90.85H0Z" fill="#FAD600"/></g></svg>';
   var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/app/css/chat.css'; document.head.appendChild(css);
   document.documentElement.classList.add('sc-site');
   var root = document.createElement('div'); root.className = 'sc site';
