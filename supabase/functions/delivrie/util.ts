@@ -16,7 +16,7 @@ console.log(`plan limits ${ENFORCE_LIMITS ? "enforced" : "NOT enforced (ENFORCE_
 
 export const CORS = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, content-type, x-team-id, idempotency-key, x-client-info, apikey, user-agent",
+  "access-control-allow-headers": "authorization, content-type, x-team-id, idempotency-key, x-client-info, apikey, user-agent, x-support-token",
   "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
   "access-control-max-age": "86400",
 };

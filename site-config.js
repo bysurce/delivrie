@@ -271,3 +271,37 @@
   });
   window.addEventListener("resize", function () { var o = document.querySelector("[data-dd].open"); if (o) place(o); });
 })();
+
+// Contact support: the chat button on every public page, for visitors and signed-in customers alike. Only the button
+// is drawn up front; the chat itself (/app/js/lib/chat.js) loads when it's clicked, or quietly after the page is idle
+// for someone with a conversation in progress, so a reply can show as unread.
+(function () {
+  if (window.__dlvSupport || /[?&]dlv_edit=1/.test(location.search)) return;
+  window.__dlvSupport = 1;
+  var MARK = '<svg width="19.84" height="14.88" viewBox="0 0 48 36" fill="none" aria-hidden="true"><path d="M45.621 15.8308C47.0004 16.948 47.0004 19.052 45.621 20.1692L33.6 29.9049C31.775 31.3829 29.0518 30.0841 29.0518 27.7357L29.0518 8.26426C29.0518 5.91588 31.775 4.61707 33.6 6.09507L45.621 15.8308Z" fill="#FAD600"/><path d="M27.7507 14.2163C29.6239 16.391 29.624 19.609 27.7507 21.7837L19.8975 30.9006C17.5846 33.5857 13.4253 33.5857 11.1125 30.9006L3.25923 21.7837C1.386 19.609 1.386 16.391 3.25923 14.2163L11.1124 5.09937C13.4253 2.41433 17.5846 2.41432 19.8975 5.09937L27.7507 14.2163Z" fill="#FAD600"/></svg>';
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/app/css/chat.css'; document.head.appendChild(css);
+  document.documentElement.classList.add('sc-site');
+  var root = document.createElement('div'); root.className = 'sc site';
+  root.innerHTML = '<button class="sc-tab" aria-label="Contact support" aria-expanded="false"><span class="sc-tab-av">' + MARK + '</span><span>Contact support</span></button>';
+  var loading = null;
+  function load(open) {
+    if (!loading) {
+      root.querySelector('.sc-tab').setAttribute('aria-busy', 'true');
+      loading = import('/app/js/lib/chat.js').then(function (m) { document.removeEventListener('keydown', onKey); return m.mountSite({ root: root, open: open }); });
+    } else if (open) loading.then(function (w) { w.open(); });
+    loading.catch(function () { loading = null; location.href = 'mailto:support@delivrie.io'; });
+  }
+  function onKey(e) {
+    var a = document.activeElement;
+    if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable))) { e.preventDefault(); load(true); }
+  }
+  root.querySelector('.sc-tab').addEventListener('click', function () { load(true); });
+  document.addEventListener('keydown', onKey);
+  function start() {
+    document.body.appendChild(root);
+    var active = false; try { active = !!localStorage.getItem('dlv_support_active'); } catch (e) {}
+    if (/[?&]support=/.test(location.search)) load(true);
+    else if (active) (window.requestIdleCallback || function (f) { setTimeout(f, 2500); })(function () { load(false); });
+  }
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();

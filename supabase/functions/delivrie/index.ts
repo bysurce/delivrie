@@ -9,7 +9,7 @@ import { DOCS, searchDocs } from "./docs.js";
 import { oauthAuthorize, oauthGrantFromToken, oauthPublic, scopeAllows } from "./oauth.ts";
 import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
-import { notify, registerSupport, supportCron } from "./support.ts";
+import { notify, registerSupport, supportCron, supportPublic } from "./support.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
@@ -1053,6 +1053,12 @@ async function askDelivrie(question: string) {
 
 // ---------------------------------------------------------------- public endpoints
 async function publicRoutes(req: Request, path: string, url: URL): Promise<Response | null> {
+  if (path.startsWith("/public/support/")) {
+    // Contact support for website visitors who aren't signed in (see support.ts).
+    const ip = clientIp(req) || null;
+    await assertNotBlocked(ip || undefined);
+    return await supportPublic(req, path, url, ip);
+  }
   if (path === "/public/status") {
     // Live component status, 90 days of uptime and incidents for delivrie.io/status (checked every 5 minutes).
     try { return new Response(JSON.stringify(await publicStatus()), { headers: { ...CORS, "content-type": "application/json", "cache-control": "public, max-age=30, s-maxage=30" } }); }

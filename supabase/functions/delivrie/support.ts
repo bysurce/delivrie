@@ -2,7 +2,7 @@
 // person" turns the conversation into a numbered ticket (#DLV-2041) with a topic and context attached (the email in
 // question with its headers, the domain's DNS checks). The team replies from Admin → Support, resolves it, and the
 // customer rates it. Replies left unread for 5 minutes go out by email (see supportCron).
-import { type Any, APP_URL, bad, db, domainOf, forbidden, notFound, SYSTEM_FROM } from "./util.ts";
+import { type Any, APP_URL, bad, db, domainOf, forbidden, hmacUrl, json, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
 import { hasAws } from "./ses.ts";
 import { deliver } from "./send.ts";
 import { searchDocs } from "./docs.js";
@@ -80,7 +80,8 @@ async function teamPlan(teamId: string | null) {
   return data?.plan_transactional || "free";
 }
 // What we promise, by plan (matches the pricing page: email support on every paid plan, priority on Scale).
-function replyPromise(plan: string) {
+function replyPromise(plan: string, guest = false) {
+  if (guest) return { head: "A person will reply within 1 business day", sub: "Monday to Friday, UTC+1. The reply comes here and to your email, so you can close this." , guest: true };
   const name = plan.replace(/^\w/, (c) => c.toUpperCase());
   if (plan === "scale" || plan === "enterprise") return { head: "A person will reply within 1 business day", sub: `${name} plan · priority support, you’re at the front of the queue.` };
   return { head: "A person will reply within 1 business day", sub: `${name} plan · Monday to Friday, UTC+1.` };
@@ -131,7 +132,7 @@ const TOPIC_WORDS: Record<string, RegExp> = {
 };
 const guessTopic = (q: string) => (Object.entries(TOPIC_WORDS).find(([, re]) => re.test(q))?.[0]) || "other";
 
-async function answer(question: string, teamId: string | null, history: Any[]) {
+async function answer(question: string, teamId: string | null, history: Any[], guest = false) {
   const ctx = await accountContext(teamId);
   const topic = guessTopic(question);
   const hits = searchDocs(question, 3);
@@ -151,7 +152,7 @@ async function answer(question: string, teamId: string | null, history: Any[]) {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (key) {
     try {
-      const account = [
+      const account = guest ? "This visitor isn’t signed in, so there’s no account to look at. For account-specific problems, suggest signing in or \"Talk to a person\"." : [
         `Plan: ${ctx.plan}`,
         `Last 7 days: ${ctx.stats.sent} emails sent, ${ctx.stats.bounced} hard bounces, ${ctx.stats.complained} spam complaints.`,
         ...ctx.domains.map((d: Any) => `Domain ${d.name}: ${d.status}; ${checksLine(domainChecks(d))}`),
@@ -240,9 +241,22 @@ async function proposeAttachments(teamId: string | null) {
   return out;
 }
 
+// ------------------------------------------------------------ who's asking
+// A signed-in customer (dashboard, or the marketing site with a session) or a visitor who isn't signed in. Visitors
+// are known by a random token their browser keeps (only its hash is stored); they get docs-only answers and leave
+// an email address when they ask for a person.
+type Who = { userId: string | null; teamId: string | null; email: string | null; tokenHash: string | null; ip: string | null; guest: boolean };
+const whoFromCtx = (c: Any): Who => ({ userId: c.userId, teamId: c.teamId, email: c.email || null, tokenHash: null, ip: c.ip || null, guest: false });
+const GUEST_TOPICS: Record<string, string> = { sales: "Sales & pricing", deliverability: "Deliverability", domains: "Domains & DNS", api: "API & SDKs", billing: "Billing", other: "Something else" };
+const EMAIL_RE = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[a-z]{2,}$/i;
+const topicsFor = (who: Who) => Object.entries(who.guest ? GUEST_TOPICS : TOPICS).map(([id, label]) => ({ id, label }));
+const topicLabel = (id: string | null) => (id ? TOPICS[id] || GUEST_TOPICS[id] || id : null);
+
 // ------------------------------------------------------------ threads
-async function myThread(userId: string, id: string) {
-  const { data } = await db.from("support_threads").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+const mine = (q: Any, who: Who) => (who.userId ? q.eq("user_id", who.userId) : q.is("user_id", null).eq("guest_token_hash", who.tokenHash || "-"));
+async function myThread(who: Who, id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("Conversation");
+  const { data } = await mine(db.from("support_threads").select("*").eq("id", id), who).maybeSingle();
   if (!data) throw notFound("Conversation");
   return data;
 }
@@ -255,17 +269,33 @@ async function addMessage(t: Any, author: string, body: string, extra: Any = {})
   return m;
 }
 const threadOut = (t: Any) => ({
-  id: t.id, number: t.number, ticket: ticket(t.number), status: t.status, subject: t.subject, topic: t.topic, topic_label: t.topic ? TOPICS[t.topic] || t.topic : null,
+  id: t.id, number: t.number, ticket: ticket(t.number), status: t.status, subject: t.subject, topic: t.topic, topic_label: topicLabel(t.topic),
   assignee: t.assignee_name ? { name: first(t.assignee_name), initials: initials(t.assignee_name) } : null,
-  resolved_by: t.resolved_by, rating: t.rating, rated_at: t.rated_at, last_message_at: t.last_message_at, last_author: t.last_author, preview: t.last_preview, unread: t.unread_customer || 0,
+  resolved_by: t.resolved_by, rating: t.rating, rated_at: t.rated_at, last_message_at: t.last_message_at, last_author: t.last_author, preview: t.last_preview, unread: t.unread_customer || 0, email: t.email,
 });
-async function rateLimit(userId: string) {
+async function newThread(who: Who, subject: string, preview_: string) {
+  const { data } = await db.from("support_threads").insert({ team_id: who.teamId, user_id: who.userId, email: who.email || (who.userId ? await userEmail(who.userId) : null), guest_token_hash: who.userId ? null : who.tokenHash, guest_ip: who.guest ? who.ip : null, status: "bot", subject: subject.slice(0, 80), last_message_at: new Date().toISOString(), last_author: "customer", last_preview: preview_ }).select().single();
+  return data;
+}
+async function rateLimit(who: Who, kind: "message" | "thread" | "escalate" = "message") {
+  const tooMany = () => bad("You’ve sent a lot of messages in a short time. Give us a moment to catch up.");
   const since = new Date(Date.now() - 10 * 60_000).toISOString();
-  const { data: mine } = await db.from("support_threads").select("id").eq("user_id", userId).gte("last_message_at", since);
-  const ids = (mine || []).map((t: Any) => t.id);
-  if (!ids.length) return;
-  const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).in("thread_id", ids).eq("author", "customer").gte("created_at", since);
-  if ((count || 0) >= 30) throw bad("You’ve sent a lot of messages in a short time. Give us a moment to catch up.");
+  const { data: recent } = await mine(db.from("support_threads").select("id").gte("last_message_at", since), who);
+  const ids = (recent || []).map((t: Any) => t.id);
+  if (ids.length) {
+    const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).in("thread_id", ids).eq("author", "customer").gte("created_at", since);
+    if ((count || 0) >= (who.guest ? 15 : 30)) throw tooMany();
+  }
+  if (!who.guest || !who.ip) return;
+  // Visitors: limits per network address too, since a token is free to make.
+  const hour = new Date(Date.now() - 3600e3).toISOString(), day = new Date(Date.now() - 86400e3).toISOString();
+  if (kind === "thread") { const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).eq("guest_ip", who.ip).gte("created_at", hour); if ((count || 0) >= 15) throw tooMany(); }
+  if (kind === "escalate") { const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).eq("guest_ip", who.ip).gte("escalated_at", day); if ((count || 0) >= 5) throw bad("You’ve opened a few conversations today. Email support@delivrie.io and we’ll pick it up there."); }
+  if (kind === "message") {
+    const { data: byIp } = await db.from("support_threads").select("id").eq("guest_ip", who.ip).gte("last_message_at", hour).limit(50);
+    const ipIds = (byIp || []).map((t: Any) => t.id);
+    if (ipIds.length) { const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).in("thread_id", ipIds).eq("author", "customer").gte("created_at", hour); if ((count || 0) >= 40) throw tooMany(); }
+  }
 }
 async function notifyAdmins(t: Any, who: string, teamName: string | null, body: string, attachments: Any[] = []) {
   const last = t.support_notified_at ? new Date(t.support_notified_at).getTime() : 0;
@@ -274,26 +304,29 @@ async function notifyAdmins(t: Any, who: string, teamName: string | null, body: 
   const to = (await Promise.all((admins || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
   const link = `${APP_URL}/admin/support?t=${t.id}`;
   const att = attachments.map((a) => `${a.type === "email" ? "Email" : "Domain"}: ${a.title} (${a.sub})`).join("\n");
-  const topic = t.topic ? ` · ${TOPICS[t.topic] || t.topic}` : "";
-  const sent = await notify(to, `${ticket(t.number)} ${who}${topic}`,
-    wrap(`<p><b>${esc(who)}</b>${teamName ? ` (${esc(teamName)})` : ""} wrote${topic ? ` about <b>${esc(TOPICS[t.topic] || t.topic)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Reply in Delivrie →</a></p>`),
-    `${who}${teamName ? ` (${teamName})` : ""} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}Reply: ${link}`);
+  const label = topicLabel(t.topic);
+  const org = teamName ? ` (${teamName})` : !t.user_id ? " (website visitor, not signed in)" : "";
+  const sent = await notify(to, `${ticket(t.number)} ${who}${label ? ` · ${label}` : ""}`,
+    wrap(`<p><b>${esc(who)}</b>${esc(org)} wrote${label ? ` about <b>${esc(label)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Reply in Delivrie →</a></p>`),
+    `${who}${org} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}Reply: ${link}`);
   if (sent) await db.from("support_threads").update({ support_notified_at: new Date().toISOString() }).eq("id", t.id);
 }
+// A link that opens a visitor's conversation in any browser (it moves the conversation to that browser).
+async function resumeKey(threadId: string) { return hmacUrl(`${await setting("cron_secret")}:support`, threadId); }
 
-export function registerSupport(route: Route) {
-  // ------------------------------------------------------------ customer
-  route("GET", "/support/home", async (_r, c, _p, url) => {
-    needDashboard(c);
+// ------------------------------------------------------------ customer handlers (shared by the dashboard and the site)
+type H = (who: Who, p: Record<string, string>, url: URL, b: Any) => Promise<Any>;
+const CUSTOMER: [string, string, H][] = [
+  ["GET", "/support/home", async (who, _p, url) => {
     const page = url.searchParams.get("page") || "";
     const [ctx, team, name, { data: recent }, { data: unreadRows }] = await Promise.all([
-      accountContext(c.teamId), supportTeam(), profileName(c.userId),
-      db.from("support_threads").select("*").eq("user_id", c.userId).neq("status", "bot").order("last_message_at", { ascending: false }).limit(1),
-      db.from("support_threads").select("unread_customer").eq("user_id", c.userId).gt("unread_customer", 0),
+      accountContext(who.teamId), supportTeam(), profileName(who.userId),
+      mine(db.from("support_threads").select("*").neq("status", "bot").order("last_message_at", { ascending: false }).limit(1), who),
+      mine(db.from("support_threads").select("unread_customer").gt("unread_customer", 0), who),
     ]);
     // Suggestions: what's wrong on the account first, weighted toward the page they're on, then common questions.
     const sugg: Any[] = [];
-    const pageTopic = /^\/domains/.test(page) ? "domains" : /^\/(webhooks|keys|logs)/.test(page) ? "api" : /^\/billing/.test(page) ? "billing" : /^\/(emails|broadcasts|suppressions|metrics)/.test(page) ? "deliverability" : "";
+    const pageTopic = /^\/domains/.test(page) ? "domains" : /^\/(webhooks|keys|logs)/.test(page) ? "api" : /^\/billing/.test(page) ? "billing" : /^\/(emails|broadcasts|suppressions|metrics)/.test(page) ? "deliverability" : /^\/(pricing|compare|vs)/.test(page) ? "sales" : "";
     const findings = [...ctx.findings].sort((a: Any, b: Any) => Number(b.topic === pageTopic) - Number(a.topic === pageTopic));
     for (const f of findings) {
       if (sugg.length >= 2) break;
@@ -303,172 +336,197 @@ export function registerSupport(route: Route) {
       else if (/spam/.test(f.text)) sugg.push({ icon: "alert", title: "People marked my email as spam", sub: "Deliverability · complaints", q: "Why are people marking my email as spam?" });
       else if (/paused/i.test(f.text)) sugg.push({ icon: "pause", title: "Why is my sending paused?", sub: "Account · sending", q: "Why is sending paused on my account?" });
     }
-    const common = [
+    const common = who.guest ? [
+      { icon: "card", title: "How does pricing work?", sub: "Plans · free tier and overage", q: "How does Delivrie pricing work?", topic: "sales" },
+      { icon: "arrow-right", title: "Switch from Resend", sub: "Migration · same API shape", q: "How do I migrate from Resend?", topic: "api" },
+      { icon: "send", title: "Send my first email", sub: "Getting started · 5 minutes", q: "How do I send my first email?", topic: "api" },
+      { icon: "mail", title: "Keep emails out of spam", sub: "Deliverability", q: "How do I keep my emails out of spam?", topic: "deliverability" },
+    ] : [
       { icon: "mail", title: "Emails to Gmail land in spam", sub: "Deliverability · 3 min read", q: "Why are my emails to Gmail going to spam?", topic: "deliverability" },
       { icon: "globe", title: "My domain won’t verify", sub: "Domains · DNS checks", q: "Why isn’t my domain verifying?", topic: "domains" },
       { icon: "webhook", title: "Webhook retries and signatures", sub: "Webhooks", q: "How do webhook retries and signatures work?", topic: "api" },
       { icon: "card", title: "Change or cancel my plan", sub: "Billing", q: "How do I change or cancel my plan?", topic: "billing" },
-    ].sort((a, b) => Number(b.topic === pageTopic) - Number(a.topic === pageTopic));
+    ];
+    common.sort((a, b) => Number(b.topic === pageTopic) - Number(a.topic === pageTopic));
     for (const s of common) { if (sugg.length >= 3) break; if (!sugg.some((x) => x.title === s.title)) sugg.push(s); }
     const r = recent?.[0];
     let recentOut = null;
     if (r) {
-      const who = r.last_author === "support" ? (first(r.assignee_name) || "Delivrie") : r.last_author === "customer" ? "You" : "Delivrie";
-      recentOut = { id: r.id, title: r.subject || TOPICS[r.topic] || "Conversation", sub: `${who}: ${r.last_preview || ""}`.slice(0, 80), status: r.status, assignee: r.assignee_name ? initials(r.assignee_name) : null, unread: r.unread_customer || 0 };
+      const by = r.last_author === "support" ? (first(r.assignee_name) || "Delivrie") : r.last_author === "customer" ? "You" : "Delivrie";
+      recentOut = { id: r.id, title: r.subject || topicLabel(r.topic) || "Conversation", sub: `${by}: ${r.last_preview || ""}`.slice(0, 80), status: r.status, assignee: r.assignee_name ? initials(r.assignee_name) : null, unread: r.unread_customer || 0 };
     }
     return {
-      name: first(name), suggestions: sugg.slice(0, 3), recent: recentOut, team: team.people, on_shift: team.on_shift,
+      name: first(name), guest: who.guest, suggestions: sugg.slice(0, 3), recent: recentOut, team: team.people, on_shift: team.on_shift,
       unread: (unreadRows || []).reduce((n: number, t: Any) => n + (t.unread_customer || 0), 0),
-      ai: !!Deno.env.get("ANTHROPIC_API_KEY"), topics: Object.entries(TOPICS).map(([id, label]) => ({ id, label })),
+      ai: !!Deno.env.get("ANTHROPIC_API_KEY"), topics: topicsFor(who),
     };
-  });
-
-  route("GET", "/support/unread", async (_r, c) => {
-    needDashboard(c);
-    const { data } = await db.from("support_threads").select("id,number,unread_customer,last_preview,last_message_at,assignee_name").eq("user_id", c.userId).gt("unread_customer", 0).order("last_message_at", { ascending: false }).limit(5);
+  }],
+  ["GET", "/support/unread", async (who) => {
+    const { data } = await mine(db.from("support_threads").select("id,number,unread_customer,last_preview,last_message_at,assignee_name").gt("unread_customer", 0).order("last_message_at", { ascending: false }).limit(5), who);
     const t = data?.[0];
     return { unread: (data || []).reduce((n: number, x: Any) => n + (x.unread_customer || 0), 0), latest: t ? { thread_id: t.id, ticket: ticket(t.number), name: t.assignee_name ? `${first(t.assignee_name)} from Support` : "Delivrie support", initials: t.assignee_name ? initials(t.assignee_name) : "D", preview: t.last_preview, at: t.last_message_at } : null };
-  });
-
-  route("GET", "/support/threads", async (_r, c) => {
-    needDashboard(c);
-    const { data } = await db.from("support_threads").select("*").eq("user_id", c.userId).order("last_message_at", { ascending: false }).limit(50);
+  }],
+  ["GET", "/support/threads", async (who) => {
+    const { data } = await mine(db.from("support_threads").select("*").order("last_message_at", { ascending: false }).limit(50), who);
     return { object: "list", data: (data || []).map(threadOut) };
-  });
-
-  route("GET", "/support/threads/:id", async (_r, c, p) => {
-    needDashboard(c);
-    const t = await myThread(c.userId, p.id);
-    const now = new Date().toISOString();
-    await db.from("support_threads").update({ unread_customer: 0, customer_seen_at: now }).eq("id", t.id);
+  }],
+  ["GET", "/support/threads/:id", async (who, p) => {
+    const t = await myThread(who, p.id);
+    await db.from("support_threads").update({ unread_customer: 0, customer_seen_at: new Date().toISOString() }).eq("id", t.id);
     const msgs = await messages(t.id);
     const lastMine = [...msgs].reverse().find((m) => m.author === "customer");
     return {
       thread: threadOut({ ...t, unread_customer: 0 }), messages: msgs,
       typing: !!(t.agent_typing_at && Date.now() - new Date(t.agent_typing_at).getTime() < 8000),
       seen: !!(lastMine && t.status !== "bot" && t.support_seen_at && t.support_seen_at >= lastMine.created_at),
-      promise: t.status === "bot" ? null : replyPromise(await teamPlan(t.team_id)),
+      promise: t.status === "bot" ? null : replyPromise(await teamPlan(t.team_id), !t.user_id),
     };
-  });
-
+  }],
   // Ask the assistant, or write to the team once the conversation is a ticket.
-  route("POST", "/support/messages", async (_r, c, _p, _u, b) => {
-    needDashboard(c);
+  ["POST", "/support/messages", async (who, _p, _u, b) => {
     const body = String(b?.body || "").trim();
     if (!body) throw bad("Write a message first");
     if (body.length > MAX) throw bad(`Messages can be up to ${MAX.toLocaleString()} characters`);
-    await rateLimit(c.userId);
-    const name = (await profileName(c.userId)) || c.email || "Customer";
+    let t = b?.thread_id ? await myThread(who, String(b.thread_id)) : null;
+    await rateLimit(who, t ? "message" : "thread");
+    const name = (await profileName(who.userId)) || t?.guest_name || who.email || (who.guest ? "Visitor" : "Customer");
     const now = new Date().toISOString();
-    let t = b?.thread_id ? await myThread(c.userId, String(b.thread_id)) : null;
-    if (!t) {
-      const { data } = await db.from("support_threads").insert({ team_id: c.teamId, user_id: c.userId, email: c.email || await userEmail(c.userId), status: "bot", subject: body.slice(0, 80), last_message_at: now, last_author: "customer", last_preview: preview(body) }).select().single();
-      t = data;
-    }
-    const mine = await addMessage(t, "customer", body, { user_id: c.userId, author_name: first(name) || name });
+    if (!t) t = await newThread(who, body, preview(body));
+    const mineMsg = await addMessage(t, "customer", body, { user_id: who.userId, author_name: first(name) || name });
     if (t.status === "bot") {
       const history = await messages(t.id);
-      const a = await answer(body, c.teamId, history.slice(0, -1));
+      const a = await answer(body, who.teamId, history.slice(0, -1), who.guest);
       const bot = await addMessage(t, "bot", a.body, { author_name: "Delivrie assistant", meta: a.meta });
       await db.from("support_threads").update({ last_message_at: new Date().toISOString(), last_author: "bot", last_preview: preview(a.body), topic: t.topic || (a.meta.topic !== "other" ? a.meta.topic : null) }).eq("id", t.id);
-      return { thread: threadOut({ ...t, status: "bot" }), messages: [msgOut(mine), msgOut(bot)] };
+      return { thread: threadOut({ ...t, status: "bot" }), messages: [msgOut(mineMsg), msgOut(bot)] };
     }
     // A ticket: replying to a resolved one reopens it.
-    const patch: Any = { status: "open", team_id: c.teamId || t.team_id, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: (t.unread_support || 0) + 1 };
-    const out = [msgOut(mine)];
+    const patch: Any = { status: "open", team_id: who.teamId || t.team_id, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: (t.unread_support || 0) + 1 };
+    const out = [msgOut(mineMsg)];
     if (t.status === "closed") { patch.resolved_at = null; patch.rating = null; patch.rating_comment = null; patch.rated_at = null; out.push(msgOut(await addMessage(t, "system", "Conversation reopened", { meta: { icon: "refresh" } }))); }
     await db.from("support_threads").update(patch).eq("id", t.id);
-    const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
+    const { data: team } = who.teamId ? await db.from("teams").select("name").eq("id", who.teamId).maybeSingle() : { data: null };
     await notifyAdmins({ ...t, ...patch }, name, team?.name || null, body);
     return { thread: threadOut({ ...t, ...patch }), messages: out };
-  });
-
-  route("POST", "/support/messages/:id/feedback", async (_r, c, p, _u, b) => {
-    needDashboard(c);
+  }],
+  ["POST", "/support/messages/:id/feedback", async (who, p, _u, b) => {
+    if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw notFound("Message");
     const { data: m } = await db.from("support_messages").select("id,thread_id,meta,author").eq("id", p.id).maybeSingle();
     if (!m || m.author !== "bot") throw notFound("Message");
-    await myThread(c.userId, m.thread_id);
+    await myThread(who, m.thread_id);
     const meta = { ...(m.meta || {}), helpful: b?.helpful === false ? false : true };
     await db.from("support_messages").update({ meta }).eq("id", m.id);
     return { id: m.id, meta };
-  });
-
-  // "Talk to a person": the assistant asks what it's about and shows what it will attach.
-  route("POST", "/support/handoff", async (_r, c, _p, _u, b) => {
-    needDashboard(c);
-    const now = new Date().toISOString();
-    let t = b?.thread_id ? await myThread(c.userId, String(b.thread_id)) : null;
+  }],
+  // "Talk to a person": the assistant asks what it's about and shows what it will attach (visitors: their email).
+  ["POST", "/support/handoff", async (who, _p, _u, b) => {
+    let t = b?.thread_id ? await myThread(who, String(b.thread_id)) : null;
     if (t && t.status !== "bot") return { thread: threadOut(t), messages: [] };
-    if (!t) { const { data } = await db.from("support_threads").insert({ team_id: c.teamId, user_id: c.userId, email: c.email || await userEmail(c.userId), status: "bot", subject: "Talk to a person", last_message_at: now, last_author: "customer", last_preview: "Talk to a person" }).select().single(); t = data; }
-    const mine = await addMessage(t, "customer", "Talk to a person", { user_id: c.userId, author_name: first(await profileName(c.userId)) || null, meta: { kind: "handoff" } });
-    const attachments = await proposeAttachments(c.teamId);
-    const bot = await addMessage(t, "bot", "Sure. I’ll pass this on with context so you don’t repeat yourself. What’s it about?", { author_name: "Delivrie assistant", meta: { kind: "topics", topics: Object.entries(TOPICS).map(([id, label]) => ({ id, label })), suggested: t.topic || null, attachments } });
+    if (!t) { await rateLimit(who, "thread"); t = await newThread(who, "Talk to a person", "Talk to a person"); }
+    const me = await addMessage(t, "customer", "Talk to a person", { user_id: who.userId, author_name: first(await profileName(who.userId)) || null, meta: { kind: "handoff" } });
+    const attachments = who.guest ? [] : await proposeAttachments(who.teamId);
+    const ask = who.guest ? "Sure. Which email should we reply to, and what’s it about?" : "Sure. I’ll pass this on with context so you don’t repeat yourself. What’s it about?";
+    const bot = await addMessage(t, "bot", ask, { author_name: "Delivrie assistant", meta: { kind: "topics", topics: topicsFor(who), suggested: t.topic || (who.guest ? "sales" : null), attachments, ask_email: who.guest } });
     await db.from("support_threads").update({ last_message_at: new Date().toISOString(), last_author: "bot", last_preview: "What’s it about?" }).eq("id", t.id);
-    return { thread: threadOut(t), messages: [msgOut(mine), msgOut(bot)] };
-  });
-
-  // Open the ticket: topic, what happened, and the attachments they kept.
-  route("POST", "/support/threads/:id/escalate", async (_r, c, p, _u, b) => {
-    needDashboard(c);
-    const t = await myThread(c.userId, p.id);
+    return { thread: threadOut(t), messages: [msgOut(me), msgOut(bot)] };
+  }],
+  // Open the ticket: topic, what happened, the attachments they kept (visitors: the email to reply to).
+  ["POST", "/support/threads/:id/escalate", async (who, p, _u, b) => {
+    const t = await myThread(who, p.id);
     if (t.status !== "bot") throw bad("This conversation is already with the team");
-    const topic = TOPICS[String(b?.topic || "")] ? String(b.topic) : "other";
+    const topics = who.guest ? GUEST_TOPICS : TOPICS;
+    const topic = topics[String(b?.topic || "")] ? String(b.topic) : "other";
     const body = String(b?.body || "").trim().slice(0, MAX);
     if (!body) throw bad("Tell us a little about the problem");
-    await rateLimit(c.userId);
+    let email = t.email, guestName: string | null = null;
+    if (who.guest) {
+      email = String(b?.email || "").trim().toLowerCase().slice(0, 200);
+      if (!EMAIL_RE.test(email)) throw bad("Add the email address we should reply to");
+      guestName = String(b?.name || "").trim().slice(0, 80) || null;
+    }
+    await rateLimit(who, "escalate");
     // Re-read attachments from the account (never trust what the browser sends back).
-    const keep = (Array.isArray(b?.attachments) ? b.attachments : []).slice(0, 4);
     const attachments: Any[] = [];
-    for (const a of keep) {
-      const x = a?.type === "email" ? await emailAttachment(c.teamId, String(a.id)) : a?.type === "domain" ? await domainAttachment(c.teamId, String(a.id)) : null;
+    if (!who.guest) for (const a of (Array.isArray(b?.attachments) ? b.attachments : []).slice(0, 4)) {
+      const x = a?.type === "email" ? await emailAttachment(who.teamId!, String(a.id)) : a?.type === "domain" ? await domainAttachment(who.teamId!, String(a.id)) : null;
       if (x) attachments.push(x);
     }
     const { data: num } = await db.rpc("support_next_number");
-    const name = (await profileName(c.userId)) || c.email || "Customer";
+    const name = (await profileName(who.userId)) || guestName || email || "Customer";
     const now = new Date().toISOString();
-    const patch: Any = { status: "open", number: num, topic, subject: body.split("\n")[0].slice(0, 80), escalated_at: now, team_id: c.teamId || t.team_id, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: 1 };
+    const patch: Any = { status: "open", number: num, topic, subject: body.split("\n")[0].slice(0, 80), escalated_at: now, team_id: who.teamId || t.team_id, email, guest_name: guestName, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: 1 };
     await db.from("support_threads").update(patch).eq("id", t.id);
     const nt = { ...t, ...patch };
     const out = [
-      await addMessage(nt, "customer", body, { user_id: c.userId, author_name: first(name) || name, meta: { topic, topic_label: TOPICS[topic], attachments } }),
+      await addMessage(nt, "customer", body, { user_id: who.userId, author_name: first(name) || name, meta: { topic, topic_label: topics[topic], attachments } }),
       await addMessage(nt, "system", `Conversation ${ticket(num)} opened`, { meta: { icon: "check-circle", kind: "opened" } }),
     ];
     // While they wait: a concrete fix the assistant can draft, when there is one.
-    const ctx = await accountContext(c.teamId);
+    const ctx = await accountContext(who.teamId);
     const noDmarc = ctx.findings.find((f: Any) => f.domain && /DMARC/.test(f.text));
     if (noDmarc && (topic === "deliverability" || topic === "domains")) {
       out.push(await addMessage(nt, "bot", "While you wait: adding DMARC usually fixes this. I can draft the record.", { author_name: "Delivrie assistant", meta: { actions: [{ id: "draft_dmarc", label: "Draft DMARC record", icon: "sparkle", domain_id: noDmarc.domain.id }] } }));
     }
-    const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
-    await notifyAdmins(nt, name, team?.name || null, body, attachments);
-    return { thread: threadOut(nt), messages: out.map(msgOut), promise: replyPromise(ctx.plan) };
-  });
-
+    const { data: team } = who.teamId ? await db.from("teams").select("name").eq("id", who.teamId).maybeSingle() : { data: null };
+    await notifyAdmins(nt, name + (who.guest ? ` <${email}>` : ""), team?.name || null, body, attachments);
+    return { thread: threadOut(nt), messages: out.map(msgOut), promise: replyPromise(ctx.plan, who.guest) };
+  }],
   // Assistant actions offered as buttons (only ones that read the customer's own account).
-  route("POST", "/support/threads/:id/action", async (_r, c, p, _u, b) => {
-    needDashboard(c);
-    const t = await myThread(c.userId, p.id);
-    if (b?.action !== "draft_dmarc") throw bad("Unknown action");
-    const { data: d } = await db.from("domains").select("id,name").eq("team_id", c.teamId).eq("id", String(b?.domain_id || "")).maybeSingle();
+  ["POST", "/support/threads/:id/action", async (who, p, _u, b) => {
+    const t = await myThread(who, p.id);
+    if (b?.action !== "draft_dmarc" || !who.teamId) throw bad("Unknown action");
+    const { data: d } = await db.from("domains").select("id,name").eq("team_id", who.teamId).eq("id", String(b?.domain_id || "")).maybeSingle();
     if (!d) throw notFound("Domain");
-    const email = c.email || await userEmail(c.userId) || `dmarc@${d.name}`;
+    const email = who.email || await userEmail(who.userId) || `dmarc@${d.name}`;
     const rua = domainOf(email) === d.name ? email : `dmarc@${d.name}`;
     const body = `Add this TXT record at _dmarc.${d.name}:\n\n\`\`\`\nv=DMARC1; p=none; rua=mailto:${rua}\n\`\`\`\n\nStart with p=none to watch reports for a couple of weeks, then move to p=quarantine.`;
     const m = await addMessage(t, "bot", body, { author_name: "Delivrie assistant", meta: { actions: [{ label: `Open ${d.name}`, icon: "external", href: `/domains/${d.id}` }] } });
     await db.from("support_threads").update({ last_message_at: new Date().toISOString() }).eq("id", t.id);
     return { messages: [msgOut(m)] };
-  });
-
-  route("POST", "/support/threads/:id/rate", async (_r, c, p, _u, b) => {
-    needDashboard(c);
-    const t = await myThread(c.userId, p.id);
+  }],
+  ["POST", "/support/threads/:id/rate", async (who, p, _u, b) => {
+    const t = await myThread(who, p.id);
     if (t.status !== "closed") throw bad("You can rate a conversation once it’s resolved");
     const rating = ["bad", "okay", "great"].includes(b?.rating) ? b.rating : null;
     if (!rating) throw bad("Pick Bad, Okay or Great");
     const comment = String(b?.comment || "").trim().slice(0, 1000) || null;
     await db.from("support_threads").update({ rating, rating_comment: comment, rated_at: new Date().toISOString() }).eq("id", t.id);
     return { thread: threadOut({ ...t, rating, rating_comment: comment, rated_at: new Date().toISOString() }) };
-  });
+  }],
+  // Visitors: open a conversation from the link in a reply email (moves it to this browser).
+  ["POST", "/support/claim", async (who, _p, _u, b) => {
+    if (!who.guest) throw bad("Sign out to open a visitor conversation");
+    const id = String(b?.thread_id || "");
+    if (!/^[0-9a-f-]{36}$/i.test(id) || String(b?.key || "") !== await resumeKey(id)) throw notFound("Conversation");
+    const { data } = await db.from("support_threads").update({ guest_token_hash: who.tokenHash }).eq("id", id).is("user_id", null).select("id").maybeSingle();
+    if (!data) throw notFound("Conversation");
+    return { thread_id: data.id };
+  }],
+];
+
+// The website's chat for visitors who aren't signed in: /api/public/support/… with an x-support-token header.
+export async function supportPublic(req: Request, path: string, url: URL, ip: string | null): Promise<Response | null> {
+  if (!path.startsWith("/public/support/")) return null;
+  const sub = path.slice("/public".length);
+  const token = (req.headers.get("x-support-token") || "").trim();
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) throw bad("Missing visitor token");
+  const who: Who = { userId: null, teamId: null, email: null, tokenHash: await sha256(token), ip, guest: true };
+  for (const [method, pattern, h] of CUSTOMER) {
+    if (method !== req.method) continue;
+    const names: string[] = [];
+    const re = new RegExp("^" + pattern.replace(/:(\w+)/g, (_m, n) => { names.push(n); return "([^/]+)"; }) + "$");
+    const m = sub.match(re);
+    if (!m) continue;
+    const params = Object.fromEntries(names.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
+    const body = method === "GET" ? null : await req.json().catch(() => ({}));
+    return json(await h(who, params, url, body));
+  }
+  return null;
+}
+
+export function registerSupport(route: Route) {
+  // ------------------------------------------------------------ customer (dashboard and signed-in site visitors)
+  for (const [method, path, h] of CUSTOMER) route(method, path, (_r, c, p, url, b) => { needDashboard(c); return h(whoFromCtx(c), p, url, b); });
 
   // ------------------------------------------------------------ admin
   route("GET", "/support/admin/threads", async (_r, c, _p, url) => {
@@ -483,7 +541,7 @@ export function registerSupport(route: Route) {
     const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0);
     return {
       unread_threads: count || 0,
-      data: (rows || []).map((r: Any) => ({ id: r.id, ticket: ticket(r.number), topic: r.topic ? TOPICS[r.topic] || r.topic : null, email: r.email, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null, status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support, rating: r.rating, assignee: first(r.assignee_name) || null })),
+      data: (rows || []).map((r: Any) => ({ id: r.id, ticket: ticket(r.number), topic: topicLabel(r.topic), email: r.email, visitor: !r.user_id, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null, status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support, rating: r.rating, assignee: first(r.assignee_name) || null })),
     };
   });
   route("GET", "/support/admin/unread", async (_r, c) => {
@@ -497,7 +555,7 @@ export function registerSupport(route: Route) {
     if (!t) throw notFound("Conversation");
     await db.from("support_threads").update({ unread_support: 0, support_seen_at: new Date().toISOString() }).eq("id", t.id);
     const { data: team } = t.team_id ? await db.from("teams").select("id,name,plan_transactional,created_at").eq("id", t.team_id).maybeSingle() : { data: null };
-    return { thread: { id: t.id, ticket: ticket(t.number), topic: t.topic ? TOPICS[t.topic] || t.topic : null, email: t.email, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at, assignee: first(t.assignee_name) || null, rating: t.rating, rating_comment: t.rating_comment, resolved_by: t.resolved_by }, messages: await messages(t.id) };
+    return { thread: { id: t.id, ticket: ticket(t.number), topic: topicLabel(t.topic), email: t.email, visitor: !t.user_id, guest_name: t.guest_name, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at, assignee: first(t.assignee_name) || null, rating: t.rating, rating_comment: t.rating_comment, resolved_by: t.resolved_by }, messages: await messages(t.id) };
   });
   route("POST", "/support/admin/threads/:id/typing", async (_r, c, p) => {
     await needAdmin(c);
@@ -545,10 +603,10 @@ export async function supportCron() {
     const { data: msgs } = await db.from("support_messages").select("author_name,body,created_at").eq("thread_id", t.id).eq("author", "support").gt("created_at", since).order("created_at");
     if (!msgs?.length) { await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id); continue; }
     const who = `${first(msgs[msgs.length - 1].author_name) || "Delivrie"} from Support`;
-    const link = `${APP_URL}/emails?support=${t.id}`;
+    const link = t.user_id ? `${APP_URL}/emails?support=${t.id}` : `${APP_URL}/?support=${t.id}&key=${await resumeKey(t.id)}`;
     const subject = `${who} replied${t.number ? ` · ${ticket(t.number)}` : ""}`;
     const ok = await notify([t.email], subject,
-      wrap(`<p><b>${esc(who)}</b> replied${t.subject ? ` about “${esc(t.subject)}”` : ""}:</p>${msgs.map((m: Any) => quote(m.body)).join("")}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Open the conversation →</a></p><p style="color:#62666d;font-size:13px">Reply from the Help button in your Delivrie dashboard.</p>`),
+      wrap(`<p><b>${esc(who)}</b> replied${t.subject ? ` about “${esc(t.subject)}”` : ""}:</p>${msgs.map((m: Any) => quote(m.body)).join("")}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Open the conversation →</a></p><p style="color:#62666d;font-size:13px">${t.user_id ? "Reply from Contact support in your Delivrie dashboard." : "Reply from Contact support on delivrie.io."}</p>`),
       `${who} replied:\n\n${msgs.map((m: Any) => m.body).join("\n\n")}\n\nOpen the conversation: ${link}`);
     await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id);
     if (ok) sent++;

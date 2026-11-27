@@ -3,13 +3,15 @@
 // context attached automatically) → a numbered ticket the team answers from Admin → Support → resolved and rated.
 // When the panel is closed and the team replies, the tab shows an unread count and a short preview.
 // Shortcut: "?" opens it. A one-time nudge appears after a failed action.
-import { api, state } from "./sb.js";
+// The same widget runs on the marketing site (site-config.js loads it on click): signed-in visitors get the full chat,
+// everyone else gets the assistant (docs only) and leaves an email address when they ask for a person.
+import { api as appApi, state, loadSession, loadTeams } from "./sb.js";
 import { esc, icon, errToast, toast } from "./ui.js";
 import { DOCS, searchDocs } from "./docs.js";
 
 const MARK_PATHS = '<path d="M45.621 15.8308C47.0004 16.948 47.0004 19.052 45.621 20.1692L33.6 29.9049C31.775 31.3829 29.0518 30.0841 29.0518 27.7357L29.0518 8.26426C29.0518 5.91588 31.775 4.61707 33.6 6.09507L45.621 15.8308Z" fill="#FAD600"/><path d="M27.7507 14.2163C29.6239 16.391 29.624 19.609 27.7507 21.7837L19.8975 30.9006C17.5846 33.5857 13.4253 33.5857 11.1125 30.9006L3.25923 21.7837C1.386 19.609 1.386 16.391 3.25923 14.2163L11.1124 5.09937C13.4253 2.41433 17.5846 2.41432 19.8975 5.09937L27.7507 14.2163Z" fill="#FAD600"/>';
 const mark = (w) => `<svg width="${w}" height="${(w * 0.75).toFixed(2)}" viewBox="0 0 48 36" fill="none" aria-hidden="true">${MARK_PATHS}</svg>`;
-const botAv = (s = 24) => `<span class="sc-av-d" style="width:${s}px;height:${s}px;border-radius:${(s * 0.3).toFixed(1)}px">${mark(s * 0.62)}</span>`;
+const botAv = (s = 24) => `<span class="sc-av-d" style="width:${s}px;height:${s}px">${mark(s * 0.58)}</span>`;
 const TINTS = ["#e8e4de", "#fff7d1", "#e4f5ea", "#e5edfb", "#f6e6f0"];
 const tint = (s) => TINTS[[...String(s)].reduce((n, ch) => n + ch.charCodeAt(0), 0) % TINTS.length];
 const personAv = (ini, s = 24) => `<span class="sc-av-p" style="width:${s}px;height:${s}px;font-size:${(s * 0.38).toFixed(2)}px;--t:${tint(ini)}">${esc(ini)}</span>`;
@@ -36,38 +38,70 @@ function richText(body) {
 const flag = (s) => s.replace(/\b([\w-]+=(?:none|fail|softfail|permerror|missing))\b/gi, '<span class="bad">$1</span>');
 const inline = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
+// How the widget talks to the API: as the signed-in user (dashboard API), or as a visitor (public API with a token).
+let T = { api: (m, p, b) => appApi(m, p, b), guest: false, name: "", email: "" };
+function guestToken() {
+  let t = ls.get("dlv_support_guest");
+  if (!t || !/^[A-Za-z0-9_-]{32,}$/.test(t)) { const a = crypto.getRandomValues(new Uint8Array(32)); t = btoa(String.fromCharCode(...a)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); ls.set("dlv_support_guest", t); }
+  return t;
+}
+async function guestApi(method, path, body) {
+  const res = await fetch("/api/public" + path, { method, headers: { "content-type": "application/json", "x-support-token": guestToken() }, body: method === "GET" ? undefined : JSON.stringify(body || {}) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j?.message || `Request failed (${res.status})`);
+  return j;
+}
+const api = (m, p, b) => T.api(m, p, b);
 let mounted = false;
 const S = { open: false, view: "home", threadId: null, home: null, list: null, thread: null, msgs: [], typing: false, seen: false, promise: null, sending: false, topic: null, keep: null, expanded: {}, helpQ: "", poll: null, unread: 0, preview: null, nudged: false, menu: false, statusOk: null };
 let root, tab, panel, nudgeEl, previewEl;
 
-export function mountChat() {
-  if (mounted || !state.user) return;
+export function mountChat(opts = {}) {
+  if (mounted) return;
+  if (!opts.site) {
+    if (!state.user) return;
+    T = { api: (m, p, b) => appApi(m, p, b), guest: false, name: state.profile?.full_name || "", email: state.user.email };
+  }
   mounted = true;
-  root = document.createElement("div");
-  root.className = "sc";
+  root = opts.root || document.createElement("div");
+  root.className = opts.site ? "sc site" : "sc";
   root.innerHTML = `<div class="sc-nudge" hidden role="status"></div><div class="sc-preview" hidden role="status"></div>
     <section class="sc-panel" role="dialog" aria-label="Delivrie support" hidden></section>
-    <button class="sc-tab" aria-label="Help and support" aria-expanded="false"></button>`;
-  document.body.appendChild(root);
+    <button class="sc-tab" aria-label="Contact support" aria-expanded="false"></button>`;
+  if (!root.isConnected) document.body.appendChild(root);
   tab = root.querySelector(".sc-tab"); panel = root.querySelector(".sc-panel"); nudgeEl = root.querySelector(".sc-nudge"); previewEl = root.querySelector(".sc-preview");
   // The dashboard is a single-page app; hide the tab on admin pages, where the team answers instead.
-  const place = () => { root.hidden = location.pathname.startsWith("/admin"); };
+  const place = () => { root.hidden = !opts.site && location.pathname.startsWith("/admin"); };
   place(); setInterval(place, 800);
   drawTab();
   tab.addEventListener("click", () => setOpen(!S.open));
   root.addEventListener("click", onClick);
   root.addEventListener("submit", onSubmit);
   root.addEventListener("keydown", onKey);
-  root.addEventListener("input", (e) => { if (e.target.matches(".sc-input textarea")) grow(e.target); if (e.target.matches("[data-help-q]")) { S.helpQ = e.target.value; drawHelpResults(); } });
+  root.addEventListener("input", (e) => { if (e.target.matches("[data-guest-email]")) { S.guestEmail = e.target.value; e.target.classList.remove("bad"); } if (e.target.matches("[data-guest-name]")) S.guestName = e.target.value; if (e.target.matches(".sc-input textarea")) grow(e.target); if (e.target.matches("[data-help-q]")) { S.helpQ = e.target.value; drawHelpResults(); } });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && S.open) { if (S.menu) { S.menu = false; draw(); } else setOpen(false); }
     if (e.key === "?" && !S.open && !e.metaKey && !e.ctrlKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") && !document.activeElement?.isContentEditable) { e.preventDefault(); setOpen(true); }
   });
   window.addEventListener("dlv:failed", () => showNudge());
-  const q = new URLSearchParams(location.search).get("support");
-  if (q) { if (q !== "1") { S.view = "thread"; S.threadId = q; } setOpen(true); }
-  else checkUnread();
+  const qs = new URLSearchParams(location.search), q = qs.get("support");
+  if (q) {
+    history.replaceState(history.state, "", location.pathname + location.hash); // keep the resume key out of the address bar
+    if (q !== "1") { S.view = "thread"; S.threadId = q; }
+    const claim = T.guest && q !== "1" && qs.get("key") ? api("POST", "/support/claim", { thread_id: q, key: qs.get("key") }).catch(() => null) : Promise.resolve();
+    claim.then(() => setOpen(true));
+  } else if (!opts.open) checkUnread();
+  if (opts.open && !q) setOpen(true);
   schedule();
+}
+
+// The marketing site: signed-in visitors use their session, everyone else is a visitor. Called by site-config.js.
+export async function mountSite({ root: el, open = false } = {}) {
+  let signedIn = false;
+  try { await loadSession(); if (state.user) { await loadTeams(); signedIn = !!state.team; } } catch { /* treat as a visitor */ }
+  T = signedIn ? { api: (m, p, b) => appApi(m, p, b), guest: false, name: state.profile?.full_name || "", email: state.user.email } : { api: guestApi, guest: true, name: "", email: "" };
+  mountChat({ site: true, root: el, open });
+  return { open: () => setOpen(true) };
 }
 
 // Lets other pages (Help, error states) open the chat, optionally on a question or straight into "Talk to a person".
@@ -95,8 +129,8 @@ async function setOpen(v) {
 function drawTab() {
   if (S.open) { tab.className = "sc-tab open"; tab.innerHTML = icon("x", 20); tab.setAttribute("aria-label", "Close support"); return; }
   tab.className = "sc-tab";
-  tab.setAttribute("aria-label", S.unread ? `Help, ${S.unread} unread` : "Help and support");
-  tab.innerHTML = `<span class="sc-tab-av">${mark(19.84)}</span><span>Help</span>${S.unread ? `<span class="sc-badge">${S.unread > 9 ? "9+" : S.unread}</span>` : ""}`;
+  tab.setAttribute("aria-label", S.unread ? `Contact support, ${S.unread} unread` : "Contact support");
+  tab.innerHTML = `<span class="sc-tab-av">${mark(19.84)}</span><span>Contact support</span>${S.unread ? `<span class="sc-badge">${S.unread > 9 ? "9+" : S.unread}</span>` : ""}`;
 }
 function showNudge() {
   if (S.open || S.nudged || root.hidden) return;
@@ -111,6 +145,7 @@ async function checkUnread() {
   try {
     const r = await api("GET", "/support/unread");
     S.unread = r.unread || 0;
+    if (S.unread) ls.set("dlv_support_active", "1");
     drawTab();
     const l = r.latest;
     if (!S.open && l && S.unread && ls.get("dlv_chat_preview") !== l.at) {
@@ -209,11 +244,17 @@ async function escalate(text) {
   const t = handoffPending();
   if (!t) return;
   if (!S.topic) { toast("Pick what it’s about first", "err"); restoreDraft({ v: text, f: true }); return; }
+  if (t.meta.ask_email) {
+    S.guestEmail = (panel.querySelector("[data-guest-email]")?.value || S.guestEmail || "").trim();
+    S.guestName = (panel.querySelector("[data-guest-name]")?.value || S.guestName || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(S.guestEmail)) { const i = panel.querySelector("[data-guest-email]"); i?.classList.add("bad"); i?.focus(); toast("Add the email we should reply to", "err"); restoreDraft({ v: text, f: false }); return; }
+  }
   S.sending = true;
   const attachments = (t.meta.attachments || []).filter((a) => S.keep?.has(`${a.type}:${a.id}`)).map((a) => ({ type: a.type, id: a.id }));
   try {
-    const r = await api("POST", `/support/threads/${S.thread.id}/escalate`, { topic: S.topic, body: text, attachments });
+    const r = await api("POST", `/support/threads/${S.thread.id}/escalate`, { topic: S.topic, body: text, attachments, email: S.guestEmail, name: S.guestName });
     S.thread = r.thread; S.promise = r.promise; S.msgs = [...S.msgs, ...r.messages];
+    ls.set("dlv_support_active", "1");
   } catch (e) { errToast(e); restoreDraft({ v: text, f: true }); }
   S.sending = false;
   draw(); schedule();
@@ -306,7 +347,7 @@ function menuHtml() {
 
 function homeHtml() {
   const h = S.home || {};
-  const name = h.name || (state.profile?.full_name || "").split(" ")[0];
+  const name = h.name || (T.name || "").split(" ")[0];
   const team = (h.team || []).slice(0, 3);
   const rows = (h.suggestions || []).map((s) => `<button class="sc-sg" data-act="suggest" data-q="${esc(s.q)}"><span class="sc-sg-ic">${icon(s.icon || "help", 15)}</span><span class="sc-sg-t"><b>${esc(s.title)}</b><span>${esc(s.sub || "")}</span></span>${icon("chevron-right", 15)}</button>`).join("");
   const r = h.recent;
@@ -355,7 +396,7 @@ function threadHtml(opt) {
     if (person) { avatar = personAv(person.initials, 30); title = `${person.name} from Support`; sub = t.status === "closed" ? "Conversation resolved" : S.typing ? "typing…" : `${t.topic_label || "Support"} · ${t.ticket}`; }
     else { title = "Delivrie support"; sub = t.status === "closed" ? "Conversation resolved" : "Team · replies within 1 business day"; }
   }
-  const placeholder = pending ? "Describe the problem" : bot ? (S.msgs.length ? "Ask a follow-up" : "Ask a question") : t.status === "closed" ? "Reply to reopen" : person ? `Reply to ${person.name}` : "Add more detail";
+  const placeholder = pending ? (pending.meta?.ask_email ? "What can we help with?" : "Describe the problem") : bot ? (S.msgs.length ? "Ask a follow-up" : "Ask a question") : t.status === "closed" ? "Reply to reopen" : person ? `Reply to ${person.name}` : "Add more detail";
   const foot = !bot && person ? "You’re talking to a person. Replies also go to your email." : "AI can make mistakes. A person can step in at any time.";
   const closed = t.status === "closed";
   return `<header class="sc-head">${ib("back", "chevron-left", "Back")}${avatar}<div class="sc-title"><b>${esc(title)}</b><span>${esc(sub)}</span></div><div class="sc-acts">${ib("menu", "more", "More")}${ib("close", "x", "Close")}</div>${menuHtml()}</header>
@@ -368,7 +409,7 @@ function messagesHtml(opt) {
   const msgs = S.msgs;
   const lastBot = [...msgs].reverse().find((m) => m.author === "bot");
   const lastMine = [...msgs].reverse().find((m) => m.author === "customer");
-  const firstName = (state.profile?.full_name || "").split(" ")[0] || "You";
+  const firstName = (T.name || "").split(" ")[0] || "You";
   const out = [];
   for (const m of msgs) {
     if (m.author === "system") {
@@ -412,7 +453,8 @@ function topicsHtml(m, live) {
   const ics = { deliverability: "mail", domains: "globe", billing: "card", api: "code" };
   const topics = (meta.topics || []).map((x) => `<button class="sc-chip ${S.topic === x.id && live ? "on" : ""}" data-act="topic" data-id="${x.id}" ${live ? "" : "disabled"}>${ics[x.id] ? icon(ics[x.id], 13) : ""}${esc(x.label)}</button>`).join("");
   const atts = (meta.attachments || []).filter((a) => !live || S.keep?.has(`${a.type}:${a.id}`));
-  const card = atts.length ? `<div class="sc-card sc-ctx"><p class="sc-label">Attached automatically</p>${atts.map((a) => attHtml(a, live)).join("")}</div>` : "";
+  const card = meta.ask_email ? `<div class="sc-card sc-email"><p class="sc-label">Your email</p><input type="email" data-guest-email placeholder="you@company.com" value="${esc(S.guestEmail || "")}" autocomplete="email" aria-label="Your email"><input data-guest-name placeholder="Your name (optional)" value="${esc(S.guestName || "")}" autocomplete="name" aria-label="Your name"></div>`
+    : atts.length ? `<div class="sc-card sc-ctx"><p class="sc-label">Attached automatically</p>${atts.map((a) => attHtml(a, live)).join("")}</div>` : "";
   return `<div class="sc-chips">${topics}</div>${live ? card : ""}`;
 }
 function attHtml(a, live) {
@@ -426,8 +468,8 @@ function attHtml(a, live) {
 function promiseHtml() {
   const p = S.promise;
   const team = S.home?.team || [];
-  const email = state.user?.email;
-  return `<div class="sc-ticket"><div class="sc-ticket-h">${icon("clock", 16)}<b>${esc(p.head)}</b></div><p>${esc(p.sub)}${email ? ` We’ll also email ${esc(email)}, so you can close this.` : ""}</p>${team.length ? `<div class="sc-team">${`<span class="sc-stack">${team.map((x) => personAv(x.initials, 22)).join("")}</span>`}<span>${S.home?.on_shift ? `${S.home.on_shift} on shift now` : "The team is offline right now"}</span></div>` : ""}</div>`;
+  const email = S.thread?.email || T.email;
+  return `<div class="sc-ticket"><div class="sc-ticket-h">${icon("clock", 16)}<b>${esc(p.head)}</b></div><p>${p.guest ? `${email ? `We’ll reply to ${esc(email)}. ` : ""}${esc(p.sub)}` : `${esc(p.sub)}${email ? ` We’ll also email ${esc(email)}, so you can close this.` : ""}`}</p>${team.length ? `<div class="sc-team">${`<span class="sc-stack">${team.map((x) => personAv(x.initials, 22)).join("")}</span>`}<span>${S.home?.on_shift ? `${S.home.on_shift} on shift now` : "The team is offline right now"}</span></div>` : ""}</div>`;
 }
 function ratingHtml() {
   const t = S.thread;
