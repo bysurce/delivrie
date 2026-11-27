@@ -52,12 +52,11 @@ async function overview(body) {
   const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${sub}</div>` : ""}</div>`;
   const draw = (rows) => {
     body.innerHTML = `
-      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
         ${stat("Users", num(o.users), `+${num(o.users_7d)} this week · +${num(o.users_30d)} in 30 days`)}
         ${stat("Active (7 days)", num(o.active_7d), `${pct(o.users_confirmed, o.users)} confirmed email`)}
         ${stat("Teams", num(o.teams), `${num(paid)} paying`)}
-        ${stat("Naira revenue (30 days)", esc(money(o.revenue_30d?.NGN || 0, "NGN")), `Paystack · all time ${esc(money(o.revenue_all?.NGN || 0, "NGN"))}`)}
-        ${stat("Dollar revenue (30 days)", esc(money(o.revenue_30d?.USD || 0, "USD")), `Stripe · all time ${esc(money(o.revenue_all?.USD || 0, "USD"))}`)}
+        ${stat("Revenue (30 days)", esc(money(o.revenue_30d?.USD || 0, "USD")), `All time ${esc(money(o.revenue_all?.USD || 0, "USD"))}`)}
       </div>
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
         ${stat("Emails (30 days)", num(sent), `${num(o.emails_today)} today`)}
@@ -248,7 +247,7 @@ async function admins(body) {
 async function revenue(body) {
   const [o, inv] = await Promise.all([rpc("admin_overview"), rpc("admin_invoices", { p_limit: 200 })]);
   const paying = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
-  // Naira (Paystack) and dollars (Stripe) are kept apart: never added together or converted.
+  // Payments in US dollars through Stripe. (Older Naira payments stay in the database but aren't shown.)
   const section = (cur, title, provider) => {
     const rows = inv.filter((i) => (i.currency || "").toUpperCase() === cur);
     const paidRows = rows.filter((i) => i.status === "success");
@@ -259,11 +258,10 @@ async function revenue(body) {
         <div class="stat"><div class="k">Payments</div><div class="v">${num(paidRows.length)}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${num(rows.length - paidRows.length)} failed</div></div>
       </div>
       ${rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${rows.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, cur)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>`
-        : `<div class="card">${emptyState({ icon: "card", title: `No ${cur === "NGN" ? "Naira" : "dollar"} payments yet`, desc: `${provider} payments show up here as they land.` })}</div>`}`;
+        : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: `${provider} payments show up here as they land.` })}</div>`}`;
   };
   body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><div class="k">Paying teams</div><div class="v">${num(paying)}</div></div></div>
-    ${section("NGN", "Naira payments", "Paystack")}
-    ${section("USD", "Dollar payments", "Stripe")}`;
+    ${section("USD", "Payments", "Stripe")}`;
 }
 
 // ---------------------------------------------------------------- inbox
@@ -309,14 +307,12 @@ function sitePages(el, cfg, save) {
   });
 }
 
-// Payments are in US dollars through Stripe for everyone (Naira through Paystack was retired on 27 Nov 2026). Turning
-// Stripe off pauses new payments; the billing server reads this within a minute, nothing needs deploying.
+// Payments are in US dollars through Stripe for everyone. Turning Stripe off pauses new payments; the billing server reads this within a minute, nothing needs deploying.
 function sitePayments(el, cfg, save) {
   const draw = () => {
     const on = cfg.billing?.stripe !== false;
     el.innerHTML = `<div class="card card-pad" style="max-width:640px;display:flex;flex-direction:column;gap:16px">
         <label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">Stripe · US dollars</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Every plan, top-up and overage, in every country. Card payments with Stripe Tax.</div></span><input type="checkbox" class="toggle" data-pay="stripe" ${on ? "checked" : ""} aria-label="Stripe on"></label>
-        <div class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">Paystack · Naira</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Retired on 27 Nov 2026. Only Naira subscriptions started before then still renew here, until they end or the team continues in dollars.</div></span>${badge("Retired", "gray")}</div>
         <div class="banner" style="margin:0">${on ? `${badge("Live", "green")} <span>Everyone pays in US dollars through Stripe.</span>` : `${badge("Paused", "red")} <span>Payments are paused. Nobody can upgrade or top up until Stripe is switched back on.</span>`}</div></div>`;
   };
   draw();
