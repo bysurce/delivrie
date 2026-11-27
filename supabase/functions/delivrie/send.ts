@@ -40,6 +40,10 @@ export async function signWebhook(secret: string, id: string, ts: number, body: 
   return "v1," + await hmacB64(b64ToBytes(raw), `${id}.${ts}.${body}`);
 }
 
+// Called when an endpoint keeps failing (index.ts emails the team, at most once a day per webhook).
+let onWebhookFailing: ((hook: Any, d: Any, status: number, body: string, next: string | null) => Promise<void>) | null = null;
+export function setOnWebhookFailing(fn: typeof onWebhookFailing) { onWebhookFailing = fn; }
+
 export async function attemptDelivery(d: Any, force = false) {
   const { data: hook } = await db.from("webhooks").select("*").eq("id", d.webhook_id).single();
   if (!hook || (hook.status !== "enabled" && !force)) return;
@@ -63,6 +67,7 @@ export async function attemptDelivery(d: Any, force = false) {
     status_code: status, response_body: text, attempts, delivered: ok, updated_at: new Date().toISOString(),
     next_attempt_at: ok || giveUp ? null : new Date(Date.now() + wait * 1000).toISOString(),
   }).eq("id", d.id);
+  if (!ok && attempts >= 4 && onWebhookFailing) await onWebhookFailing(hook, d, status, text, giveUp ? null : new Date(Date.now() + wait * 1000).toISOString()).catch((e) => console.error("webhook failing alert", e));
 }
 
 // ---------------- unsubscribe links ----------------

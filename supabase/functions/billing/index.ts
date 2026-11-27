@@ -24,6 +24,8 @@
 // see countryOf).
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { cardLabel, formEncode, periodEnd, priceKey, subState, trialEndFor, verifyStripeSignature } from "./stripe.ts";
+import { renderEmail, p as para, small, button as btn, type Rendered, senderFrom, SUPPORT_ADDRESS } from "../_shared/brand-email.ts";
+import * as Mail from "../_shared/emails.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -200,6 +202,56 @@ async function auth(req: Request) {
 }
 const requireAdmin = (a: { admin: boolean }) => { if (!a.admin) throw new HttpError(403, "Only team admins can change billing."); };
 
+// ------------------------------------------------------------ Delivrie's own billing emails (Figma "Email · Headers")
+// Sent from "Matthew from Delivrie" through the team that owns the system sender's domain, so they never show in a
+// customer's own email log. Queued here; the delivrie function's minute-by-minute job sends them.
+let sysTeam: string | null | undefined;
+async function systemTeamId() {
+  if (sysTeam !== undefined) return sysTeam;
+  const from = env("SYSTEM_FROM"), m = from.match(/@([^>\s]+)>?\s*$/);
+  const { data } = m ? await db.from("domains").select("team_id").eq("name", m[1].toLowerCase()).eq("status", "verified").limit(1) : { data: null };
+  sysTeam = data?.[0]?.team_id || null;
+  return sysTeam;
+}
+async function billingRecipients(t: Any): Promise<string[]> {
+  const b = t.billing || {};
+  const own = b.details?.email || b.email;
+  if (own) return [own];
+  const { data: admins } = await db.from("team_members").select("user_id").eq("team_id", t.id).eq("role", "admin");
+  const out: string[] = [];
+  for (const a of admins || []) { const { data } = await db.auth.admin.getUserById(a.user_id); if (data?.user?.email) out.push(data.user.email); }
+  return out;
+}
+async function sendBilling(t: Any, r: Rendered) {
+  const from = senderFrom(env("SYSTEM_FROM")), sys = await systemTeamId(), to = await billingRecipients(t);
+  if (!from || !sys || !to.length) return false;
+  const { error } = await db.from("emails").insert({ team_id: sys, from, reply_to: [SUPPORT_ADDRESS], to, subject: r.subject, html: r.html, text: r.text, status: "queued", direction: "outbound", tags: [{ name: "category", value: "billing" }, { name: "system", value: "true" }] });
+  if (error) console.error("billing email", error.message);
+  return !error;
+}
+async function adminName(teamId: string) {
+  const { data: a } = await db.from("team_members").select("user_id").eq("team_id", teamId).eq("role", "admin").limit(1);
+  if (!a?.[0]) return null;
+  const { data } = await db.from("profiles").select("full_name").eq("id", a[0].user_id).maybeSingle();
+  return data?.full_name || null;
+}
+const RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, scale: 3, enterprise: 4 };
+const FEATURES: Record<string, string[]> = {
+  starter: ["20,000 emails a month (1,500 a day)", "10 custom domains", "Webhooks and batch sending", "Email support"],
+  pro: ["60,000 emails a month, no daily limit", "10 custom domains", "$0.45 per extra 1,000 emails, so sending never stops", "Email support"],
+  scale: ["100,000 emails a month, no daily limit", "1,000 custom domains", "Multiple team members", "Priority support"],
+};
+// Receipts and failed payments, once per invoice and status.
+async function invoiceEmail(t: Any, inv: Any, prevStatus: string | null, status: string, planName: string, card: string | null, nextPayment?: string | null) {
+  if (status === prevStatus) return;
+  const lines: [string, number][] = (inv.lines?.data || []).map((l: Any) => [String(l.description || planName).replace(/^\d+ × /, ""), Number(l.amount || 0)]);
+  if (status === "success") {
+    await sendBilling(t, Mail.receipt({ number: `#${inv.number || inv.id.slice(-8)}`, lines: lines.length ? lines : [[planName, inv.amount_paid]], total: inv.amount_paid, paidAt: inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000).toISOString() : new Date().toISOString(), method: card, next: nextPayment || null, invoiceUrl: inv.invoice_pdf || inv.hosted_invoice_url }));
+  } else if (status === "failed") {
+    await sendBilling(t, Mail.paymentFailed({ amount: inv.amount_due, method: card, plan: planName, nextRetry: inv.next_payment_attempt ? new Date(inv.next_payment_attempt * 1000).toISOString() : null }));
+  }
+}
+
 async function team(teamId: string) {
   const { data } = await db.from("teams").select("id,name,plan_transactional,plan_marketing,credits,billing,created_at").eq("id", teamId).single();
   return data as Any;
@@ -304,6 +356,9 @@ async function syncSubscription(subOrId: Any) {
     const newPlan = state === "canceled" ? "free" : plan;
     fields.plan_since = t.plan_transactional === newPlan && b.plan_since ? b.plan_since : new Date().toISOString();
     await saveBilling(teamId, fields, newPlan);
+    if ((RANK[newPlan] ?? 0) > (RANK[t.plan_transactional] ?? 0) && FEATURES[newPlan]) {
+      await sendBilling(t, Mail.planUpgraded({ name: await adminName(teamId), team: t.name, plan: PLANS[newPlan].name, features: FEATURES[newPlan], nextInvoice: end || null })).catch((e) => console.error("upgrade email", e));
+    }
   }
   return teamId;
 }
@@ -353,7 +408,10 @@ async function applyInvoice(invOrId: Any) {
     return teamId;
   }
   if (meta.kind === "credits") { await applyCredits(teamId, inv.id, Number(meta.emails || 0), inv.amount_paid || inv.amount_due, { auto: meta.auto === "true", url: inv.hosted_invoice_url, tax, card, status }); return teamId; }
+  const { data: prevRow } = await db.from("billing_invoices").select("status").eq("reference", inv.id).maybeSingle();
+  const prevStatus = prevRow?.status || null;
   if (meta.kind === "overage") {
+    await invoiceEmail(await team(teamId), inv, prevStatus, status, "Extra emails", card);
     await recordInvoice({ team_id: teamId, reference: inv.id, kind: "overage", plan: meta.plan || null, description: meta.description || "Overage", amount: inv.amount_paid || inv.amount_due, status, card, url: inv.hosted_invoice_url, tax });
     if (status === "failed") await saveBilling(teamId, { status: "past_due" });
     return teamId;
@@ -370,6 +428,7 @@ async function applyInvoice(invOrId: Any) {
     const label = inv.billing_reason === "subscription_update" ? `${p?.name || "Plan"} · plan change` : `${p?.name || "Plan"} · ${interval}`;
     await recordInvoice({ team_id: teamId, reference: inv.id, kind, plan, description: label, amount, status, card, url: inv.hosted_invoice_url, tax, paid_at: inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000).toISOString() : undefined });
     await syncSubscription(sub.id);
+    if (amount) await invoiceEmail(await team(teamId), inv, prevStatus, status, `${p?.name || "Plan"} plan`, card, periodEnd(sub)).catch((e) => console.error("invoice email", e));
   }
   return teamId;
 }
@@ -569,13 +628,16 @@ async function watchRun() {
     if (!fire.length) continue;
     const to = b.details?.email || b.email;
     const from = env("SYSTEM_FROM");
-    if (to && from) {
+    if (from) {
+      const ms = monthStart(), resets = new Date(Date.UTC(ms.getUTCFullYear(), ms.getUTCMonth() + 1, 1)).toISOString();
+      const order = ["free", "starter", "pro", "scale"], next = order[order.indexOf(t.plan_transactional) + 1];
+      const name = await adminName(t.id);
       for (const k of fire) {
-        const subject = k === "credits_low" ? `${t.name}: Delivrie credits are running low` : `${t.name}: you've used ${k === "p100" ? "all" : "80%"} of this month's ${p!.emails.toLocaleString("en-US")} emails`;
-        const text = k === "credits_low" ? `You have ${fmt(value, cur)} of credit left (about ${Number(t.credits).toLocaleString("en-US")} emails). Top up or turn on auto top-up: ${APP_URL}/billing/credits`
-          : k === "p100" ? `Your team has sent ${Number(sent.used).toLocaleString("en-US")} emails this month. Sending continues; extra emails are billed per 1,000 at month end, paid from credits first. Details: ${APP_URL}/billing`
-          : `Your team has sent ${Number(sent.used).toLocaleString("en-US")} of ${p!.emails.toLocaleString("en-US")} emails this month. Details: ${APP_URL}/billing`;
-        await db.from("emails").insert({ team_id: t.id, from, to: [to], subject, text, html: `<p>${text.replace(/(https:\/\/\S+)/g, '<a href="$1">$1</a>')}</p>`, status: "queued", tags: [{ name: "system", value: "billing_alert" }] });
+        const r = k === "credits_low"
+          ? renderEmail({ subject: `${t.name}: Delivrie credits are running low`, preheader: "Top up or turn on auto top-up.", link: { text: "Top up", href: `${APP_URL}/billing/credits` }, illustration: "gauge", headline: "Your credits are\nrunning low",
+              blocks: [para(`${t.name} has ${fmt(value, cur)} of credit left, about ${Number(t.credits).toLocaleString("en-US")} emails. Credits pay for extra emails first, so top up or turn on auto top-up to keep sending smoothly.`), btn("Top up credits", `${APP_URL}/billing/credits`), small("Want fewer of these? Change usage alerts in Billing.")] })
+          : Mail.usageAlert({ name, team: t.name, plan: p!.name, used: Number(sent.used), limit: p!.emails, full: k === "p100", overPer1000: p!.overage?.USD != null ? p!.overage.USD / 100 : null, nextPlan: next && PLANS[next] ? PLANS[next].name : null, resets });
+        await sendBilling(t, r);
       }
     }
     await saveBilling(t.id, { alerts_sent: { ...sent, kinds: [...sent.kinds, ...fire] } });

@@ -2,14 +2,16 @@ import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { accountStatus, createDomain, deleteDomain, doh, ensureAccountSuppression, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, sesReputation, updateDomainConfig, verifyDomain } from "./ses.ts";
-import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
+import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setOnWebhookFailing, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
 import { DOCS, searchDocs } from "./docs.js";
 import { oauthAuthorize, oauthGrantFromToken, oauthPublic, scopeAllows } from "./oauth.ts";
 import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
-import { notify, registerSupport, supportCron, supportPublic } from "./support.ts";
+import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
+import * as Mail from "../_shared/emails.ts";
+import { senderFrom } from "../_shared/brand-email.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
@@ -44,13 +46,58 @@ async function assertNotBlocked(ip?: string) {
 }
 // The addresses people use the dashboard from, so a ban can block them later. At most hourly per person and address.
 const noted = new Map<string, number>();
-function noteIp(userId: string, teamId: string, ip?: string) {
+function noteIp(userId: string, teamId: string, ip?: string, ua = "", country = "") {
   if (!ip) return;
   const k = `${userId}|${ip}`;
   if ((noted.get(k) || 0) > Date.now() - 3600_000) return;
   noted.set(k, Date.now());
   if (noted.size > 5000) noted.clear();
-  waitUntil(db.rpc("note_ip", { p_user: userId, p_team: teamId, p_ip: ip }).then(({ error }) => { if (error) console.error("note_ip", error.message); }));
+  waitUntil(db.rpc("note_ip", { p_user: userId, p_team: teamId, p_ip: ip }).then(async ({ data, error }) => {
+    if (error) return console.error("note_ip", error.message);
+    // The first time someone uses the dashboard from a network they haven't used before: "New sign-in".
+    if (data?.new && data.others > 0) await newSignInEmail(userId, ip, ua, country).catch((e) => console.error("new sign-in email", e));
+  }));
+}
+const deviceOf = (ua: string) => {
+  const b = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "A browser";
+  const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${b} on ${os}` : b;
+};
+const maskIp = (ip: string) => ip.includes(":") ? ip.split(":").slice(0, 3).join(":") + ":••••" : ip.replace(/^(\d+\.\d+)\.\d+\.(\d+)$/, "$1.•••.$2");
+async function newSignInEmail(userId: string, ip: string, ua: string, country: string) {
+  const { data: u } = await db.auth.admin.getUserById(userId);
+  const email = u?.user?.email;
+  // Brand-new accounts sign in from several places while setting up; start a day after sign-up.
+  if (!email || !u?.user?.created_at || Date.now() - new Date(u.user.created_at).getTime() < 86400e3) return;
+  const { data: prof } = await db.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+  let location: string | null = null;
+  try { location = country && /^[A-Z]{2}$/.test(country) ? new Intl.DisplayNames(["en"], { type: "region" }).of(country) || null : null; } catch { /* unknown code */ }
+  await sendBrand([email], Mail.newSignIn({ name: prof?.full_name, device: deviceOf(ua), location, time: new Date().toISOString(), ip: maskIp(ip) }), "security");
+}
+/** Email addresses of a team's admins. */
+async function teamAdminEmails(teamId: string) {
+  const { data: admins } = await db.from("team_members").select("user_id").eq("team_id", teamId).eq("role", "admin");
+  const out: string[] = [];
+  for (const m of admins || []) { const { data } = await db.auth.admin.getUserById(m.user_id); if (data?.user?.email) out.push(data.user.email); }
+  return out;
+}
+// The records a domain's emails list: SPF and DKIM always, DMARC when it's set up.
+function domainRecords(d: Any) {
+  const recs = (d.records || []) as Any[];
+  const ok = (g: string) => recs.some((r) => r.group === g) && recs.filter((r) => r.group === g).every((r) => r.status === "verified");
+  const host = (r: Any) => (r?.name && r.name !== "@" ? `${r.name}.${d.name}` : d.name);
+  const out = [
+    { name: "SPF", host: host(recs.find((r) => r.group === "sending")) || `send.${d.name}`, ok: ok("sending") },
+    { name: "DKIM", host: host(recs.find((r) => r.group === "dkim")), ok: ok("dkim") },
+  ];
+  const dmarc = recs.find((r) => r.group === "dmarc");
+  if (dmarc && dmarc.status === "verified") out.push({ name: "DMARC", host: `_dmarc.${d.name}`, ok: true });
+  const missing = recs.find((r) => (r.group === "dkim" || r.group === "sending") && r.status !== "verified");
+  return { list: out, missing: missing ? { host: missing.name, type: missing.type, value: String(missing.value).length > 64 ? String(missing.value).slice(0, 64) + "…" : String(missing.value) } : null };
+}
+async function domainVerifiedEmail(d: Any) {
+  const to = await teamAdminEmails(d.team_id);
+  if (to.length) await sendBrand(to, Mail.domainVerified({ domain: d.name, domainId: d.id, records: domainRecords(d).list }), "domains");
 }
 
 // ---------------------------------------------------------------- auth
@@ -79,7 +126,7 @@ async function authenticate(req: Request): Promise<Ctx> {
   const { data: m } = await db.from("team_members").select("role").eq("team_id", teamId).eq("user_id", u.user.id).maybeSingle();
   if (!m) throw new HttpError(403, "forbidden", "You are not a member of this team");
   // Only addresses that really are the visitor's: signed by delivrie.io, or a direct call (not one of our proxies).
-  if (req.headers.get("x-dlv-client-ip") ? ip === req.headers.get("x-dlv-client-ip")?.trim() : true) noteIp(u.user.id, teamId, ip);
+  if (req.headers.get("x-dlv-client-ip") ? ip === req.headers.get("x-dlv-client-ip")?.trim() : true) noteIp(u.user.id, teamId, ip, ua, req.headers.get("x-dlv-country") || "");
   return { teamId, userId: u.user.id, apiKey: null, permission: "full", via: "dashboard", userAgent: "Dashboard", email: u.user.email, ip };
 }
 const needFull = (c: Ctx) => { if (c.permission !== "full") throw forbidden("This API key can only send emails"); };
@@ -494,6 +541,18 @@ async function runCron() {
       // Still no DNS records two days in: take it out of SES before Amazon starts emailing about it.
       if (u && u.status !== "verified" && !u.ses_parked_at && Date.now() - new Date(u.created_at).getTime() > PARK_AFTER_MS && !(u.records || []).some((r: Any) => r.group === "dkim" && r.status === "verified")) u = await parkDomain(u).catch((e) => { console.error("park failed", d.name, e); return u; });
       if (u && u.status !== d.status) await emit(d.team_id, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
+      if (u && u.status === "verified" && d.status !== "verified") await domainVerifiedEmail(u).catch((e) => console.error("domain verified email", e));
+    }
+    // A day after adding a domain that still doesn't verify, one email showing which records are missing.
+    const day = new Date(Date.now() - 86400e3).toISOString(), week = new Date(Date.now() - 7 * 86400e3).toISOString();
+    const { data: stuck } = await db.from("domains").select("*").neq("status", "verified").is("dns_nudged_at", null).lt("created_at", day).gt("created_at", week).limit(10);
+    for (const d of stuck || []) {
+      await db.from("domains").update({ dns_nudged_at: new Date().toISOString() }).eq("id", d.id);
+      const to = await teamAdminEmails(d.team_id);
+      const { data: m } = await db.from("team_members").select("user_id").eq("team_id", d.team_id).eq("role", "admin").limit(1);
+      const { data: prof } = m?.[0] ? await db.from("profiles").select("full_name").eq("id", m[0].user_id).maybeSingle() : { data: null };
+      const r = domainRecords(d);
+      if (to.length) await sendBrand(to, Mail.dnsCheckFailed({ name: to.length === 1 ? prof?.full_name : null, domain: d.name, domainId: d.id, records: r.list, missing: r.missing }), "domains").catch((e) => console.error("dns nudge", e));
     }
   }
   // 7. reputation check, once an hour
@@ -503,6 +562,8 @@ async function runCron() {
   }
   // 9. support replies left unread for 5 minutes go out by email
   await supportCron().catch((e) => console.error("support email copies failed", e));
+  // 10. welcome email, once a new account has confirmed its address
+  await welcomeEmails().catch((e) => console.error("welcome emails failed", e));
   if (new Date().getUTCMinutes() === 47) await ensureAccountSuppression().catch((e) => console.error("account suppression failed", e));
   // 8. custom MAIL FROM records on verified domains, once an hour (see mailFromWatch)
   if (new Date().getUTCMinutes() === 37) await mailFromWatch().catch((e) => console.error("mail-from watch failed", e));
@@ -591,7 +652,21 @@ async function reputationWatch() {
     let reason = "";
     if (sent >= REPUTATION.bounceMin && b > REPUTATION.bounce) reason = `Bounce rate of ${(b * 100).toFixed(1)}% over the last ${REPUTATION.days} days (${Number(r.bounced)} of ${sent} emails). The limit is 4%.`;
     else if (sent >= REPUTATION.complaintMin && c > REPUTATION.complaint) reason = `Spam complaint rate of ${(c * 100).toFixed(2)}% over the last ${REPUTATION.days} days (${Number(r.complained)} of ${sent} emails). The limit is 0.08%.`;
-    if (!reason) continue;
+    if (!reason) {
+      // Close to the limit: one warning a week, before we have to pause.
+      if (sent >= REPUTATION.bounceMin && b > REPUTATION.bounce * 0.75) {
+        const { data: w } = await db.from("teams").update({ bounce_warned_at: new Date().toISOString() }).eq("id", r.team_id).is("sending_paused_at", null).or(`bounce_warned_at.is.null,bounce_warned_at.lt.${new Date(Date.now() - 7 * 86400e3).toISOString()}`).select("id,name").maybeSingle();
+        if (w) {
+          const { data: src } = await db.from("emails").select("broadcast_id").eq("team_id", w.id).eq("status", "bounced").not("broadcast_id", "is", null).gte("created_at", new Date(Date.now() - 7 * 86400e3).toISOString()).limit(200);
+          const counts = new Map<string, number>(); for (const e of src || []) counts.set(e.broadcast_id, (counts.get(e.broadcast_id) || 0) + 1);
+          const top = [...counts].sort((a, b2) => b2[1] - a[1])[0];
+          const { data: bc } = top && top[1] >= Number(r.bounced) / 2 ? await db.from("broadcasts").select("name").eq("id", top[0]).maybeSingle() : { data: null };
+          const to = await teamAdminEmails(w.id);
+          if (to.length) await sendBrand(to, Mail.bounceWarning({ team: w.name, rate: b, complaintRate: c, sent, bounced: Number(r.bounced), source: bc?.name ? `the “${bc.name}” broadcast` : null, pauseAt: REPUTATION.bounce }), "deliverability").catch((e) => console.error("bounce warning", e));
+        }
+      }
+      continue;
+    }
     const { data: t } = await db.from("teams").update({ sending_paused_at: new Date().toISOString(), sending_paused_reason: reason }).eq("id", r.team_id).is("sending_paused_at", null).select("id,name").maybeSingle();
     if (!t) continue; // already paused
     paused.push(t.id);
@@ -599,15 +674,39 @@ async function reputationWatch() {
   }
   return { paused };
 }
+// "Your webhook endpoint is failing": once a delivery has failed 4 times, at most once a day per webhook.
+setOnWebhookFailing(async (hook, d, status, body, next) => {
+  const dayAgo = new Date(Date.now() - 86400e3).toISOString();
+  const { data: claimed } = await db.from("webhooks").update({ failing_alerted_at: new Date().toISOString() }).eq("id", hook.id).or(`failing_alerted_at.is.null,failing_alerted_at.lt.${dayAgo}`).select("id").maybeSingle();
+  if (!claimed) return;
+  const [{ count: failed }, { data: firstFail }, to] = await Promise.all([
+    db.from("webhook_deliveries").select("id", { count: "exact", head: true }).eq("webhook_id", hook.id).eq("delivered", false).gte("created_at", dayAgo),
+    db.from("webhook_deliveries").select("created_at").eq("webhook_id", hook.id).eq("delivered", false).gte("created_at", new Date(Date.now() - 3 * 86400e3).toISOString()).order("created_at").limit(1),
+    teamAdminEmails(hook.team_id),
+  ]);
+  if (to.length) await sendBrand(to, Mail.webhookFailing({ endpoint: hook.endpoint, event: d.event_type, status: status || null, attempts: Math.max(failed || 0, d.attempts + 1), since: firstFail?.[0]?.created_at || d.created_at, nextRetry: next, body: body ? body.slice(0, 300) : null, webhookId: hook.id }), "developers");
+});
+
+async function welcomeEmails() {
+  const { data: rows } = await db.from("profiles").select("id,full_name,last_team_id,created_at").is("welcome_sent_at", null).lt("created_at", new Date(Date.now() - 2 * 60e3).toISOString()).gt("created_at", new Date(Date.now() - 3 * 86400e3).toISOString()).limit(10);
+  for (const pr of rows || []) {
+    const { data: u } = await db.auth.admin.getUserById(pr.id);
+    if (!u?.user?.email || !u.user.email_confirmed_at) continue;
+    // Claim it first so two overlapping runs can't both send.
+    const { data: claimed } = await db.from("profiles").update({ welcome_sent_at: new Date().toISOString() }).eq("id", pr.id).is("welcome_sent_at", null).select("id").maybeSingle();
+    if (!claimed) continue;
+    const { data: dom } = pr.last_team_id ? await db.from("domains").select("name").eq("team_id", pr.last_team_id).limit(1) : { data: null };
+    await sendBrand([u.user.email], Mail.welcome({ name: pr.full_name, domain: dom?.[0]?.name || null }), "welcome");
+  }
+}
 async function notifyPaused(t: Any, reason: string) {
-  if (!SYSTEM_FROM) return;
-  const { data: admins } = await db.from("team_members").select("user_id").eq("team_id", t.id).eq("role", "admin");
-  const to: string[] = [];
-  for (const m of admins || []) { const { data } = await db.auth.admin.getUserById(m.user_id); if (data?.user?.email) to.push(data.user.email); }
+  const to = await teamAdminEmails(t.id);
   if (!to.length) return;
-  const text = `Sending is paused for ${t.name} on Delivrie.\n\n${reason}\n\nHigh bounce and complaint rates make mailbox providers block email for everyone, so we pause sending until it's fixed. Common causes are old or purchased lists, typos in sign-up forms, and emailing people who didn't ask for it. Your suppression list already blocks the addresses that bounced or complained.\n\nReply to this email, or write to support@delivrie.io, with what caused it and what you've changed, and we'll resume sending. Guide: ${APP_URL}/docs/deliverability`;
-  const html = text.split("\n\n").map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/(https:\/\/\S+)/g, '<a href="$1">$1</a>')}</p>`).join("");
-  await db.from("emails").insert({ team_id: t.id, from: SYSTEM_FROM, to, reply_to: ["support@delivrie.io"], subject: `Sending is paused for ${t.name}`, text, html, status: "queued", direction: "outbound", tags: [{ name: "system", value: "reputation" }] });
+  const { count: queued } = await db.from("emails").select("id", { count: "exact", head: true }).eq("team_id", t.id).in("status", ["queued", "scheduled"]);
+  const m = reason.match(/Bounce rate of ([\d.]+)%/);
+  const { data: adm } = await db.from("team_members").select("user_id").eq("team_id", t.id).eq("role", "admin").limit(1);
+  const { data: prof } = adm?.[0] && to.length === 1 ? await db.from("profiles").select("full_name").eq("id", adm[0].user_id).maybeSingle() : { data: null };
+  await sendBrand(to, Mail.sendingPaused({ name: prof?.full_name, team: t.name, reason, rate: m ? Number(m[1]) / 100 : null, queued: queued ?? undefined, pausedAt: new Date().toISOString() }), "deliverability");
 }
 async function assertNotPaused(c: Ctx) {
   const { data: t } = await db.from("teams").select("sending_paused_at,sending_paused_reason").eq("id", c.teamId).single();
@@ -739,6 +838,7 @@ route("POST", "/domains/:id/verify", async (_r, c, p) => {
   const d = await getDomain(c, p.id);
   const u = await verifyDomain(d);
   if (u.status !== d.status) await emit(c.teamId, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
+  if (u.status === "verified" && d.status !== "verified") waitUntil(domainVerifiedEmail(u));
   return domainOut(u);
 });
 // One-click DNS on Cloudflare: the customer's own Cloudflare token (Zone: Read + DNS: Edit) is used for this request
@@ -754,6 +854,7 @@ route("POST", "/domains/:id/cloudflare", async (_r, c, p, _u, b) => {
   }
   const u = result.created.length ? await verifyDomain(d) : d;
   if (u.status !== d.status) await emit(c.teamId, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
+  if (u.status === "verified" && d.status !== "verified") waitUntil(domainVerifiedEmail(u));
   return { ...domainOut(u), cloudflare: result };
 });
 route("PATCH", "/domains/:id", async (_r, c, p, _u, b) => { needFull(c); return domainOut(await updateDomainConfig(await getDomain(c, p.id), b || {})); });
@@ -788,6 +889,11 @@ route("POST", "/api-keys", async (_r, c, _p, _u, b) => {
   const token = "dlv_" + randomToken(24);
   const { data, error } = await db.from("api_keys").insert({ team_id: c.teamId, name, prefix: token.slice(0, 8), key_hash: await sha256(token), permission, domain_id: b?.domain_id || null, created_by: c.userId }).select("id").single();
   if (error) throw bad(error.message);
+  waitUntil((async () => {
+    const [to, { data: team }, { data: dom }, { data: prof }] = await Promise.all([teamAdminEmails(c.teamId), db.from("teams").select("name").eq("id", c.teamId).single(), b?.domain_id ? db.from("domains").select("name").eq("id", b.domain_id).maybeSingle() : Promise.resolve({ data: null }), c.userId ? db.from("profiles").select("full_name,email").eq("id", c.userId).maybeSingle() : Promise.resolve({ data: null })]);
+    const by = prof?.full_name || prof?.email || (c.apiKey ? `API key ${c.apiKey.name || c.apiKey.prefix}` : c.app || "Someone");
+    if (to.length) await sendBrand(to, Mail.apiKeyCreated({ team: team?.name || "your", name, access: permission === "sending" ? "Sending only" : "Full access", domain: dom?.name || null, prefix: token.slice(0, 8), by }), "security");
+  })());
   return { id: data.id, token };
 });
 route("DELETE", "/api-keys/:id", async (_r, c, p) => { needFull(c); await db.from("api_keys").delete().eq("team_id", c.teamId).eq("id", p.id); return { object: "api_key", id: p.id, deleted: true }; });
@@ -933,7 +1039,7 @@ route("GET", "/dashboard/status", dash(async (_r, c) => {
   const full = await accountStatus(d?.[0]?.region || "eu-west-1");
   const { data: adm } = c.userId ? await db.from("platform_admins").select("role").eq("user_id", c.userId).neq("role", "support").maybeSingle() : { data: null };
   const aws = adm ? full : { configured: !!full?.configured, sending: full?.configured ? full?.sending !== false : false };
-  return { credits: t?.credits || 0, aws, system_from: SYSTEM_FROM ? SYSTEM_FROM : null, regions: (await sendingRegions()).map((id) => ({ id, label: regionLabel(id) })), limits_enforced: ENFORCE_LIMITS, plan: t?.plan_transactional || "free", limits: LIMITS[t?.plan_transactional || "free"] || LIMITS.free };
+  return { credits: t?.credits || 0, aws, system_from: SYSTEM_FROM ? senderFrom(SYSTEM_FROM) : null, regions: (await sendingRegions()).map((id) => ({ id, label: regionLabel(id) })), limits_enforced: ENFORCE_LIMITS, plan: t?.plan_transactional || "free", limits: LIMITS[t?.plan_transactional || "free"] || LIMITS.free };
 }));
 route("GET", "/dashboard/regions", dash(async (_r, c, _p, url) => {
   // Platform admins only: which sending regions have SES production access (a region is offered to customers once it does).
@@ -983,8 +1089,8 @@ route("POST", "/dashboard/invite", dash(async (_r, c, _p, _u, b) => {
   let emailed = false;
   if (SYSTEM_FROM && hasAws()) {
     try {
-      const { data: row } = await db.from("emails").insert({ team_id: c.teamId, from: SYSTEM_FROM, to: [email], subject: `You're invited to ${team?.name} on Delivrie`, html: `<p>You've been invited to join <strong>${team?.name}</strong> on Delivrie.</p><p><a href="${link}">Accept invite</a></p>`, status: "queued", tags: [{ name: "system", value: "invite" }] }).select("id").single();
-      await deliver(row.id); emailed = true;
+      const { data: prof } = await db.from("profiles").select("full_name").eq("id", c.userId).maybeSingle();
+      emailed = await sendBrand([email], Mail.teamInvite({ inviter: prof?.full_name || c.email || "A teammate", inviterEmail: c.email, team: team?.name || "a team", role: inv.role, link }), "invite");
     } catch (e) { console.error(e); }
   }
   return { id: inv.id, link, emailed };

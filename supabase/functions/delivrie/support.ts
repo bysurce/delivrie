@@ -2,10 +2,12 @@
 // person" turns the conversation into a numbered ticket (#DLV-2041) with a topic and context attached (the email in
 // question with its headers, the domain's DNS checks). The team replies from Admin → Support, resolves it, and the
 // customer rates it. Replies left unread for 5 minutes go out by email (see supportCron).
-import { type Any, APP_URL, bad, db, domainOf, forbidden, HttpError, hmacUrl, json, LIMITS, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
+import { type Any, APP_URL, bad, db, domainOf, forbidden, HttpError, hmacUrl, json, LIMITS, notFound, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
 import { hasAws } from "./ses.ts";
 import { deliver } from "./send.ts";
 import { searchDocs } from "./docs.js";
+import { senderFrom, SUPPORT_ADDRESS } from "../_shared/brand-email.ts";
+import { type Rendered, supportNewRequest, supportReply, supportResolved } from "../_shared/emails.ts";
 
 // deno-lint-ignore no-explicit-any
 type Route = (method: string, path: string, h: (req: Request, c: Any, p: Record<string, string>, url: URL, body: Any) => Promise<any>) => void;
@@ -45,18 +47,19 @@ async function systemTeam(): Promise<string | null> {
   const { data } = await db.from("domains").select("team_id").eq("name", domainOf(SYSTEM_FROM)).eq("status", "verified").limit(1);
   return data?.[0]?.team_id || null;
 }
-export async function notify(to: string[], subject: string, html: string, text: string) {
+// Delivrie's own emails come from "Matthew from Delivrie" and replies go to the support inbox, where a person reads them.
+export async function notify(to: string[], subject: string, html: string, text: string, category = "support") {
   if (!to.length || !SYSTEM_FROM || !hasAws()) return false;
   const team = await systemTeam();
   if (!team) return false;
   try {
-    const { data: row } = await db.from("emails").insert({ team_id: team, from: SYSTEM_FROM, to, subject, html, text, tags: [{ name: "category", value: "support" }, { name: "system", value: "true" }] }).select("id").single();
+    const { data: row } = await db.from("emails").insert({ team_id: team, from: senderFrom(SYSTEM_FROM), reply_to: [SUPPORT_ADDRESS], to, subject, html, text, tags: [{ name: "category", value: category }, { name: "system", value: "true" }] }).select("id").single();
     if (row) await deliver(row.id);
     return true;
   } catch (e) { console.error("support notify", e); return false; }
 }
-const wrap = (inner: string) => `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1b1a1a;max-width:560px">${inner}<p style="color:#8a8f98;font-size:12px;margin-top:28px">Delivrie · 8 The Green, Suite R, Dover, DE 19901 · delivrie.io</p></div>`;
-const quote = (s: string) => `<blockquote style="margin:0 0 12px;padding:10px 14px;border-left:3px solid #fad600;background:#f6f6f4;white-space:pre-wrap">${esc(s)}</blockquote>`;
+/** Sends one of the designed emails (see _shared/emails.ts). */
+export const sendBrand = (to: string[], r: Rendered, category = "account") => notify(to, r.subject, r.html, r.text, category);
 
 // ------------------------------------------------------------ the team (avatars, "3 on shift now")
 let teamCache: { at: number; people: { initials: string; name: string }[]; on_shift: number } | null = null;
@@ -331,14 +334,9 @@ async function notifyAdmins(t: Any, who: string, teamName: string | null, body: 
   if (!fresh && Date.now() - last < 10 * 60_000) return;
   const to = await staffEmails(fresh ? null : t.accepted_by);
   const link = `${APP_URL}/admin/support?t=${t.id}`;
-  const att = attachments.map((a) => `${a.type === "email" ? "Email" : "Domain"}: ${a.title} (${a.sub})`).join("\n");
-  const label = topicLabel(t.topic);
-  const org = teamName ? ` (${teamName})` : !t.user_id ? " (website visitor, not signed in)" : "";
-  const subject = fresh ? `New support request ${ticket(t.number)} · ${who}${label ? ` · ${label}` : ""}` : `${ticket(t.number)} ${who} replied${t.accepted_by ? "" : " · not accepted yet"}`;
-  const action = fresh || !t.accepted_by ? "Open and accept it →" : "Reply in Delivrie →";
-  const sent = await notify(to, subject,
-    wrap(`<p><b>${esc(who)}</b>${esc(org)} wrote${label ? ` about <b>${esc(label)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">${action}</a></p>${fresh ? `<p style="color:#62666d;font-size:13px">Everyone on the support team got this. Whoever accepts it first takes it; the others see who did.</p>` : ""}`),
-    `${who}${org} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}${action.replace(" →", "")}: ${link}`);
+  const att = attachments.map((a) => `${a.type === "email" ? "Email" : "Domain"}: ${a.title} (${a.sub})`).join("; ");
+  const org = teamName || (!t.user_id ? "website visitor, not signed in" : null);
+  const sent = await sendBrand(to, supportNewRequest({ ticket: ticket(t.number), who, org, topic: topicLabel(t.topic), body, attachments: att || null, link, fresh, accepted: t.accepted_by_name ? first(t.accepted_by_name) : null }), "support");
   if (sent) await db.from("support_threads").update({ support_notified_at: new Date().toISOString() }).eq("id", t.id);
 }
 // A link that opens a visitor's conversation in any browser (it moves the conversation to that browser).
@@ -537,6 +535,7 @@ const CUSTOMER: [string, string, H][] = [
 // The website's chat for visitors who aren't signed in: /api/public/support/… with an x-support-token header.
 export async function supportPublic(req: Request, path: string, url: URL, ip: string | null): Promise<Response | null> {
   if (!path.startsWith("/public/support/")) return null;
+  if (path === "/public/support/rate" && req.method === "GET") return rateFromEmail(url);
   const sub = path.slice("/public".length);
   const token = (req.headers.get("x-support-token") || "").trim();
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) throw bad("Missing visitor token");
@@ -552,6 +551,18 @@ export async function supportPublic(req: Request, path: string, url: URL, ip: st
     return json(await h(who, params, url, body));
   }
   return null;
+}
+
+// One-click rating from the "resolved" email. Link scanners open every link in an email the moment it arrives, so
+// clicks in the first minute after resolving don't count, and a rating made in the chat is never overwritten.
+async function rateFromEmail(url: URL) {
+  const id = url.searchParams.get("t") || "", r = url.searchParams.get("r") || "", k = url.searchParams.get("k") || "";
+  const page = (title: string, text: string) => new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Delivrie</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4eee4;font:16px/1.6 -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f1d1e}main{background:#fff;padding:40px 48px;max-width:420px;text-align:center}img{display:block;margin:0 auto 24px}h1{font-size:26px;font-weight:500;margin:0 0 8px}p{color:#67625f;margin:0 0 20px}a{display:inline-block;padding:12px 24px;border-radius:999px;background:#fad600;color:#1f1d1e;text-decoration:none;font-weight:500}</style></head><body><main><img src="https://delivrie.io/assets/email-logo.png" width="121" height="22" alt="Delivrie"><h1>${esc(title)}</h1><p>${esc(text)}</p><a href="${APP_URL}">Go to Delivrie</a></main></body></html>`, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !["bad", "okay", "great"].includes(r) || k !== await resumeKey(id)) return page("That link didn’t work", "It may be from an older email. You can rate the conversation from Contact support instead.");
+  const { data: t } = await db.from("support_threads").select("id,status,resolved_at,rated_at").eq("id", id).maybeSingle();
+  if (!t || t.status !== "closed") return page("This conversation is open again", "Thanks. Rate it once it’s resolved.");
+  if (!t.rated_at && t.resolved_at && Date.now() - new Date(t.resolved_at).getTime() > 60_000) await db.from("support_threads").update({ rating: r, rated_at: new Date().toISOString() }).eq("id", t.id).is("rated_at", null);
+  return page("Thanks for the rating", r === "bad" ? "Sorry we fell short. Reply to the email and tell us what went wrong; a person reads every reply." : "It helps the team know what’s working.");
 }
 
 export function registerSupport(route: Route) {
@@ -666,6 +677,14 @@ export function registerSupport(route: Route) {
     const patch: Any = status === "closed" ? { status, resolved_at: now, resolved_by: agent, resolved_by_id: c.userId, agent_typing_at: null } : { status, resolved_at: null };
     await db.from("support_threads").update(patch).eq("id", t.id);
     if (status !== t.status) await addMessage(t, "system", status === "closed" ? `Marked resolved by ${agent}` : `Reopened by ${agent}`, { meta: { icon: status === "closed" ? "check-circle" : "refresh", kind: status === "closed" ? "resolved" : "reopened" } });
+    // Tell the customer, with a one-click rating (Figma: Email · Conversation resolved).
+    if (status === "closed" && t.status !== "closed" && t.email && !t.rated_at) {
+      const key = await resumeKey(t.id);
+      const rate = (r: string) => `${APP_URL}/api/public/support/rate?t=${t.id}&r=${r}&k=${key}`;
+      const { data: lastReply } = await db.from("support_messages").select("body").eq("thread_id", t.id).eq("author", "support").order("created_at", { ascending: false }).limit(1);
+      const summary = lastReply?.[0]?.body ? preview(lastReply[0].body).replace(/\.$/, "").slice(0, 160) : null;
+      waitUntil(sendBrand([t.email], supportResolved({ ticket: ticket(t.number), agent, summary, rate: { bad: rate("bad"), okay: rate("okay"), great: rate("great") } }), "support"));
+    }
     return { id: t.id, status };
   });
 
@@ -736,12 +755,9 @@ export async function supportCron() {
     const since = [t.customer_seen_at, t.customer_emailed_at].filter(Boolean).sort().pop() || t.created_at;
     const { data: msgs } = await db.from("support_messages").select("author_name,body,created_at").eq("thread_id", t.id).eq("author", "support").gt("created_at", since).order("created_at");
     if (!msgs?.length) { await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id); continue; }
-    const who = `${first(msgs[msgs.length - 1].author_name) || "Delivrie"} from Support`;
+    const agent = first(msgs[msgs.length - 1].author_name) || "Delivrie";
     const link = t.user_id ? `${APP_URL}/emails?support=${t.id}` : `${APP_URL}/?support=${t.id}&key=${await resumeKey(t.id)}`;
-    const subject = `${who} replied${t.number ? ` · ${ticket(t.number)}` : ""}`;
-    const ok = await notify([t.email], subject,
-      wrap(`<p><b>${esc(who)}</b> replied${t.subject ? ` about “${esc(t.subject)}”` : ""}:</p>${msgs.map((m: Any) => quote(m.body)).join("")}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Open the conversation →</a></p><p style="color:#62666d;font-size:13px">${t.user_id ? "Reply from Contact support in your Delivrie dashboard." : "Reply from Contact support on delivrie.io."}</p>`),
-      `${who} replied:\n\n${msgs.map((m: Any) => m.body).join("\n\n")}\n\nOpen the conversation: ${link}`);
+    const ok = await sendBrand([t.email], supportReply({ ticket: ticket(t.number), agent, initials: initials(t.assignee_name || agent), body: msgs.map((m: Any) => m.body).join("\n\n"), link, dashboard: !!t.user_id }), "support");
     await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id);
     if (ok) sent++;
   }
