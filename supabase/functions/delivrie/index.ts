@@ -1,7 +1,7 @@
 import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
-import { accountStatus, createDomain, deleteDomain, doh, hasAws, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
+import { accountStatus, createDomain, deleteDomain, doh, hasAws, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
 import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
@@ -484,9 +484,13 @@ async function runCron() {
   // 6. poll pending domains every few minutes
   if (hasAws()) {
     const stale = new Date(Date.now() - 4 * 60e3).toISOString();
-    const { data: pend } = await db.from("domains").select("*").in("status", ["pending", "not_started", "temporary_failure"]).or(`last_checked_at.is.null,last_checked_at.lt.${stale}`).limit(20);
-    for (const d of pend || []) {
-      const u = await verifyDomain(d).catch(() => null);
+    const { data: pend } = await db.from("domains").select("*").in("status", ["pending", "not_started", "temporary_failure", "failed"]).is("ses_parked_at", null).or(`last_checked_at.is.null,last_checked_at.lt.${stale}`).limit(20);
+    // Parked domains (taken out of SES while their DNS records are missing) only need a DNS look every 30 minutes.
+    const { data: parked } = await db.from("domains").select("*").not("ses_parked_at", "is", null).lt("last_checked_at", new Date(Date.now() - 30 * 60e3).toISOString()).limit(20);
+    for (const d of [...(pend || []), ...(parked || [])]) {
+      let u = await verifyDomain(d).catch(() => null);
+      // Still no DNS records two days in: take it out of SES before Amazon starts emailing about it.
+      if (u && u.status !== "verified" && !u.ses_parked_at && Date.now() - new Date(u.created_at).getTime() > PARK_AFTER_MS && !(u.records || []).some((r: Any) => r.group === "dkim" && r.status === "verified")) u = await parkDomain(u).catch((e) => { console.error("park failed", d.name, e); return u; });
       if (u && u.status !== d.status) await emit(d.team_id, "domain.updated", { id: u.id, name: u.name, status: u.status, region: u.region });
     }
   }

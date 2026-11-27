@@ -117,8 +117,7 @@ export async function createDomain(teamId: string, name: string, region: string,
     await sesv2(c, region, "POST", "/v2/email/configuration-sets", { ConfigurationSetName: configSet, DeliveryOptions: { TlsPolicy: d.tls === "enforced" ? "REQUIRE" : "OPTIONAL" }, ReputationOptions: { ReputationMetricsEnabled: true }, SendingOptions: { SendingEnabled: true } });
     const topic = await ensureTopic(region);
     await sesv2(c, region, "POST", `/v2/email/configuration-sets/${configSet}/event-destinations`, { EventDestinationName: "delivrie", EventDestination: eventDestination(topic, d) });
-    await sesv2(c, region, "POST", "/v2/email/identities", { EmailIdentity: name, ConfigurationSetName: configSet, DkimSigningAttributes: { DomainSigningSelector: d.dkim_selector, DomainSigningPrivateKey: priv } });
-    await sesv2(c, region, "PUT", `/v2/email/identities/${encodeURIComponent(name)}/mail-from`, { MailFromDomain: `${d.return_path}.${name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
+    await createIdentity(c, { ...d, config_set: configSet }, priv);
     if (d.receiving_enabled) await enableReceiving(c, d);
     await db.from("domain_secrets").insert({ domain_id: d.id, dkim_private_key: priv });
     const records = buildRecords(d, pub);
@@ -131,6 +130,25 @@ export async function createDomain(teamId: string, name: string, region: string,
     if (e instanceof AwsError) throw new HttpError(e.status >= 500 ? 502 : 422, "ses_error", `Amazon SES: ${e.message}`);
     throw e;
   }
+}
+
+async function createIdentity(c: AwsCreds, d: Any, priv: string) {
+  await sesv2(c, d.region, "POST", "/v2/email/identities", { EmailIdentity: d.name, ConfigurationSetName: d.config_set || `dlv-${d.id}`, DkimSigningAttributes: { DomainSigningSelector: d.dkim_selector, DomainSigningPrivateKey: priv } });
+  await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: `${d.return_path}.${d.name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
+}
+
+// Parking: Amazon emails the account owner about every domain left unverified in SES for about 3 days. A domain whose
+// DNS records haven't appeared after 2 days is taken out of SES (its key, records, configuration and receiving rule
+// stay), and only our own DNS checks keep watching it. When the DKIM record shows up, verifyDomain puts it back in
+// SES with the same key, so the customer's records never change and SES verifies it straight away.
+export const PARK_AFTER_MS = 48 * 3600_000;
+export async function parkDomain(d: Any) {
+  if (!hasAws() || d.ses_parked_at || d.status === "verified") return d;
+  await sesv2(creds(), d.region, "DELETE", `/v2/email/identities/${encodeURIComponent(d.name)}`).catch((e) => { if (!(e instanceof AwsError && e.status === 404)) throw e; });
+  const recs = (Array.isArray(d.records) ? d.records : []).map((r: Any) => r.status === "failed" ? { ...r, status: "pending" } : r);
+  const { data } = await db.from("domains").update({ ses_parked_at: new Date().toISOString(), status: "pending", records: recs }).eq("id", d.id).select().single();
+  console.log("domain parked", d.name);
+  return data || d;
 }
 
 async function cleanupSes(c: AwsCreds, d: Any) {
@@ -167,7 +185,22 @@ export async function verifyDomain(d: Any) {
   let status = d.status;
   let verifiedAt = d.verified_at;
   let resubmittedAt = d.dkim_resubmitted_at || null;
-  if (hasAws()) {
+  let parkedAt = d.ses_parked_at || null;
+  if (hasAws() && parkedAt && dkimSeen) {
+    // The records are in DNS now: put the domain back in SES with its key, then check it as usual below.
+    const { data: sec } = await db.from("domain_secrets").select("dkim_private_key").eq("domain_id", d.id).maybeSingle();
+    if (sec?.dkim_private_key) {
+      try { await createIdentity(creds(), d, sec.dkim_private_key); }
+      catch (e) { if (!(e instanceof AwsError && (e.code === "AlreadyExistsException" || /already exists/i.test(e.message)))) throw e; }
+      parkedAt = null;
+      resubmittedAt = new Date().toISOString();
+      await db.from("domains").update({ ses_parked_at: null }).eq("id", d.id);
+      console.log("domain unparked", d.name);
+    }
+  }
+  if (hasAws() && parkedAt) {
+    status = "pending"; // still waiting for the customer's DNS records; SES isn't involved yet
+  } else if (hasAws()) {
     const c = creds();
     try {
       const id = await sesv2(c, d.region, "GET", `/v2/email/identities/${encodeURIComponent(d.name)}`);
@@ -223,7 +256,8 @@ export async function updateDomainConfig(d: Any, patch: Any) {
   if ("tls" in patch) await sesv2(c, d.region, "PUT", `/v2/email/configuration-sets/${configSet}/delivery-options`, { TlsPolicy: next.tls === "enforced" ? "REQUIRE" : "OPTIONAL" });
   if ("return_path" in patch && patch.return_path !== d.return_path) {
     if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(next.return_path)) throw new HttpError(422, "validation_error", "Return path must be a single subdomain label like send");
-    await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: `${next.return_path}.${d.name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
+    // A parked domain isn't in SES; the new return path is used when it's put back (createIdentity reads the row).
+    if (!d.ses_parked_at) await sesv2(c, d.region, "PUT", `/v2/email/identities/${encodeURIComponent(d.name)}/mail-from`, { MailFromDomain: `${next.return_path}.${d.name}`, BehaviorOnMxFailure: "USE_DEFAULT_VALUE" });
   }
   if ("receiving_subdomain" in patch) {
     const sub = String(patch.receiving_subdomain || "").trim().toLowerCase().replace(new RegExp(`\\.?${d.name.replace(/\./g, "\\.")}$`), "");
