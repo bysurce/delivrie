@@ -56,7 +56,7 @@ export async function signup(ctx) {
 }
 
 // One screen for every emailed code: sign-up confirmation, sign-in code and password reset.
-// Emailed codes are 8 digits (Supabase Auth → Email → "Email OTP length"). Keep this in step with that setting:
+// Emailed codes are 6 digits (Supabase Auth → Email → "Email OTP length"). Keep this in step with that setting:
 // the form submits by itself when this many digits are in. Shorter codes still work with the Continue button.
 const CODE_LENGTH = 6; // Supabase → Auth → Email OTP length
 const CODE_FLOWS = {
