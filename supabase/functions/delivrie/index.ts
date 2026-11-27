@@ -12,6 +12,7 @@ import { registerExtra } from "./extra.ts";
 import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
 import * as Mail from "../_shared/emails.ts";
 import { senderFrom } from "../_shared/brand-email.ts";
+import { emailPreviews } from "../_shared/email-previews.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
@@ -1270,6 +1271,19 @@ Deno.serve(async (req) => {
     if (path === "/status/run" && req.method === "POST") {
       if (req.headers.get("x-cron-secret") !== await setting("cron_secret")) return json({ error: "forbidden" }, 403);
       return json(await runStatusChecks());
+    }
+    // Sends every Delivrie email, with sample data, to a platform owner or admin (scheduler secret required).
+    if (path === "/email-previews" && req.method === "POST") {
+      if (req.headers.get("x-cron-secret") !== await setting("cron_secret")) return json({ error: "forbidden" }, 403);
+      const to = String((await req.json().catch(() => ({})))?.to || "").toLowerCase();
+      const { data: staff } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
+      const allowed = new Set<string>();
+      for (const a of staff || []) { const { data } = await db.auth.admin.getUserById(a.user_id); if (data?.user?.email) allowed.add(data.user.email.toLowerCase()); }
+      if (!allowed.has(to)) return json({ error: "previews only go to platform owners and admins" }, 422);
+      const list = emailPreviews();
+      let sent = 0;
+      for (const [i, [, r]] of list.entries()) if (await sendBrand([to], { ...r, subject: `[Preview ${i + 1}/${list.length}] ${r.subject}` }, "preview")) sent++;
+      return json({ sent, of: list.length });
     }
     if (path === "/cron" && req.method === "POST") {
       if (req.headers.get("x-cron-secret") !== await setting("cron_secret")) return json({ error: "forbidden" }, 403);
