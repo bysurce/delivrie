@@ -52,7 +52,7 @@ export function toast(msg, kind = "ok", ms = 3200) {
   toastHost.appendChild(t);
   setTimeout(() => { t.style.transition = "opacity .2s, transform .2s"; t.style.opacity = "0"; t.style.transform = "translateY(4px)"; setTimeout(() => t.remove(), 200); }, ms);
 }
-export function errToast(e) { console.error(e); toast(e?.message || String(e), "err", 5000); }
+export function errToast(e) { console.error(e); toast(e?.message || String(e), "err", 5000); try { window.dispatchEvent(new Event("dlv:failed")); } catch { /* old browsers */ } }
 
 // ---------------- modal ----------------
 export function modal({ title, body = "", foot = "", size = "", onMount, dismissable = true }) {

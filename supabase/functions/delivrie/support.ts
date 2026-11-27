@@ -1,16 +1,24 @@
-// Support chat: customers write from the dashboard (chat button), the Delivrie team replies from Admin → Support.
-// New customer messages email the platform admins; replies email the customer if they haven't seen them within a minute.
+// Support chat (Figma 10.6). The assistant answers first, from the docs and the customer's own account. "Talk to a
+// person" turns the conversation into a numbered ticket (#DLV-2041) with a topic and context attached (the email in
+// question with its headers, the domain's DNS checks). The team replies from Admin → Support, resolves it, and the
+// customer rates it. Replies left unread for 5 minutes go out by email (see supportCron).
 import { type Any, APP_URL, bad, db, domainOf, forbidden, notFound, SYSTEM_FROM } from "./util.ts";
 import { hasAws } from "./ses.ts";
 import { deliver } from "./send.ts";
+import { searchDocs } from "./docs.js";
 
 // deno-lint-ignore no-explicit-any
 type Route = (method: string, path: string, h: (req: Request, c: Any, p: Record<string, string>, url: URL, body: Any) => Promise<any>) => void;
 
 const MAX = 5000;
 const esc = (s: string) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]!));
-const preview = (s: string) => s.replace(/\s+/g, " ").trim().slice(0, 140);
-const msgOut = (m: Any) => ({ id: m.id, author: m.author, author_name: m.author === "support" ? (m.author_name || "Delivrie support") : m.author_name, body: m.body, created_at: m.created_at });
+const preview = (s: string) => s.replace(/```[\s\S]*?```/g, "[code]").replace(/\s+/g, " ").trim().slice(0, 140);
+const first = (s: string | null | undefined) => String(s || "").trim().split(/\s+/)[0] || "";
+const initials = (s: string | null | undefined) => { const w = String(s || "").trim().split(/\s+/).filter(Boolean); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "D").slice(0, 2)).toUpperCase(); };
+export const TOPICS: Record<string, string> = { deliverability: "Deliverability", domains: "Domains & DNS", billing: "Billing", api: "API & SDKs", other: "Something else" };
+const ticket = (n: number | null) => (n ? `#DLV-${n}` : "");
+
+const msgOut = (m: Any) => ({ id: m.id, author: m.author, author_name: m.author_name, body: m.body, created_at: m.created_at, meta: m.meta || {} });
 
 function needDashboard(c: Any) { if (c.via !== "dashboard" || !c.userId) throw forbidden("Support chat is only available from the dashboard"); }
 async function isAdmin(userId: string | null) {
@@ -25,6 +33,11 @@ async function userEmail(id: string | null) {
   const { data } = await db.auth.admin.getUserById(id);
   return data?.user?.email || null;
 }
+async function profileName(id: string | null) {
+  if (!id) return "";
+  const { data } = await db.from("profiles").select("full_name").eq("id", id).maybeSingle();
+  return data?.full_name || "";
+}
 
 // Notifications go out from the team that owns the system sender's domain, so they never appear in a customer's email log.
 async function systemTeam(): Promise<string | null> {
@@ -37,154 +50,459 @@ export async function notify(to: string[], subject: string, html: string, text: 
   const team = await systemTeam();
   if (!team) return false;
   try {
-    const { data: row } = await db.from("emails").insert({ team_id: team, from: SYSTEM_FROM, to, subject, html, text, tags: [{ name: "category", value: "support" }] }).select("id").single();
+    const { data: row } = await db.from("emails").insert({ team_id: team, from: SYSTEM_FROM, to, subject, html, text, tags: [{ name: "category", value: "support" }, { name: "system", value: "true" }] }).select("id").single();
     if (row) await deliver(row.id);
     return true;
   } catch (e) { console.error("support notify", e); return false; }
 }
-const wrap = (inner: string) => `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1b1a1a;max-width:560px">${inner}<p style="color:#8a8f98;font-size:12px;margin-top:28px">Delivrie · Lagos · delivrie.io</p></div>`;
+const wrap = (inner: string) => `<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1b1a1a;max-width:560px">${inner}<p style="color:#8a8f98;font-size:12px;margin-top:28px">Delivrie · 8 The Green, Suite R, Dover, DE 19901 · delivrie.io</p></div>`;
+const quote = (s: string) => `<blockquote style="margin:0 0 12px;padding:10px 14px;border-left:3px solid #fad600;background:#f6f6f4;white-space:pre-wrap">${esc(s)}</blockquote>`;
 
-async function threadForUser(userId: string) {
-  const { data } = await db.from("support_threads").select("*").eq("user_id", userId).order("last_message_at", { ascending: false }).limit(1);
-  return data?.[0] || null;
+// ------------------------------------------------------------ the team (avatars, "3 on shift now")
+let teamCache: { at: number; people: { initials: string; name: string }[]; on_shift: number } | null = null;
+async function supportTeam() {
+  if (teamCache && Date.now() - teamCache.at < 10 * 60e3) return teamCache;
+  const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
+  const people: { initials: string; name: string }[] = [];
+  let onShift = 0;
+  for (const a of admins || []) {
+    const [name, u] = await Promise.all([profileName(a.user_id), db.auth.admin.getUserById(a.user_id)]);
+    const label = name || u.data?.user?.email || "";
+    people.push({ initials: initials(name || label.split("@")[0]), name: first(name) || "Delivrie" });
+    if (u.data?.user?.last_sign_in_at && Date.now() - new Date(u.data.user.last_sign_in_at).getTime() < 12 * 3600e3) onShift++;
+  }
+  teamCache = { at: Date.now(), people: people.slice(0, 3), on_shift: onShift };
+  return teamCache;
+}
+async function teamPlan(teamId: string | null) {
+  if (!teamId) return "free";
+  const { data } = await db.from("teams").select("plan_transactional").eq("id", teamId).maybeSingle();
+  return data?.plan_transactional || "free";
+}
+// What we promise, by plan (matches the pricing page: email support on every paid plan, priority on Scale).
+function replyPromise(plan: string) {
+  const name = plan.replace(/^\w/, (c) => c.toUpperCase());
+  if (plan === "scale" || plan === "enterprise") return { head: "A person will reply within 1 business day", sub: `${name} plan · priority support, you’re at the front of the queue.` };
+  return { head: "A person will reply within 1 business day", sub: `${name} plan · Monday to Friday, UTC+1.` };
+}
+
+// ------------------------------------------------------------ account context (for answers, suggestions, attachments)
+const PROBLEM = ["bounced", "complained", "failed", "suppressed", "delivery_delayed"];
+const STATUS_LABEL: Record<string, string> = { bounced: "Bounced", complained: "Complained", failed: "Failed", suppressed: "Suppressed", delivery_delayed: "Delayed", delivered: "Delivered", opened: "Opened", clicked: "Clicked", sent: "Sent", queued: "Queued", scheduled: "Scheduled" };
+function domainChecks(d: Any) {
+  const recs = (d.records || []) as Any[];
+  const ok = (g: string) => recs.filter((r) => r.group === g).length > 0 && recs.filter((r) => r.group === g).every((r) => r.status === "verified");
+  const dmarc = recs.find((r) => r.group === "dmarc");
+  return { spf: ok("sending"), dkim: ok("dkim"), dmarc: dmarc?.status === "verified" };
+}
+const checksLine = (k: { spf: boolean; dkim: boolean; dmarc: boolean }) => `SPF ${k.spf ? "✓" : "missing"}  DKIM ${k.dkim ? "✓" : "missing"}  DMARC ${k.dmarc ? "✓" : "missing"}`;
+
+async function accountContext(teamId: string | null) {
+  if (!teamId) return { plan: "free", domains: [], findings: [] as Any[], problem: null as Any, stats: { sent: 0, bounced: 0, complained: 0 }, paused: null as string | null };
+  const since = new Date(Date.now() - 7 * 86400e3).toISOString();
+  const [{ data: team }, { data: domains }, { data: rb }, { count: complained }, { data: problem }] = await Promise.all([
+    db.from("teams").select("plan_transactional,sending_paused_at,sending_paused_reason").eq("id", teamId).maybeSingle(),
+    db.from("domains").select("id,name,status,records,created_at").eq("team_id", teamId).order("created_at"),
+    db.rpc("team_recent_bounces", { p_team: teamId, p_n: 500 }),
+    db.from("emails").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("status", "complained").gte("created_at", since),
+    db.from("emails").select("id,subject,status,error,broadcast_id,created_at,domain_id").eq("team_id", teamId).eq("direction", "outbound").in("status", PROBLEM).gte("created_at", since).order("created_at", { ascending: false }).limit(1),
+  ]);
+  const sent = Number(rb?.[0]?.sent || 0), bounced = Number(rb?.[0]?.bounced || 0);
+  const findings: Any[] = [];
+  if (team?.sending_paused_at) findings.push({ topic: "deliverability", text: `Sending is paused on this account: ${team.sending_paused_reason || "see Settings"}.` });
+  for (const d of domains || []) {
+    const k = domainChecks(d);
+    if (d.status !== "verified") findings.push({ topic: "domains", domain: d, text: `${d.name} is ${d.status === "pending" ? "still pending" : d.status}: ${!k.dkim ? "the DKIM records aren’t visible in DNS yet" : "waiting for Amazon SES to confirm"}.` });
+    else if (!k.dmarc) findings.push({ topic: "deliverability", domain: d, text: `DMARC is missing on ${d.name}, so Gmail and Yahoo treat its mail as less trustworthy.` });
+  }
+  if (sent >= 50 && bounced / sent > 0.02) findings.push({ topic: "deliverability", text: `${(bounced / sent * 100).toFixed(1)}% of your last ${sent.toLocaleString()} emails hard-bounced. Mailbox providers start filtering above 2%.` });
+  if ((complained || 0) > 0) findings.push({ topic: "deliverability", text: `${complained} recipient${complained === 1 ? "" : "s"} marked your email as spam in the last 7 days.` });
+  let broadcast: Any = null;
+  if (problem?.[0]?.broadcast_id) { const { data } = await db.from("broadcasts").select("id,name").eq("id", problem[0].broadcast_id).maybeSingle(); broadcast = data; }
+  return { plan: team?.plan_transactional || "free", domains: domains || [], findings, problem: problem?.[0] ? { ...problem[0], broadcast } : null, stats: { sent, bounced, complained: complained || 0 }, paused: team?.sending_paused_reason || null };
+}
+
+// ------------------------------------------------------------ the assistant
+const TOPIC_WORDS: Record<string, RegExp> = {
+  deliverability: /spam|junk|inbox|bounc|complain|deliver|gmail|outlook|yahoo|dmarc|reputation|block|reject|promotions/i,
+  domains: /domain|dns|dkim|spf|dmarc|verif|pending|record|cname|txt|mx/i,
+  billing: /bill|invoice|plan|price|pay|card|charge|refund|upgrade|subscription|credit/i,
+  api: /api|sdk|key|webhook|endpoint|401|403|422|429|rate limit|smtp|mcp|node|python|curl/i,
+};
+const guessTopic = (q: string) => (Object.entries(TOPIC_WORDS).find(([, re]) => re.test(q))?.[0]) || "other";
+
+async function answer(question: string, teamId: string | null, history: Any[]) {
+  const ctx = await accountContext(teamId);
+  const topic = guessTopic(question);
+  const hits = searchDocs(question, 3);
+  const relevant = ctx.findings.filter((f: Any) => f.topic === topic || (topic === "deliverability" && f.topic === "domains") || (topic === "domains" && f.domain));
+  // Chips: the account objects the answer is about, then the docs it drew on.
+  const sources: Any[] = [];
+  const domainsInPlay = new Map<string, Any>();
+  for (const f of relevant) if (f.domain) domainsInPlay.set(f.domain.id, f.domain);
+  for (const d of ctx.domains) if (question.toLowerCase().includes(String(d.name).toLowerCase())) domainsInPlay.set(d.id, d);
+  for (const d of [...domainsInPlay.values()].slice(0, 2)) sources.push({ kind: "domain", label: `Domains · ${d.name}`, href: `/domains/${d.id}` });
+  if (topic === "deliverability" && ctx.problem) {
+    if (ctx.problem.broadcast) sources.push({ kind: "broadcast", label: `Broadcast · ${ctx.problem.broadcast.name}`.slice(0, 40), href: `/broadcasts/${ctx.problem.broadcast.id}` });
+    else sources.push({ kind: "email", label: `Email · ${STATUS_LABEL[ctx.problem.status] || ctx.problem.status}`, href: `/emails/${ctx.problem.id}` });
+  }
+  for (const d of hits.slice(0, 2)) sources.push({ kind: "doc", label: `Docs · ${d.title}`.slice(0, 40), href: `/docs#${d.id}` });
+
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (key) {
+    try {
+      const account = [
+        `Plan: ${ctx.plan}`,
+        `Last 7 days: ${ctx.stats.sent} emails sent, ${ctx.stats.bounced} hard bounces, ${ctx.stats.complained} spam complaints.`,
+        ...ctx.domains.map((d: Any) => `Domain ${d.name}: ${d.status}; ${checksLine(domainChecks(d))}`),
+        ...ctx.findings.map((f: Any) => `Finding: ${f.text}`),
+      ].join("\n");
+      // Earlier turns of this conversation, merged so roles alternate and the first is the user's (the API needs that).
+      const messages: { role: string; content: string }[] = [];
+      for (const m of history.slice(-8)) {
+        if (m.author !== "customer" && m.author !== "bot") continue;
+        const role = m.author === "customer" ? "user" : "assistant";
+        if (messages.length && messages[messages.length - 1].role === role) messages[messages.length - 1].content += `\n\n${m.body}`;
+        else messages.push({ role, content: m.body });
+      }
+      while (messages.length && messages[0].role !== "user") messages.shift();
+      if (messages.length && messages[messages.length - 1].role === "user") messages[messages.length - 1].content += `\n\n${question}`;
+      else messages.push({ role: "user", content: question });
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model: Deno.env.get("ASK_MODEL") || "claude-haiku-5-5", max_tokens: 600,
+          system: `You are the Delivrie assistant inside the Delivrie dashboard (an email API). Answer the customer's question in plain text, 2 to 6 short lines. Use numbered lines for separate points. Use facts from their account below when they're relevant, and say exactly what to do next. Only use the documentation and account facts provided; if they don't cover it, say so and suggest "Talk to a person". Never invent numbers, settings or features. No markdown headings, no bold.\n\nTheir account:\n${account}\n\nDocumentation:\n${hits.map((d: Any) => `## ${d.title}\n${String(d.body).slice(0, 3500)}`).join("\n\n")}`,
+          messages,
+        }),
+      });
+      const j = await res.json();
+      const text = j?.content?.find?.((b: Any) => b.type === "text")?.text;
+      if (text) return { body: String(text).trim(), meta: { sources, feedback: true, mode: "ai", topic } };
+      if (j?.error) console.error("assistant", j.error);
+    } catch (e) { console.error("assistant", e); }
+  }
+  // No AI available: account findings first, then the best matching paragraph of the docs.
+  const lines: string[] = [];
+  if (relevant.length) {
+    lines.push(relevant.length === 1 ? "One thing on your account stands out:" : `${relevant.length} things on your account stand out:`);
+    relevant.slice(0, 3).forEach((f: Any, i: number) => lines.push(relevant.length === 1 ? f.text : `${i + 1}. ${f.text}`));
+  }
+  if (hits.length) {
+    const terms = question.toLowerCase().match(/[a-z0-9]{4,}/g) || [];
+    const paras = String(hits[0].body).split(/\n+/).filter((p: string) => p && !p.startsWith("#") && !p.startsWith("```") && p.length > 40);
+    const best = paras.map((p: string) => ({ p, s: terms.reduce((n: number, t: string) => n + (p.toLowerCase().includes(t) ? 1 : 0), 0) })).sort((a: Any, b: Any) => b.s - a.s)[0];
+    if (best) lines.push(`From the docs (${hits[0].title}): ${best.p.replace(/`/g, "")}`);
+  }
+  if (!lines.length) lines.push("I couldn’t find that in the docs or your account. A person on the team can take a look.");
+  return { body: lines.join("\n\n"), meta: { sources, feedback: true, mode: "search", topic } };
+}
+
+// ------------------------------------------------------------ attachments for a handoff
+async function emailAttachment(teamId: string, emailId: string) {
+  const { data: e } = await db.from("emails").select("id,from,to,subject,status,error,created_at,sent_at,ses_message_id,domain_id").eq("team_id", teamId).eq("id", emailId).maybeSingle();
+  if (!e) return null;
+  const [{ data: ev }, { data: dom }] = await Promise.all([
+    db.from("email_events").select("type,data,created_at").eq("email_id", e.id).order("created_at", { ascending: false }).limit(3),
+    e.domain_id ? db.from("domains").select("name,records").eq("id", e.domain_id).maybeSingle() : db.from("domains").select("name,records").eq("team_id", teamId).eq("name", domainOf(e.from)).maybeSingle(),
+  ]);
+  const k = dom ? domainChecks(dom) : null;
+  const when = new Date(e.sent_at || e.created_at);
+  const headers: [string, string][] = [
+    ["From", e.from], ["To", (e.to || []).join(", ")], ["Subject", e.subject || "(no subject)"],
+    ["Date", when.toUTCString().replace(/:\d\d GMT$/, " UTC")],
+    ["Message-ID", e.ses_message_id ? `<${e.ses_message_id}@email.amazonses.com>` : `<${e.id}>`],
+  ];
+  if (k) headers.push(["Domain auth", `spf=${k.spf ? "pass" : "none"} dkim=${k.dkim ? "pass" : "none"} dmarc=${k.dmarc ? "pass" : "none"}`]);
+  const last = (ev || []).find((x: Any) => ["bounced", "complained", "failed", "suppressed", "delivery_delayed"].includes(x.type));
+  const detail = last?.data?.diagnostic || last?.data?.sub_type || last?.data?.reason || e.error || "";
+  const extra = [`Status: ${STATUS_LABEL[e.status] || e.status}`, ...(detail ? [`Detail: ${String(detail).slice(0, 300)}`] : []), ...(ev || []).map((x: Any) => `Event: ${x.type} at ${x.created_at}${x.data && Object.keys(x.data).length ? " " + JSON.stringify(x.data).slice(0, 400) : ""}`)];
+  return { type: "email", id: e.id, title: e.subject || "(no subject)", sub: `${e.id.slice(0, 8)} · ${STATUS_LABEL[e.status] || e.status}${detail ? ` · ${String(detail).slice(0, 40)}` : ""}`, headers, raw: [...headers.map(([a, b]) => `${a}: ${b}`), ...extra].join("\n"), more: extra.length };
+}
+async function domainAttachment(teamId: string, domainId: string) {
+  const { data: d } = await db.from("domains").select("id,name,status,records").eq("team_id", teamId).eq("id", domainId).maybeSingle();
+  if (!d) return null;
+  return { type: "domain", id: d.id, title: d.name, sub: d.status === "verified" ? checksLine(domainChecks(d)) : `${d.status.replace(/_/g, " ")} · ${checksLine(domainChecks(d))}` };
+}
+async function proposeAttachments(teamId: string | null) {
+  if (!teamId) return [];
+  const ctx = await accountContext(teamId);
+  const out: Any[] = [];
+  let emailId = ctx.problem?.id;
+  if (!emailId) { const { data } = await db.from("emails").select("id").eq("team_id", teamId).eq("direction", "outbound").order("created_at", { ascending: false }).limit(1); emailId = data?.[0]?.id; }
+  const em = emailId ? await emailAttachment(teamId, emailId) : null;
+  if (em) out.push(em);
+  // The domain of that email, or the one with something wrong, or the first.
+  const fromDomain = em ? ctx.domains.find((d: Any) => d.name === domainOf(em.headers[0][1])) : null;
+  const flagged = ctx.findings.find((f: Any) => f.domain)?.domain;
+  const dom = fromDomain || flagged || ctx.domains[0];
+  if (dom) { const a = await domainAttachment(teamId, dom.id); if (a) out.push(a); }
+  return out;
+}
+
+// ------------------------------------------------------------ threads
+async function myThread(userId: string, id: string) {
+  const { data } = await db.from("support_threads").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
+  if (!data) throw notFound("Conversation");
+  return data;
 }
 async function messages(threadId: string) {
   const { data } = await db.from("support_messages").select("*").eq("thread_id", threadId).order("created_at").limit(500);
   return (data || []).map(msgOut);
 }
-
-// The tables come from supabase/migrations/20261113150000_delivrie_support_chat.sql. If that migration hasn't been
-// applied yet, create them on first use through the database connection every edge function receives.
-const SCHEMA = `
-create table if not exists public.support_threads (
-  id uuid primary key default gen_random_uuid(),
-  team_id uuid references public.teams(id) on delete set null,
-  user_id uuid references auth.users(id) on delete set null,
-  email text,
-  status text not null default 'open' check (status in ('open', 'closed')),
-  last_message_at timestamptz not null default now(),
-  last_author text check (last_author in ('customer', 'support')),
-  last_preview text,
-  unread_support int not null default 0,   -- customer messages the team hasn't read
-  unread_customer int not null default 0,  -- replies the customer hasn't read
-  customer_seen_at timestamptz,
-  support_notified_at timestamptz,
-  created_at timestamptz not null default now()
-);
-create index if not exists support_threads_user on public.support_threads(user_id, last_message_at desc);
-create index if not exists support_threads_status on public.support_threads(status, last_message_at desc);
-
-create table if not exists public.support_messages (
-  id uuid primary key default gen_random_uuid(),
-  thread_id uuid not null references public.support_threads(id) on delete cascade,
-  author text not null check (author in ('customer', 'support')),
-  user_id uuid references auth.users(id) on delete set null,
-  author_name text,
-  body text not null check (char_length(body) between 1 and 5000),
-  created_at timestamptz not null default now()
-);
-create index if not exists support_messages_thread on public.support_messages(thread_id, created_at);
-
-alter table public.support_threads enable row level security;
-alter table public.support_messages enable row level security;`;
-let schemaReady = false;
-async function ensureSchema() {
-  if (schemaReady) return;
-  const { error } = await db.from("support_threads").select("id").limit(1);
-  if (!error) { schemaReady = true; return; }
-  const url = Deno.env.get("SUPABASE_DB_URL");
-  if (!url) throw new Error("Support chat tables are missing and SUPABASE_DB_URL isn't set");
-  const { default: postgres } = await import("npm:postgres@3.4.5");
-  const sql = postgres(url, { max: 1, prepare: false });
-  try { await sql.unsafe(SCHEMA); await sql.unsafe("notify pgrst, 'reload schema'"); } finally { await sql.end(); }
-  await new Promise((r) => setTimeout(r, 1500)); // let the REST layer pick up the new tables
-  schemaReady = true;
+async function addMessage(t: Any, author: string, body: string, extra: Any = {}) {
+  const { data: m } = await db.from("support_messages").insert({ thread_id: t.id, author, body, user_id: extra.user_id || null, author_name: extra.author_name || null, meta: extra.meta || {} }).select().single();
+  return m;
+}
+const threadOut = (t: Any) => ({
+  id: t.id, number: t.number, ticket: ticket(t.number), status: t.status, subject: t.subject, topic: t.topic, topic_label: t.topic ? TOPICS[t.topic] || t.topic : null,
+  assignee: t.assignee_name ? { name: first(t.assignee_name), initials: initials(t.assignee_name) } : null,
+  resolved_by: t.resolved_by, rating: t.rating, rated_at: t.rated_at, last_message_at: t.last_message_at, last_author: t.last_author, preview: t.last_preview, unread: t.unread_customer || 0,
+});
+async function rateLimit(userId: string) {
+  const since = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { data: mine } = await db.from("support_threads").select("id").eq("user_id", userId).gte("last_message_at", since);
+  const ids = (mine || []).map((t: Any) => t.id);
+  if (!ids.length) return;
+  const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).in("thread_id", ids).eq("author", "customer").gte("created_at", since);
+  if ((count || 0) >= 30) throw bad("You’ve sent a lot of messages in a short time. Give us a moment to catch up.");
+}
+async function notifyAdmins(t: Any, who: string, teamName: string | null, body: string, attachments: Any[] = []) {
+  const last = t.support_notified_at ? new Date(t.support_notified_at).getTime() : 0;
+  if (Date.now() - last < 10 * 60_000) return;
+  const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
+  const to = (await Promise.all((admins || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
+  const link = `${APP_URL}/admin/support?t=${t.id}`;
+  const att = attachments.map((a) => `${a.type === "email" ? "Email" : "Domain"}: ${a.title} (${a.sub})`).join("\n");
+  const topic = t.topic ? ` · ${TOPICS[t.topic] || t.topic}` : "";
+  const sent = await notify(to, `${ticket(t.number)} ${who}${topic}`,
+    wrap(`<p><b>${esc(who)}</b>${teamName ? ` (${esc(teamName)})` : ""} wrote${topic ? ` about <b>${esc(TOPICS[t.topic] || t.topic)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Reply in Delivrie →</a></p>`),
+    `${who}${teamName ? ` (${teamName})` : ""} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}Reply: ${link}`);
+  if (sent) await db.from("support_threads").update({ support_notified_at: new Date().toISOString() }).eq("id", t.id);
 }
 
 export function registerSupport(route: Route) {
-  const r0 = route;
-  route = (method, path, h) => r0(method, path, async (req, c, p, url, body) => { await ensureSchema(); return h(req, c, p, url, body); });
   // ------------------------------------------------------------ customer
-  route("GET", "/support/chat", async (_r, c) => {
+  route("GET", "/support/home", async (_r, c, _p, url) => {
     needDashboard(c);
-    const t = await threadForUser(c.userId);
-    if (!t) return { thread: null, messages: [], unread: 0 };
-    if (t.unread_customer) await db.from("support_threads").update({ unread_customer: 0, customer_seen_at: new Date().toISOString() }).eq("id", t.id);
-    else await db.from("support_threads").update({ customer_seen_at: new Date().toISOString() }).eq("id", t.id);
-    return { thread: { id: t.id, status: t.status }, messages: await messages(t.id), unread: 0 };
+    const page = url.searchParams.get("page") || "";
+    const [ctx, team, name, { data: recent }, { data: unreadRows }] = await Promise.all([
+      accountContext(c.teamId), supportTeam(), profileName(c.userId),
+      db.from("support_threads").select("*").eq("user_id", c.userId).neq("status", "bot").order("last_message_at", { ascending: false }).limit(1),
+      db.from("support_threads").select("unread_customer").eq("user_id", c.userId).gt("unread_customer", 0),
+    ]);
+    // Suggestions: what's wrong on the account first, weighted toward the page they're on, then common questions.
+    const sugg: Any[] = [];
+    const pageTopic = /^\/domains/.test(page) ? "domains" : /^\/(webhooks|keys|logs)/.test(page) ? "api" : /^\/billing/.test(page) ? "billing" : /^\/(emails|broadcasts|suppressions|metrics)/.test(page) ? "deliverability" : "";
+    const findings = [...ctx.findings].sort((a: Any, b: Any) => Number(b.topic === pageTopic) - Number(a.topic === pageTopic));
+    for (const f of findings) {
+      if (sugg.length >= 2) break;
+      if (f.domain && f.topic === "domains") sugg.push({ icon: "globe", title: `${f.domain.name} still says ${f.domain.status === "pending" ? "Pending" : f.domain.status}`, sub: "Domains · DNS checks", q: `Why is ${f.domain.name} still ${f.domain.status}?` });
+      else if (f.domain) sugg.push({ icon: "shield", title: `Add DMARC to ${f.domain.name}`, sub: "Deliverability · keeps mail out of spam", q: `How do I add DMARC to ${f.domain.name}?` });
+      else if (/bounced/.test(f.text)) sugg.push({ icon: "mail", title: "My emails are bouncing", sub: "Deliverability · your last 7 days", q: "Why are my emails bouncing?" });
+      else if (/spam/.test(f.text)) sugg.push({ icon: "alert", title: "People marked my email as spam", sub: "Deliverability · complaints", q: "Why are people marking my email as spam?" });
+      else if (/paused/i.test(f.text)) sugg.push({ icon: "pause", title: "Why is my sending paused?", sub: "Account · sending", q: "Why is sending paused on my account?" });
+    }
+    const common = [
+      { icon: "mail", title: "Emails to Gmail land in spam", sub: "Deliverability · 3 min read", q: "Why are my emails to Gmail going to spam?", topic: "deliverability" },
+      { icon: "globe", title: "My domain won’t verify", sub: "Domains · DNS checks", q: "Why isn’t my domain verifying?", topic: "domains" },
+      { icon: "webhook", title: "Webhook retries and signatures", sub: "Webhooks", q: "How do webhook retries and signatures work?", topic: "api" },
+      { icon: "card", title: "Change or cancel my plan", sub: "Billing", q: "How do I change or cancel my plan?", topic: "billing" },
+    ].sort((a, b) => Number(b.topic === pageTopic) - Number(a.topic === pageTopic));
+    for (const s of common) { if (sugg.length >= 3) break; if (!sugg.some((x) => x.title === s.title)) sugg.push(s); }
+    const r = recent?.[0];
+    let recentOut = null;
+    if (r) {
+      const who = r.last_author === "support" ? (first(r.assignee_name) || "Delivrie") : r.last_author === "customer" ? "You" : "Delivrie";
+      recentOut = { id: r.id, title: r.subject || TOPICS[r.topic] || "Conversation", sub: `${who}: ${r.last_preview || ""}`.slice(0, 80), status: r.status, assignee: r.assignee_name ? initials(r.assignee_name) : null, unread: r.unread_customer || 0 };
+    }
+    return {
+      name: first(name), suggestions: sugg.slice(0, 3), recent: recentOut, team: team.people, on_shift: team.on_shift,
+      unread: (unreadRows || []).reduce((n: number, t: Any) => n + (t.unread_customer || 0), 0),
+      ai: !!Deno.env.get("ANTHROPIC_API_KEY"), topics: Object.entries(TOPICS).map(([id, label]) => ({ id, label })),
+    };
   });
-  route("GET", "/support/chat/unread", async (_r, c) => {
+
+  route("GET", "/support/unread", async (_r, c) => {
     needDashboard(c);
-    const t = await threadForUser(c.userId);
-    return { unread: t?.unread_customer || 0 };
+    const { data } = await db.from("support_threads").select("id,number,unread_customer,last_preview,last_message_at,assignee_name").eq("user_id", c.userId).gt("unread_customer", 0).order("last_message_at", { ascending: false }).limit(5);
+    const t = data?.[0];
+    return { unread: (data || []).reduce((n: number, x: Any) => n + (x.unread_customer || 0), 0), latest: t ? { thread_id: t.id, ticket: ticket(t.number), name: t.assignee_name ? `${first(t.assignee_name)} from Support` : "Delivrie support", initials: t.assignee_name ? initials(t.assignee_name) : "D", preview: t.last_preview, at: t.last_message_at } : null };
   });
-  route("POST", "/support/chat", async (_r, c, _p, _u, b) => {
+
+  route("GET", "/support/threads", async (_r, c) => {
+    needDashboard(c);
+    const { data } = await db.from("support_threads").select("*").eq("user_id", c.userId).order("last_message_at", { ascending: false }).limit(50);
+    return { object: "list", data: (data || []).map(threadOut) };
+  });
+
+  route("GET", "/support/threads/:id", async (_r, c, p) => {
+    needDashboard(c);
+    const t = await myThread(c.userId, p.id);
+    const now = new Date().toISOString();
+    await db.from("support_threads").update({ unread_customer: 0, customer_seen_at: now }).eq("id", t.id);
+    const msgs = await messages(t.id);
+    const lastMine = [...msgs].reverse().find((m) => m.author === "customer");
+    return {
+      thread: threadOut({ ...t, unread_customer: 0 }), messages: msgs,
+      typing: !!(t.agent_typing_at && Date.now() - new Date(t.agent_typing_at).getTime() < 8000),
+      seen: !!(lastMine && t.status !== "bot" && t.support_seen_at && t.support_seen_at >= lastMine.created_at),
+      promise: t.status === "bot" ? null : replyPromise(await teamPlan(t.team_id)),
+    };
+  });
+
+  // Ask the assistant, or write to the team once the conversation is a ticket.
+  route("POST", "/support/messages", async (_r, c, _p, _u, b) => {
     needDashboard(c);
     const body = String(b?.body || "").trim();
     if (!body) throw bad("Write a message first");
     if (body.length > MAX) throw bad(`Messages can be up to ${MAX.toLocaleString()} characters`);
-    // light rate limit: 20 messages per 10 minutes per person
-    const since = new Date(Date.now() - 10 * 60_000).toISOString();
-    let t = await threadForUser(c.userId);
-    if (t) {
-      const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).eq("thread_id", t.id).eq("author", "customer").gte("created_at", since);
-      if ((count || 0) >= 20) throw bad("You've sent a lot of messages in a short time. Give us a moment to reply.");
-    }
-    const email = c.email || await userEmail(c.userId);
-    const { data: profile } = await db.from("profiles").select("full_name").eq("id", c.userId).maybeSingle();
-    const name = profile?.full_name || email || "Customer";
+    await rateLimit(c.userId);
+    const name = (await profileName(c.userId)) || c.email || "Customer";
     const now = new Date().toISOString();
-    if (!t || t.status === "closed") {
-      const { data } = await db.from("support_threads").insert({ team_id: c.teamId, user_id: c.userId, email, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: 1 }).select().single();
+    let t = b?.thread_id ? await myThread(c.userId, String(b.thread_id)) : null;
+    if (!t) {
+      const { data } = await db.from("support_threads").insert({ team_id: c.teamId, user_id: c.userId, email: c.email || await userEmail(c.userId), status: "bot", subject: body.slice(0, 80), last_message_at: now, last_author: "customer", last_preview: preview(body) }).select().single();
       t = data;
-    } else {
-      await db.from("support_threads").update({ team_id: c.teamId, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: (t.unread_support || 0) + 1 }).eq("id", t.id);
     }
-    const { data: m } = await db.from("support_messages").insert({ thread_id: t.id, author: "customer", user_id: c.userId, author_name: name, body }).select().single();
+    const mine = await addMessage(t, "customer", body, { user_id: c.userId, author_name: first(name) || name });
+    if (t.status === "bot") {
+      const history = await messages(t.id);
+      const a = await answer(body, c.teamId, history.slice(0, -1));
+      const bot = await addMessage(t, "bot", a.body, { author_name: "Delivrie assistant", meta: a.meta });
+      await db.from("support_threads").update({ last_message_at: new Date().toISOString(), last_author: "bot", last_preview: preview(a.body), topic: t.topic || (a.meta.topic !== "other" ? a.meta.topic : null) }).eq("id", t.id);
+      return { thread: threadOut({ ...t, status: "bot" }), messages: [msgOut(mine), msgOut(bot)] };
+    }
+    // A ticket: replying to a resolved one reopens it.
+    const patch: Any = { status: "open", team_id: c.teamId || t.team_id, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: (t.unread_support || 0) + 1 };
+    const out = [msgOut(mine)];
+    if (t.status === "closed") { patch.resolved_at = null; patch.rating = null; patch.rating_comment = null; patch.rated_at = null; out.push(msgOut(await addMessage(t, "system", "Conversation reopened", { meta: { icon: "refresh" } }))); }
+    await db.from("support_threads").update(patch).eq("id", t.id);
+    const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
+    await notifyAdmins({ ...t, ...patch }, name, team?.name || null, body);
+    return { thread: threadOut({ ...t, ...patch }), messages: out };
+  });
 
-    // Email the platform admins, at most once every 10 minutes per conversation.
-    const last = t.support_notified_at ? new Date(t.support_notified_at).getTime() : 0;
-    if (Date.now() - last > 10 * 60_000) {
-      const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
-      const to = (await Promise.all((admins || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
-      const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
-      const link = `${APP_URL}/admin/support?t=${t.id}`;
-      const sent = await notify(to, `New support message from ${name}`,
-        wrap(`<p><b>${esc(name)}</b>${team?.name ? ` (${esc(team.name)})` : ""} wrote:</p><blockquote style="margin:0;padding:10px 14px;border-left:3px solid #fad600;background:#f6f6f4;white-space:pre-wrap">${esc(body)}</blockquote><p><a href="${link}" style="color:#1b1a1a;font-weight:600">Reply in Delivrie →</a></p>`),
-        `${name}${team?.name ? ` (${team.name})` : ""} wrote:\n\n${body}\n\nReply: ${link}`);
-      if (sent) await db.from("support_threads").update({ support_notified_at: now }).eq("id", t.id);
+  route("POST", "/support/messages/:id/feedback", async (_r, c, p, _u, b) => {
+    needDashboard(c);
+    const { data: m } = await db.from("support_messages").select("id,thread_id,meta,author").eq("id", p.id).maybeSingle();
+    if (!m || m.author !== "bot") throw notFound("Message");
+    await myThread(c.userId, m.thread_id);
+    const meta = { ...(m.meta || {}), helpful: b?.helpful === false ? false : true };
+    await db.from("support_messages").update({ meta }).eq("id", m.id);
+    return { id: m.id, meta };
+  });
+
+  // "Talk to a person": the assistant asks what it's about and shows what it will attach.
+  route("POST", "/support/handoff", async (_r, c, _p, _u, b) => {
+    needDashboard(c);
+    const now = new Date().toISOString();
+    let t = b?.thread_id ? await myThread(c.userId, String(b.thread_id)) : null;
+    if (t && t.status !== "bot") return { thread: threadOut(t), messages: [] };
+    if (!t) { const { data } = await db.from("support_threads").insert({ team_id: c.teamId, user_id: c.userId, email: c.email || await userEmail(c.userId), status: "bot", subject: "Talk to a person", last_message_at: now, last_author: "customer", last_preview: "Talk to a person" }).select().single(); t = data; }
+    const mine = await addMessage(t, "customer", "Talk to a person", { user_id: c.userId, author_name: first(await profileName(c.userId)) || null, meta: { kind: "handoff" } });
+    const attachments = await proposeAttachments(c.teamId);
+    const bot = await addMessage(t, "bot", "Sure. I’ll pass this on with context so you don’t repeat yourself. What’s it about?", { author_name: "Delivrie assistant", meta: { kind: "topics", topics: Object.entries(TOPICS).map(([id, label]) => ({ id, label })), suggested: t.topic || null, attachments } });
+    await db.from("support_threads").update({ last_message_at: new Date().toISOString(), last_author: "bot", last_preview: "What’s it about?" }).eq("id", t.id);
+    return { thread: threadOut(t), messages: [msgOut(mine), msgOut(bot)] };
+  });
+
+  // Open the ticket: topic, what happened, and the attachments they kept.
+  route("POST", "/support/threads/:id/escalate", async (_r, c, p, _u, b) => {
+    needDashboard(c);
+    const t = await myThread(c.userId, p.id);
+    if (t.status !== "bot") throw bad("This conversation is already with the team");
+    const topic = TOPICS[String(b?.topic || "")] ? String(b.topic) : "other";
+    const body = String(b?.body || "").trim().slice(0, MAX);
+    if (!body) throw bad("Tell us a little about the problem");
+    await rateLimit(c.userId);
+    // Re-read attachments from the account (never trust what the browser sends back).
+    const keep = (Array.isArray(b?.attachments) ? b.attachments : []).slice(0, 4);
+    const attachments: Any[] = [];
+    for (const a of keep) {
+      const x = a?.type === "email" ? await emailAttachment(c.teamId, String(a.id)) : a?.type === "domain" ? await domainAttachment(c.teamId, String(a.id)) : null;
+      if (x) attachments.push(x);
     }
-    return { thread: { id: t.id, status: "open" }, message: msgOut(m) };
+    const { data: num } = await db.rpc("support_next_number");
+    const name = (await profileName(c.userId)) || c.email || "Customer";
+    const now = new Date().toISOString();
+    const patch: Any = { status: "open", number: num, topic, subject: body.split("\n")[0].slice(0, 80), escalated_at: now, team_id: c.teamId || t.team_id, last_message_at: now, last_author: "customer", last_preview: preview(body), unread_support: 1 };
+    await db.from("support_threads").update(patch).eq("id", t.id);
+    const nt = { ...t, ...patch };
+    const out = [
+      await addMessage(nt, "customer", body, { user_id: c.userId, author_name: first(name) || name, meta: { topic, topic_label: TOPICS[topic], attachments } }),
+      await addMessage(nt, "system", `Conversation ${ticket(num)} opened`, { meta: { icon: "check-circle", kind: "opened" } }),
+    ];
+    // While they wait: a concrete fix the assistant can draft, when there is one.
+    const ctx = await accountContext(c.teamId);
+    const noDmarc = ctx.findings.find((f: Any) => f.domain && /DMARC/.test(f.text));
+    if (noDmarc && (topic === "deliverability" || topic === "domains")) {
+      out.push(await addMessage(nt, "bot", "While you wait: adding DMARC usually fixes this. I can draft the record.", { author_name: "Delivrie assistant", meta: { actions: [{ id: "draft_dmarc", label: "Draft DMARC record", icon: "sparkle", domain_id: noDmarc.domain.id }] } }));
+    }
+    const { data: team } = c.teamId ? await db.from("teams").select("name").eq("id", c.teamId).maybeSingle() : { data: null };
+    await notifyAdmins(nt, name, team?.name || null, body, attachments);
+    return { thread: threadOut(nt), messages: out.map(msgOut), promise: replyPromise(ctx.plan) };
+  });
+
+  // Assistant actions offered as buttons (only ones that read the customer's own account).
+  route("POST", "/support/threads/:id/action", async (_r, c, p, _u, b) => {
+    needDashboard(c);
+    const t = await myThread(c.userId, p.id);
+    if (b?.action !== "draft_dmarc") throw bad("Unknown action");
+    const { data: d } = await db.from("domains").select("id,name").eq("team_id", c.teamId).eq("id", String(b?.domain_id || "")).maybeSingle();
+    if (!d) throw notFound("Domain");
+    const email = c.email || await userEmail(c.userId) || `dmarc@${d.name}`;
+    const rua = domainOf(email) === d.name ? email : `dmarc@${d.name}`;
+    const body = `Add this TXT record at _dmarc.${d.name}:\n\n\`\`\`\nv=DMARC1; p=none; rua=mailto:${rua}\n\`\`\`\n\nStart with p=none to watch reports for a couple of weeks, then move to p=quarantine.`;
+    const m = await addMessage(t, "bot", body, { author_name: "Delivrie assistant", meta: { actions: [{ label: `Open ${d.name}`, icon: "external", href: `/domains/${d.id}` }] } });
+    await db.from("support_threads").update({ last_message_at: new Date().toISOString() }).eq("id", t.id);
+    return { messages: [msgOut(m)] };
+  });
+
+  route("POST", "/support/threads/:id/rate", async (_r, c, p, _u, b) => {
+    needDashboard(c);
+    const t = await myThread(c.userId, p.id);
+    if (t.status !== "closed") throw bad("You can rate a conversation once it’s resolved");
+    const rating = ["bad", "okay", "great"].includes(b?.rating) ? b.rating : null;
+    if (!rating) throw bad("Pick Bad, Okay or Great");
+    const comment = String(b?.comment || "").trim().slice(0, 1000) || null;
+    await db.from("support_threads").update({ rating, rating_comment: comment, rated_at: new Date().toISOString() }).eq("id", t.id);
+    return { thread: threadOut({ ...t, rating, rating_comment: comment, rated_at: new Date().toISOString() }) };
   });
 
   // ------------------------------------------------------------ admin
   route("GET", "/support/admin/threads", async (_r, c, _p, url) => {
     await needAdmin(c);
     const status = url.searchParams.get("status") || "open";
-    let q = db.from("support_threads").select("*").order("last_message_at", { ascending: false }).limit(200);
+    let q = db.from("support_threads").select("*").neq("status", "bot").order("last_message_at", { ascending: false }).limit(200);
     if (status !== "all") q = q.eq("status", status);
     const { data: rows } = await q;
     const teamIds = [...new Set((rows || []).map((r: Any) => r.team_id).filter(Boolean))];
     const { data: teams } = teamIds.length ? await db.from("teams").select("id,name,plan_transactional").in("id", teamIds) : { data: [] };
-    const tm = new Map((teams || []).map((t: Any) => [t.id, t]));
-    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).gt("unread_support", 0);
+    const tm = new Map<string, Any>((teams || []).map((t: Any) => [t.id, t]));
+    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0);
     return {
       unread_threads: count || 0,
-      data: (rows || []).map((r: Any) => ({ id: r.id, email: r.email, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null, status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support })),
+      data: (rows || []).map((r: Any) => ({ id: r.id, ticket: ticket(r.number), topic: r.topic ? TOPICS[r.topic] || r.topic : null, email: r.email, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null, status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support, rating: r.rating, assignee: first(r.assignee_name) || null })),
     };
   });
   route("GET", "/support/admin/unread", async (_r, c) => {
     await needAdmin(c);
-    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).gt("unread_support", 0);
+    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0);
     return { unread_threads: count || 0 };
   });
   route("GET", "/support/admin/threads/:id", async (_r, c, p) => {
     await needAdmin(c);
     const { data: t } = await db.from("support_threads").select("*").eq("id", p.id).maybeSingle();
     if (!t) throw notFound("Conversation");
-    if (t.unread_support) await db.from("support_threads").update({ unread_support: 0 }).eq("id", t.id);
+    await db.from("support_threads").update({ unread_support: 0, support_seen_at: new Date().toISOString() }).eq("id", t.id);
     const { data: team } = t.team_id ? await db.from("teams").select("id,name,plan_transactional,created_at").eq("id", t.team_id).maybeSingle() : { data: null };
-    return { thread: { id: t.id, email: t.email, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at }, messages: await messages(t.id) };
+    return { thread: { id: t.id, ticket: ticket(t.number), topic: t.topic ? TOPICS[t.topic] || t.topic : null, email: t.email, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at, assignee: first(t.assignee_name) || null, rating: t.rating, rating_comment: t.rating_comment, resolved_by: t.resolved_by }, messages: await messages(t.id) };
+  });
+  route("POST", "/support/admin/threads/:id/typing", async (_r, c, p) => {
+    await needAdmin(c);
+    await db.from("support_threads").update({ agent_typing_at: new Date().toISOString() }).eq("id", p.id);
+    return { ok: true };
   });
   route("POST", "/support/admin/threads/:id/messages", async (_r, c, p, _u, b) => {
     await needAdmin(c);
@@ -193,28 +511,47 @@ export function registerSupport(route: Route) {
     if (body.length > MAX) throw bad(`Replies can be up to ${MAX.toLocaleString()} characters`);
     const { data: t } = await db.from("support_threads").select("*").eq("id", p.id).maybeSingle();
     if (!t) throw notFound("Conversation");
-    const { data: profile } = await db.from("profiles").select("full_name").eq("id", c.userId).maybeSingle();
-    const first = String(profile?.full_name || "").split(" ")[0];
-    const author = first ? `${first} from Delivrie` : "Delivrie support";
+    const full = (await profileName(c.userId)) || "Delivrie";
+    const agent = first(full);
     const now = new Date().toISOString();
-    const { data: m } = await db.from("support_messages").insert({ thread_id: t.id, author: "support", user_id: c.userId, author_name: author, body }).select().single();
-    await db.from("support_threads").update({ status: "open", last_message_at: now, last_author: "support", last_preview: preview(body), unread_customer: (t.unread_customer || 0) + 1, unread_support: 0 }).eq("id", t.id);
-
-    // Email the customer unless they're looking at the chat right now (seen in the last minute).
-    const seen = t.customer_seen_at ? new Date(t.customer_seen_at).getTime() : 0;
-    let emailed = false;
-    if (t.email && Date.now() - seen > 60_000) {
-      emailed = await notify([t.email], "Delivrie support replied",
-        wrap(`<p><b>${esc(author)}</b> replied to your message:</p><blockquote style="margin:0;padding:10px 14px;border-left:3px solid #fad600;background:#f6f6f4;white-space:pre-wrap">${esc(body)}</blockquote><p><a href="${APP_URL}/emails?support=1" style="color:#1b1a1a;font-weight:600">Open the conversation →</a></p><p style="color:#62666d;font-size:13px">Reply from the chat button in your Delivrie dashboard.</p>`),
-        `${author} replied:\n\n${body}\n\nOpen the conversation: ${APP_URL}/emails?support=1`);
-    }
-    return { message: msgOut(m), emailed };
+    // The first reply from someone new: "Tolu joined · 11:58".
+    if (t.assignee_id !== c.userId) await addMessage(t, "system", `${agent} joined`, { meta: { icon: "users", kind: "joined" } });
+    const m = await addMessage(t, "support", body, { user_id: c.userId, author_name: agent, meta: { initials: initials(full) } });
+    await db.from("support_threads").update({ status: "open", assignee_id: c.userId, assignee_name: full, agent_typing_at: null, last_message_at: now, last_author: "support", last_preview: preview(body), unread_customer: (t.unread_customer || 0) + 1, unread_support: 0, support_seen_at: now }).eq("id", t.id);
+    return { message: msgOut(m), emailed: false };
   });
   route("PATCH", "/support/admin/threads/:id", async (_r, c, p, _u, b) => {
     await needAdmin(c);
+    const { data: t } = await db.from("support_threads").select("*").eq("id", p.id).maybeSingle();
+    if (!t) throw notFound("Conversation");
     const status = b?.status === "closed" ? "closed" : "open";
-    const { data } = await db.from("support_threads").update({ status }).eq("id", p.id).select("id,status").maybeSingle();
-    if (!data) throw notFound("Conversation");
-    return data;
+    const agent = first(await profileName(c.userId)) || "Delivrie";
+    const now = new Date().toISOString();
+    const patch: Any = status === "closed" ? { status, resolved_at: now, resolved_by: agent, agent_typing_at: null } : { status, resolved_at: null };
+    await db.from("support_threads").update(patch).eq("id", t.id);
+    if (status !== t.status) await addMessage(t, "system", status === "closed" ? `Marked resolved by ${agent}` : `Reopened by ${agent}`, { meta: { icon: status === "closed" ? "check-circle" : "refresh", kind: status === "closed" ? "resolved" : "reopened" } });
+    return { id: t.id, status };
   });
+}
+
+// Replies the customer hasn't read after 5 minutes go to them by email (once per batch of replies). Runs every minute.
+export async function supportCron() {
+  const cutoff = new Date(Date.now() - 5 * 60e3).toISOString();
+  const { data: rows } = await db.from("support_threads").select("*").gt("unread_customer", 0).eq("last_author", "support").lt("last_message_at", cutoff).limit(20);
+  let sent = 0;
+  for (const t of rows || []) {
+    if (!t.email || (t.customer_emailed_at && t.customer_emailed_at >= t.last_message_at)) continue;
+    const since = [t.customer_seen_at, t.customer_emailed_at].filter(Boolean).sort().pop() || t.created_at;
+    const { data: msgs } = await db.from("support_messages").select("author_name,body,created_at").eq("thread_id", t.id).eq("author", "support").gt("created_at", since).order("created_at");
+    if (!msgs?.length) { await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id); continue; }
+    const who = `${first(msgs[msgs.length - 1].author_name) || "Delivrie"} from Support`;
+    const link = `${APP_URL}/emails?support=${t.id}`;
+    const subject = `${who} replied${t.number ? ` · ${ticket(t.number)}` : ""}`;
+    const ok = await notify([t.email], subject,
+      wrap(`<p><b>${esc(who)}</b> replied${t.subject ? ` about “${esc(t.subject)}”` : ""}:</p>${msgs.map((m: Any) => quote(m.body)).join("")}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Open the conversation →</a></p><p style="color:#62666d;font-size:13px">Reply from the Help button in your Delivrie dashboard.</p>`),
+      `${who} replied:\n\n${msgs.map((m: Any) => m.body).join("\n\n")}\n\nOpen the conversation: ${link}`);
+    await db.from("support_threads").update({ customer_emailed_at: new Date().toISOString() }).eq("id", t.id);
+    if (ok) sent++;
+  }
+  return sent;
 }

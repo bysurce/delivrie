@@ -9,7 +9,7 @@ import { DOCS, searchDocs } from "./docs.js";
 import { oauthAuthorize, oauthGrantFromToken, oauthPublic, scopeAllows } from "./oauth.ts";
 import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
-import { notify, registerSupport } from "./support.ts";
+import { notify, registerSupport, supportCron } from "./support.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
@@ -501,6 +501,8 @@ async function runCron() {
     await reputationWatch().catch((e) => console.error("reputation watch failed", e));
     await platformBounceAlert().catch((e) => console.error("bounce alert failed", e));
   }
+  // 9. support replies left unread for 5 minutes go out by email
+  await supportCron().catch((e) => console.error("support email copies failed", e));
   if (new Date().getUTCMinutes() === 47) await ensureAccountSuppression().catch((e) => console.error("account suppression failed", e));
   // 8. custom MAIL FROM records on verified domains, once an hour (see mailFromWatch)
   if (new Date().getUTCMinutes() === 37) await mailFromWatch().catch((e) => console.error("mail-from watch failed", e));

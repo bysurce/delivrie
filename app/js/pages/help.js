@@ -51,7 +51,7 @@ export async function help(ctx) {
   };
   root.querySelector("[data-ask]").addEventListener("submit", (e) => { e.preventDefault(); const i = root.querySelector("[data-q]"); const q = i.value.trim(); i.value = ""; ask(q); });
   on(root, "click", "[data-suggest]", (_e, b) => ask(b.textContent));
-  on(root, "click", "[data-open-chat]", () => import("../lib/chat.js").then((m) => m.openChat()));
+  on(root, "click", "[data-open-chat]", () => import("../lib/chat.js").then((m) => m.openChat({ person: true })));
   root.querySelector("[data-support]").addEventListener("submit", async (e) => {
     e.preventDefault(); const f = e.target;
     const subject = f.subject.value.trim(), message = f.message.value.trim();

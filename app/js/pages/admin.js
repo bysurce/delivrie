@@ -506,13 +506,14 @@ const stripTags = (h) => String(h || "").replace(/<[^>]+>/g, "");
 async function support(body) {
   let filter = "open", threads = [], current = new URLSearchParams(location.search).get("t"), conv = null, timer = null, lastSig = "";
   body.innerHTML = `<div class="row-flex" style="margin-bottom:12px;gap:10px"><span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))" data-sum></span><span class="grow"></span><button class="btn btn-secondary btn-sm" data-notify hidden>${icon("bell", 12)} Turn on desktop alerts</button></div>
-    <div class="sp"><div class="sp-list"><div class="sp-filter">${[["open", "Open"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => `<button class="seg-tab ${k === filter ? "on" : ""}" data-f="${k}" style="display:inline-flex;align-items:center">${l}</button>`).join("")}</div><div class="sp-items" data-items></div></div>
+    <div class="sp"><div class="sp-list"><div class="sp-filter">${[["open", "Open"], ["closed", "Resolved"], ["all", "All"]].map(([k, l]) => `<button class="seg-tab ${k === filter ? "on" : ""}" data-f="${k}" style="display:inline-flex;align-items:center">${l}</button>`).join("")}</div><div class="sp-items" data-items></div></div>
     <div class="sp-conv" data-conv><div class="sp-empty">Pick a conversation.</div></div></div>`;
   const items = body.querySelector("[data-items]"), convEl = body.querySelector("[data-conv]"), notifyBtn = body.querySelector("[data-notify]");
   if ("Notification" in window && Notification.permission === "default") notifyBtn.hidden = false;
   notifyBtn.addEventListener("click", async () => { await Notification.requestPermission(); notifyBtn.hidden = Notification.permission !== "default"; });
 
-  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${ago(t.last_message_at)}</span></div><div class="r2">${t.team ? esc(t.team) + " · " : ""}${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">No ${filter === "all" ? "" : filter + " "}conversations.</div>`;
+  const RATE = { great: ["Great", "green"], okay: ["Okay", "yellow"], bad: ["Bad", "red"] };
+  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${ago(t.last_message_at)}</span></div><div class="r2"><span class="mono dim">${esc(t.ticket || "")}</span>${t.topic ? ` · ${esc(t.topic)}` : ""}${t.team ? " · " + esc(t.team) : ""}${t.rating ? ` · ${badge(RATE[t.rating][0], RATE[t.rating][1])}` : ""}</div><div class="r2">${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">No ${filter === "all" ? "" : filter === "closed" ? "resolved " : filter + " "}conversations.</div>`;
   const loadList = async (alert = false) => {
     const r = await api("GET", `/support/admin/threads?status=${filter}`);
     const before = new Map(threads.map((t) => [t.id, t.last_message_at]));
@@ -523,7 +524,17 @@ async function support(body) {
     document.title = (r.unread_threads ? `(${r.unread_threads}) ` : "") + "Support · Delivrie admin";
     items.innerHTML = listHtml();
   };
-  const msgHtml = (m) => `<div class="sc-m ${m.author === "support" ? "me" : "them"}"><div class="sc-who">${esc(m.author === "support" ? m.author_name : (m.author_name || "Customer"))}</div><div class="sc-b">${esc(m.body)}</div><div class="sc-t">${fmtDateTime(m.created_at)}</div></div>`;
+  // The customer's side: their messages, what the assistant told them before the handoff, and what they attached.
+  const attHtml = (a) => a.type === "email"
+    ? `<details class="sp-att"><summary>${icon("mail", 12)} <b>${esc(a.title)}</b> <span class="dim">${esc(a.sub)}</span></summary><pre class="code" style="padding:8px 10px;margin:6px 0 0;white-space:pre-wrap">${esc(a.raw || "")}</pre></details>`
+    : `<div class="sp-att">${icon("globe", 12)} <b>${esc(a.title)}</b> <span class="dim" style="white-space:pre">${esc(a.sub)}</span></div>`;
+  const msgHtml = (m) => {
+    if (m.author === "system") return `<div class="sc-day">${esc(m.body)} · ${fmtDateTime(m.created_at)}</div>`;
+    const who = m.author === "support" ? m.author_name : m.author === "bot" ? "Assistant" : (m.author_name || "Customer");
+    const att = m.meta?.attachments?.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">${m.meta.topic_label ? `<span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">Topic: ${esc(m.meta.topic_label)}</span>` : ""}${m.meta.attachments.map(attHtml).join("")}</div>` : m.meta?.topic_label ? `<span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">Topic: ${esc(m.meta.topic_label)}</span>` : "";
+    const src = m.meta?.sources?.length ? `<div class="dim" style="font-size:calc(11px + var(--fs-up, 0px))">Sources: ${m.meta.sources.map((x) => esc(x.label)).join(", ")}${m.meta.helpful ? " · marked helpful" : ""}</div>` : "";
+    return `<div class="sc-m ${m.author === "support" ? "me" : "them"} ${m.author === "bot" ? "bot" : ""}"><div class="sc-who">${esc(who)}</div><div class="sc-b">${esc(m.body)}</div>${src}${att}<div class="sc-t">${fmtDateTime(m.created_at)}</div></div>`;
+  };
   const loadConv = async (keepDraft = true) => {
     if (!current) return;
     const r = await api("GET", `/support/admin/threads/${current}`);
@@ -532,17 +543,20 @@ async function support(body) {
     lastSig = sig; conv = r;
     const draft = convEl.querySelector("textarea")?.value || "";
     const t = r.thread;
-    convEl.innerHTML = `<div class="sp-top"><div class="who"><b>${esc(t.email || "Unknown")}</b><div>${t.team ? `${esc(t.team.name)} · ${esc((t.team.plan_transactional || "free").replace(/^\w/, (c) => c.toUpperCase()))} plan · ` : ""}started ${fmtDate(t.created_at)}${t.customer_seen_at ? ` · last seen ${ago(t.customer_seen_at)}` : ""}</div></div>
-        ${t.email ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(t.email)}">${icon("mail", 12)} Email</a>` : ""}<button class="btn btn-secondary btn-sm" data-status="${t.status === "open" ? "closed" : "open"}">${t.status === "open" ? `${icon("check", 12)} Close` : "Reopen"}</button></div>
+    convEl.innerHTML = `<div class="sp-top"><div class="who"><b>${esc(t.email || "Unknown")} <span class="mono dim" style="font-weight:400">${esc(t.ticket || "")}</span></b><div>${t.topic ? `${esc(t.topic)} · ` : ""}${t.team ? `${esc(t.team.name)} · ${esc((t.team.plan_transactional || "free").replace(/^\w/, (c) => c.toUpperCase()))} plan · ` : ""}started ${fmtDate(t.created_at)}${t.customer_seen_at ? ` · last seen ${ago(t.customer_seen_at)}` : ""}${t.rating ? ` · rated ${badge(RATE[t.rating][0], RATE[t.rating][1])}${t.rating_comment ? ` “${esc(t.rating_comment)}”` : ""}` : ""}</div></div>
+        ${t.email ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(t.email)}">${icon("mail", 12)} Email</a>` : ""}<button class="btn btn-secondary btn-sm" data-status="${t.status === "open" ? "closed" : "open"}">${t.status === "open" ? `${icon("check", 12)} Mark resolved` : "Reopen"}</button></div>
       <div class="sc-body">${r.messages.map(msgHtml).join("")}</div>
-      <form class="sc-form"><textarea rows="2" maxlength="5000" placeholder="Reply to ${esc(t.email || "the customer")}… (Enter to send, Shift+Enter for a new line)"></textarea><button class="btn btn-primary" type="submit" aria-label="Send">${icon("send", 14)}</button></form>`;
+      <form class="sc-form"><textarea rows="2" maxlength="5000" placeholder="Reply to ${esc(t.email || "the customer")}… Enter to send, Shift+Enter for a new line. Use \`\`\` for code, > for quoted headers."></textarea><button class="btn btn-primary" type="submit" aria-label="Send">${icon("send", 14)}</button></form>`;
     const ta = convEl.querySelector("textarea"); ta.value = draft;
     const scroller = convEl.querySelector(".sc-body"); scroller.scrollTop = scroller.scrollHeight;
     ta.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); convEl.querySelector("form").requestSubmit(); } });
+    // Lets the customer see "typing…" while someone writes a reply (at most one ping every 3 seconds).
+    let lastPing = 0;
+    ta.addEventListener("input", () => { if (Date.now() - lastPing > 3000 && ta.value.trim()) { lastPing = Date.now(); api("POST", `/support/admin/threads/${current}/typing`).catch(() => {}); } });
     convEl.querySelector("form").addEventListener("submit", async (e) => {
       e.preventDefault(); const text = ta.value.trim(); if (!text) return;
       const btn = e.target.querySelector("button"); btn.disabled = true;
-      try { const res = await api("POST", `/support/admin/threads/${current}/messages`, { body: text }); ta.value = ""; lastSig = ""; await loadConv(false); await loadList(); toast(res.emailed ? "Sent. They'll also get it by email." : "Sent"); }
+      try { const res = await api("POST", `/support/admin/threads/${current}/messages`, { body: text }); ta.value = ""; lastSig = ""; await loadConv(false); await loadList(); toast("Sent. If they haven’t read it in 5 minutes, they’ll get it by email."); }
       catch (err) { errToast(err); }
       btn.disabled = false; ta.focus();
     });
@@ -556,7 +570,7 @@ async function support(body) {
   on(body, "click", "[data-t]", (_e, b) => select(b.dataset.t).catch(errToast));
   on(body, "click", "[data-f]", (_e, b) => { filter = b.dataset.f; body.querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b)); loadList().catch(errToast); });
   on(body, "click", "[data-status]", async (_e, b) => {
-    try { await api("PATCH", `/support/admin/threads/${current}`, { status: b.dataset.status }); toast(b.dataset.status === "closed" ? "Conversation closed" : "Conversation reopened"); lastSig = ""; await loadConv(false); await loadList(); } catch (e) { errToast(e); }
+    try { await api("PATCH", `/support/admin/threads/${current}`, { status: b.dataset.status }); toast(b.dataset.status === "closed" ? "Marked resolved. They can rate it and reply to reopen." : "Conversation reopened"); lastSig = ""; await loadConv(false); await loadList(); } catch (e) { errToast(e); }
   });
   await loadList();
   if (current) await loadConv(false); else if (threads[0]) await select(threads[0].id);
