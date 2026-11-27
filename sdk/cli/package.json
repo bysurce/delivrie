@@ -23,7 +23,7 @@
   "author": "Surce Inc <support@delivrie.io>",
   "type": "module",
   "bin": {
-    "delivrie": "./bin/delivrie.js"
+    "delivrie": "bin/delivrie.js"
   },
   "files": [
     "bin",

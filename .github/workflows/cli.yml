@@ -50,9 +50,21 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - run: npm publish --provenance --access public
+      - name: Publish (skipped if this version is already on npm)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if npm view "delivrie-cli@$v" version >/dev/null 2>&1; then echo "delivrie-cli@$v is already public"; exit 0; fi
+          npx -y npm@latest publish --provenance --access public || echo "::warning::publish returned an error; if this version is already staged, approve it on npmjs.com"
+      - name: Check it's live
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          for i in $(seq 1 18); do npm view "delivrie-cli@$v" version 2>/dev/null | grep -qx "$v" && { echo "delivrie-cli@$v is live"; exit 0; }; sleep 10; done
+          npx -y npm@latest stage list delivrie-cli || true
+          echo "::warning::delivrie-cli@$v isn't public yet. If it's staged, approve it on npmjs.com (Packages → delivrie-cli)."
       - name: Tag the release
         run: |
           v=$(node -p "require('./package.json').version")
