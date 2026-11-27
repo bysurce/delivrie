@@ -38,3 +38,7 @@ jobs:
         if: always()
         working-directory: sdk/go
         run: go test -count=1 -run TestLive -v ./...
+      - name: PHP SDK against the live API
+        if: always()
+        working-directory: sdk/php
+        run: php tests/live.php
