@@ -72,7 +72,7 @@
         'A footer from your email provider sits at the bottom of every email you send and tells customers which plan you’re on. On Brevo Starter, removing it is a paid add-on.'],
       ['retention', 'Email content kept', '30 days', '30 days', 'Not published',
         'How long you can open the full body of an email in the dashboard and API. After that the body and attachments are deleted, while the recipient, status and every delivery event stay so logs and metrics keep working.'],
-      ['mcp', 'MCP server for AI agents', Y + ' 64 tools', Y, Y,
+      ['mcp', 'MCP server for AI agents', Y + ' 92 tools', Y, Y,
         'Lets ChatGPT, Claude or Cursor send email and check delivery for you. All three have one.'],
       ['sms', 'SMS & WhatsApp', N, N, Y,
         'Brevo is a full marketing suite with SMS, WhatsApp and a CRM. If you need those in one place, Brevo covers more. Delivrie and Resend focus on email.']

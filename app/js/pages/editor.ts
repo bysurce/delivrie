@@ -49,6 +49,8 @@ export function mountEditor(container, opts) {
   let doc = structuredClone(opts.doc && opts.doc.blocks ? opts.doc : { blocks: [] });
   if (!doc.blocks.length) doc.blocks.push(newBlock("text"));
   let selected = null;
+  // Shift- or Cmd-click adds blocks to the selection (for AI rewrites of several blocks at once).
+  const multi = new Set<string>();
   const triple = opts.mode === "template";
   const changed = () => opts.onChange?.(getDoc());
 
@@ -91,7 +93,7 @@ export function mountEditor(container, opts) {
   }
   // In the card layout, blocks placed above or below the card are marked in the canvas.
   const zoneOf = (b) => doc.page?.layout === "card" ? (b.zone || "body") : "body";
-  function blkHtml(b) { const z = zoneOf(b); return `<div class="blk ${b.id === selected ? "sel" : ""} ${z !== "body" ? "zone-out" : ""}" data-id="${b.id}" ${z !== "body" ? `data-zone="${z === "header" ? "Above card" : "Below card"}"` : ""} style="${styleFor(b)}">${blockInner(b)}</div>`; }
+  function blkHtml(b) { const z = zoneOf(b); return `<div class="blk ${b.id === selected || multi.has(b.id) ? "sel" : ""} ${z !== "body" ? "zone-out" : ""}" data-id="${b.id}" ${z !== "body" ? `data-zone="${z === "header" ? "Above card" : "Below card"}"` : ""} style="${styleFor(b)}">${blockInner(b)}</div>`; }
   function renderAll(focusId?: string | null, atEnd?: boolean) {
     host.innerHTML = doc.blocks.map(blkHtml).join("");
     if (focusId) focusBlock(focusId, atEnd);
@@ -213,13 +215,27 @@ export function mountEditor(container, opts) {
   }
 
   // block selection & inspector
-  host.addEventListener("mousedown", (e) => { const n = (e.target as Element).closest<HTMLElement>(".blk"); if (n && n.dataset.id !== selected) select(n.dataset.id); });
+  host.addEventListener("mousedown", (e) => {
+    const n = (e.target as Element).closest<HTMLElement>(".blk"); if (!n) return;
+    if ((e.shiftKey || e.metaKey || e.ctrlKey) && selected && n.dataset.id !== selected) {
+      if (e.shiftKey) { // a range from the current block
+        const a = idx(selected), z = idx(n.dataset.id);
+        for (const b of doc.blocks.slice(Math.min(a, z), Math.max(a, z) + 1)) multi.add(b.id);
+      } else if (multi.has(n.dataset.id)) multi.delete(n.dataset.id); else multi.add(n.dataset.id);
+      host.querySelectorAll(".blk").forEach((x) => x.classList.toggle("sel", x.dataset.id === selected || multi.has(x.dataset.id)));
+      opts.inspectorHost && renderInspector();
+      return;
+    }
+    if (n.dataset.id !== selected || multi.size) select(n.dataset.id);
+  });
   function select(id) {
-    selected = id;
+    selected = id; multi.clear();
     host.querySelectorAll(".blk").forEach((n) => n.classList.toggle("sel", n.dataset.id === id));
     opts.inspectorHost && renderInspector();
   }
-  function deselect() { selected = null; host.querySelectorAll(".blk.sel").forEach((n) => n.classList.remove("sel")); opts.inspectorHost && renderInspector(); }
+  /** Selected block ids in document order: the multi-selection, else the selected block. */
+  function selectedIds() { const set = new Set([...(selected ? [selected] : []), ...multi]); return doc.blocks.filter((b) => set.has(b.id)).map((b) => b.id); }
+  function deselect() { selected = null; multi.clear(); host.querySelectorAll(".blk.sel").forEach((n) => n.classList.remove("sel")); opts.inspectorHost && renderInspector(); }
   container.addEventListener("click", (e) => {
     if ((e.target as Element).closest<HTMLElement>("[data-add]")) menu((e.target as Element).closest<HTMLElement>("[data-add]"), BLOCK_MENU.map((m) => m.header ? m : { label: m.label, icon: m.icon, onClick: () => insertAfter(selected || doc.blocks.at(-1)?.id, newBlock(m.type)) }), { width: 220 });
     if ((e.target as Element).closest<HTMLElement>(".html-blk")) editHtml(find((e.target as Element).closest<HTMLElement>(".blk").dataset.id));
@@ -236,7 +252,8 @@ export function mountEditor(container, opts) {
     const b = find(selected); if (!b) { h.classList.add("hidden"); return; }
     h.classList.remove("hidden");
     const st = b.style || {};
-    let s = `<div class="insp-head">Section ${icon("chevron-right", 11)} <b>${TYPE_LABEL[b.type] || b.type}</b><span class="acts"><button class="ibtn" data-act="up" title="Move up">${icon("arrow-up", 13)}</button><button class="ibtn" data-act="down" title="Move down" style="transform:rotate(180deg)">${icon("arrow-up", 13)}</button><button class="ibtn" data-act="dup" title="Duplicate">${icon("copy", 13)}</button><button class="ibtn" data-act="del" title="Delete">${icon("trash", 13)}</button></span></div>`;
+    const many = selectedIds().length;
+    let s = `<div class="insp-head">Section ${icon("chevron-right", 11)} <b>${many > 1 ? `${many} blocks` : TYPE_LABEL[b.type] || b.type}</b><span class="acts">${opts.onAiRewrite ? `<button class="ibtn" data-act="ai" title="Rewrite with AI">${icon("sparkle", 13)}</button>` : ""}<button class="ibtn" data-act="up" title="Move up">${icon("arrow-up", 13)}</button><button class="ibtn" data-act="down" title="Move down" style="transform:rotate(180deg)">${icon("arrow-up", 13)}</button><button class="ibtn" data-act="dup" title="Duplicate">${icon("copy", 13)}</button><button class="ibtn" data-act="del" title="Delete">${icon("trash", 13)}</button></span></div>`;
     if (TEXTY.includes(b.type) || LISTY.includes(b.type) || b.type === "columns") {
       s += `<div class="insp-sec"><h4>Typography</h4>${row("Color", color("style.color", st.color))}${b.type !== "title" && b.type !== "heading" ? row("Font size", inp("style.fontSize", st.fontSize ?? 16, "16")) : ""}${row("Line height", inp("style.lineHeight", st.lineHeight ?? 1.6))}${row("Weight", sel("style.weight", st.weight || "Regular", ["Regular", "Medium", "Semibold", "Bold"]))}${row("Align", sel("style.align", st.align || "left", ["left", "center", "right"]))}</div>`;
     }
@@ -279,6 +296,7 @@ export function mountEditor(container, opts) {
     opts.inspectorHost.addEventListener("click", async (e) => {
       const a = (e.target as Element).closest<HTMLElement>("[data-act]")?.dataset.act; if (!a) return;
       const b = find(selected); const i = idx(selected);
+      if (a === "ai") { opts.onAiRewrite?.(selectedIds(), (e.target as Element).closest("[data-act]")); return; }
       if (a === "del") { doc.blocks.splice(i, 1); if (!doc.blocks.length) doc.blocks.push(newBlock("text")); selected = null; renderAll(); renderInspector(); changed(); }
       if (a === "dup") { const c = structuredClone(b); c.id = uid(); doc.blocks.splice(i + 1, 0, c); selected = c.id; renderAll(); renderInspector(); changed(); }
       if (a === "up" && i > 0) { [doc.blocks[i - 1], doc.blocks[i]] = [doc.blocks[i], doc.blocks[i - 1]]; renderAll(); changed(); }
@@ -315,8 +333,22 @@ export function mountEditor(container, opts) {
 
   function getDoc() { return { ...doc, blocks: doc.blocks.map((b) => ({ ...b })) }; }
   renderAll();
+  /** Replaces the blocks with these ids (they may be spread out) with new blocks, placed where the first one was. */
+  function replaceBlocks(ids: string[], blocks: Block[]) {
+    const set = new Set(ids);
+    const first = doc.blocks.findIndex((b) => set.has(b.id));
+    if (first < 0) return;
+    doc.blocks = doc.blocks.filter((b, i) => i < first || !set.has(b.id));
+    doc.blocks.splice(first, 1, ...blocks);
+    selected = blocks[0]?.id || null; multi.clear(); for (const b of blocks.slice(1)) multi.add(b.id);
+    renderAll(); opts.inspectorHost && renderInspector(); changed();
+  }
   return {
-    getDoc, select, deselect,
+    getDoc, select, deselect, selectedIds, replaceBlocks,
+    /** Saves after a programmatic change (setDoc doesn't fire onChange). */
+    changedNow: changed,
+    /** Applies a document from elsewhere (an agent's edit) without firing onChange. */
+    applyRemote(d) { doc = structuredClone(d); if (!doc.blocks?.length) doc.blocks = [newBlock("text")]; const keep = doc.blocks.some((b) => b.id === selected); if (!keep) { selected = null; multi.clear(); } renderAll(); opts.inspectorHost && renderInspector(); for (const id of (d.changed || [])) host.querySelector(`[data-id="${id}"]`)?.classList.add("blk-flash"); },
     setDoc(d) { doc = structuredClone(d); if (!doc.blocks?.length) doc.blocks = [newBlock("text")]; selected = null; renderAll(); opts.inspectorHost && renderInspector(); },
     setPage(p) { doc.page = { ...(doc.page || {}), ...p }; if ("layout" in p) { renderAll(); opts.inspectorHost && renderInspector(); } changed(); },
     addBlock(type) { insertAfter(selected || doc.blocks.at(-1)?.id, newBlock(type)); },

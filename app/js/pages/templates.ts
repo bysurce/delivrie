@@ -2,6 +2,7 @@ import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, ago, fmtDateTime, toast, errToast, menu, modal, formModal, confirmModal, emptyState, debounce, drawer, codeBlock, badge, on } from "../lib/ui.js";
 import { renderBlocks, renderVars } from "../lib/blocks.js";
 import { mountEditor, previewModal, stylesPopover } from "./editor.js";
+import { aiButtonHtml, mountAi, rewritePopover, watchAgentEdits } from "../lib/ai-writer.js";
 import { LIBRARY, BLANK, CATEGORIES, applyBrand, canBrand, samples } from "../lib/template-library.js";
 import { testModal } from "./broadcast-edit.js";
 
@@ -121,7 +122,7 @@ export async function editor(ctx) {
   const dirty = () => !latest || new Date(t.updated_at) > new Date(latest.created_at);
   root.innerHTML = `<div class="editor-shell">
     <div class="editor-top"><a class="ibtn" href="/templates">${icon("arrow-left", 15)}</a><span class="dim">Templates</span><span class="dim">/</span><input class="name-input" data-name value="${esc(t.name)}" size="${Math.max(8, t.name.length)}"><span data-state></span><span class="dim" data-saved style="font-size:calc(12px + var(--fs-up, 0px))"></span>
-      <span class="grow"></span><button class="btn btn-ghost btn-sm" data-vars>${icon("code", 13)} Variables</button><button class="btn btn-ghost btn-sm" data-history>${icon("clock", 13)} History</button><button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test</button><button class="btn btn-primary btn-sm" data-publish>Publish</button></div>
+      <span class="grow"></span>${aiButtonHtml()}<button class="btn btn-ghost btn-sm" data-vars>${icon("code", 13)} Variables</button><button class="btn btn-ghost btn-sm" data-history>${icon("clock", 13)} History</button><button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test</button><button class="btn btn-primary btn-sm" data-publish>Publish</button></div>
     <div class="editor-main"><div class="editor-canvas"><div class="editor-doc">
       <div class="hdr-fields">
         <div class="hdr-row"><span>From</span><input data-f="from" placeholder="Acme <hello@${esc(domains?.[0]?.name || "yourdomain.com")}>" value="${esc(t.from || "")}"></div>
@@ -145,7 +146,16 @@ export async function editor(ctx) {
   const saveSoon = debounce(flush, 700);
   const set = (k, v) => { t[k] = v; patch[k] = v; saved.textContent = "Editing…"; saveSoon(); };
   const createVariable = () => variableModal().then((v) => { if (!v) return null; t.variables = [...t.variables.filter((x) => x.name !== v.name), v]; set("variables", t.variables); return v; });
-  const ed = mountEditor(root.querySelector("[data-editor]"), { doc: t.content, mode: "template", vars: () => t.variables.map((v) => ({ name: v.name, label: v.name, type: v.type })), createVariable, inspectorHost: root.querySelector("[data-insp]"), onChange: (doc) => set("content", doc) });
+  let ai;
+  const ed = mountEditor(root.querySelector("[data-editor]"), { doc: t.content, mode: "template", vars: () => t.variables.map((v) => ({ name: v.name, label: v.name, type: v.type })), createVariable, inspectorHost: root.querySelector("[data-insp]"), onChange: (doc) => set("content", doc), onAiRewrite: (ids, anchor) => rewritePopover(ai, anchor, ids) });
+  const setMeta = (m, persist = true) => {
+    if (m.subject === undefined) return;
+    const inp = root.querySelector('[data-f="subject"]'); if (inp) inp.value = m.subject || "";
+    if (persist) set("subject", m.subject || null); else t.subject = m.subject;
+  };
+  ai = { ed, kind: "template", id, getMeta: () => ({ subject: t.subject }), setMeta, vars: () => t.variables.map((v) => v.name) };
+  mountAi(root, ai);
+  watchAgentEdits(root, { ...ai, table: "templates", initial: t.agent_edit, hasPending: () => Object.keys(patch).length > 0, onApplied: (row) => { t.content = row.content; t.subject = row.subject; t.updated_at = row.updated_at; drawState(); } });
   root.querySelector("[data-name]").addEventListener("input", (e) => { e.target.size = Math.max(8, e.target.value.length); set("name", e.target.value || "Untitled"); });
   root.querySelectorAll("[data-f]").forEach((inp) => inp.addEventListener("input", () => {
     let v = inp.value.trim();

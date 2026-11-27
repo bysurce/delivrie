@@ -8,7 +8,7 @@ import { renderBlocks, renderVars, FONTS } from "../lib/blocks.js";
 import { LIBRARY, DEFAULT_BRAND, applyBrand, canBrand, samples } from "../lib/template-library.js";
 
 const T = () => state.team.id;
-const TABS = [["usage", "Usage"], ["billing", "Billing"], ["team", "Team"], ["brand", "Brand"], ["security", "Security"], ["connected-apps", "Connected apps"], ["audit-log", "Audit log"], ["smtp", "SMTP"], ["dedicated-ips", "Dedicated IPs"], ["integrations", "Integrations"], ["unsubscribe", "Unsubscribe page"], ["documents", "Documents"]];
+const TABS = [["usage", "Usage"], ["billing", "Billing"], ["team", "Team"], ["brand", "Brand"], ["brand-voice", "Brand voice"], ["security", "Security"], ["connected-apps", "Connected apps"], ["audit-log", "Audit log"], ["smtp", "SMTP"], ["dedicated-ips", "Dedicated IPs"], ["integrations", "Integrations"], ["unsubscribe", "Unsubscribe page"], ["documents", "Documents"]];
 const isAdmin = () => state.role === "admin";
 
 export default async function settings(ctx) {
@@ -20,7 +20,7 @@ export default async function settings(ctx) {
   const root = ctx.root;
   root.innerHTML = `<div class="page wide"><div class="page-head"><h1>Settings</h1></div><div class="ul-tabs" style="margin-bottom:22px">${TABS.map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="${k === "billing" ? "/billing" : `/settings/${k === "unsubscribe" ? "unsubscribe-page" : k}`}">${l}</a>`).join("")}</div><div data-body></div></div>`;
   const body = root.querySelector("[data-body]");
-  const fn = { usage, team, brand, suppressions, smtp, integrations, documents, security: sso, "connected-apps": connectedApps, "audit-log": auditLog, "dedicated-ips": dedicatedIps }[tab];
+  const fn = { usage, team, brand, suppressions, smtp, integrations, documents, security: sso, "connected-apps": connectedApps, "audit-log": auditLog, "dedicated-ips": dedicatedIps, "brand-voice": brandVoice }[tab];
   if (!fn) return ctx.navigate("/settings", { replace: true });
   await fn(body, ctx);
 }
@@ -93,6 +93,29 @@ async function team(body, ctx) {
   on(body, "click", "[data-delteam]", async () => {
     if (!(await confirmModal({ title: "Delete team", desc: `This permanently deletes <b>${esc(t.name)}</b> and everything in it, and removes its domains from the mail provider. This can’t be undone.`, confirm: "Delete team", typed: t.name }))) return;
     try { await api("DELETE", "/dashboard/team", { confirm: t.name }); localStorage.removeItem("dlv_team"); toast("Team deleted"); setTimeout(() => location.href = "/emails", 600); } catch (e) { errToast(e); }
+  });
+}
+
+// Brand voice: how the team writes. The AI writer in the email editor follows it. Admins edit it.
+async function brandVoice(body) {
+  const v = await api("GET", "/ai/voice");
+  const admin = isAdmin();
+  body.innerHTML = `<div style="max-width:720px;display:flex;flex-direction:column;gap:14px">
+    <p class="muted" style="margin:0">The AI writer in the email editor writes drafts, rewrites and subject lines in this voice. Describe how your company sounds, or let Delivrie read your website and suggest it.</p>
+    ${v.available ? "" : `<div class="banner">${icon("info", 14)} AI writing isn’t switched on for this server yet.</div>`}
+    <section class="card card-pad">
+      <div class="field"><label for="bv">Brand voice</label><textarea class="textarea" id="bv" rows="9" maxlength="2000" placeholder="- Friendly and direct, like a helpful colleague\n- Short sentences. No jargon or hype words\n- We say “you” and “we”, never “users”\n- Sentence case headings, no exclamation marks\n- Readers are developers at small startups" ${admin ? "" : "disabled"}>${esc(v.voice || "")}</textarea><div class="hint">${admin ? "Up to 2,000 characters." : "Only team admins can change the brand voice."}</div></div>
+      ${admin ? `<div class="row-flex" style="gap:8px;flex-wrap:wrap"><input class="input grow" data-site placeholder="https://acme.com" style="min-width:220px" value="${esc(state.team.brand?.website || "")}"><button class="btn btn-secondary" data-learn>${icon("sparkle", 13)} Suggest from website</button><span class="grow"></span><button class="btn btn-primary" data-save>Save</button></div>` : ""}
+    </section>
+    <p class="hint">${v.monthly_allowance ? `${num(v.used_this_month)} of ${num(v.monthly_allowance)} AI writing requests used this month.` : `${num(v.used_this_month)} AI writing requests this month.`}</p></div>`;
+  if (!admin) return;
+  const ta = body.querySelector("#bv");
+  on(body, "click", "[data-save]", async (_e, b) => { b.disabled = true; try { await api("PUT", "/ai/voice", { voice: ta.value }); toast("Brand voice saved"); } catch (e) { errToast(e); } b.disabled = false; });
+  on(body, "click", "[data-learn]", async (_e, b) => {
+    const url = body.querySelector("[data-site]").value.trim(); if (!url) return toast("Add your website address", "err");
+    const was = b.innerHTML; b.disabled = true; b.innerHTML = `<span class="spinner"></span> Reading ${esc(url.replace(/^https?:\/\//, "").split("/")[0])}…`;
+    try { const r = await api("POST", "/ai/voice/learn", { url }); ta.value = r.voice; toast("Suggested from your website. Edit it, then save."); } catch (e) { errToast(e); }
+    b.disabled = false; b.innerHTML = was;
   });
 }
 
@@ -183,7 +206,7 @@ async function smtp(body) {
 async function integrations(body) {
   const mcpUrl = `${API_BASE}/mcp`;
   body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
-    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("sparkle", 15)}</span><h3>MCP server</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Let AI assistants send email, manage contacts and check delivery through 64 tools. Authenticate with an API key.</p>
+    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("sparkle", 15)}</span><h3>MCP server</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Let AI assistants send email, manage contacts and check delivery through 92 tools. Authenticate with an API key.</p>
       <div class="field"><label>Server URL</label><div class="input-wrap"><input class="input mono" readonly value="${esc(mcpUrl)}" style="padding-right:36px"><span class="trail"><button class="ibtn" data-copy="${esc(mcpUrl)}">${icon("copy")}</button></span></div></div>
       <div style="margin-top:12px">${codeBlock(JSON.stringify({ mcpServers: { delivrie: { url: mcpUrl, headers: { Authorization: "Bearer dlv_xxxxxxxxx" } } } }, null, 2), { lang: "json", lines: false })}</div></div>
     <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px"><img src="/assets/cloudflare.png" width="22" height="10" alt="" style="display:block"></span><h3>Cloudflare DNS</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Add a domain's DNS records to Cloudflare automatically: open the domain and choose Set up with Cloudflare.</p><a class="btn btn-secondary btn-sm" href="/domains">Go to domains</a></div>

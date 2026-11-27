@@ -1306,3 +1306,16 @@ body:has(.overlay) .sc { display: none; } /* the support chat button would cover
   .banner { align-items: flex-start; }
   .banner > svg { margin-top: 3px; flex: none; }
 }
+
+/* AI writing in the email editor */
+.ai-undo { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; max-width: min(640px, calc(100vw - 32px)); padding: 8px 8px 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); box-shadow: 0 8px 28px rgba(0,0,0,.18); font-size: calc(13px + var(--fs-up, 0px)); }
+.ai-undo > svg { color: var(--amber); flex: none; }
+.ai-live { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--yellow) 18%, transparent); color: var(--fg); font-size: calc(12px + var(--fs-up, 0px)); white-space: nowrap; }
+.ai-live.hidden, .ai-remote.hidden { display: none; }
+.ai-remote { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--yellow) 45%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--yellow) 10%, transparent); font-size: calc(13px + var(--fs-up, 0px)); }
+.ai-ideas { display: flex; flex-direction: column; gap: 6px; }
+.ai-idea { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.ai-idea:hover { border-color: var(--yellow); }
+.ai-idea b { font-weight: 500; }
+@keyframes blk-flash { from { background: color-mix(in srgb, var(--yellow) 28%, transparent); } to { background: transparent; } }
+.blk.blk-flash { animation: blk-flash 2.4s ease-out; border-radius: 6px; }

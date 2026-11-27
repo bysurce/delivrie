@@ -84,6 +84,10 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Update template](https://delivrie.io/docs/api/update-template.md): `PATCH /templates/:id`
 - [Duplicate template](https://delivrie.io/docs/api/duplicate-template.md): `POST /templates/:id/duplicate`
 - [Delete template](https://delivrie.io/docs/api/delete-template.md): `DELETE /templates/:id`
+- [Draft email with AI](https://delivrie.io/docs/api/ai-draft.md): `POST /ai/draft`
+- [Rewrite blocks](https://delivrie.io/docs/api/ai-rewrite.md): `POST /ai/rewrite`
+- [Get email content](https://delivrie.io/docs/api/get-email-content.md): `GET /templates/:id/content`
+- [Edit email content](https://delivrie.io/docs/api/edit-email-content.md): `POST /templates/:id/content`
 - [Add suppression](https://delivrie.io/docs/api/add-suppression.md): `POST /suppressions`
 - [List suppressions](https://delivrie.io/docs/api/list-suppressions.md): `GET /suppressions`
 - [Remove suppression](https://delivrie.io/docs/api/delete-suppression.md): `DELETE /suppressions/:email`

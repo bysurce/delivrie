@@ -203,8 +203,8 @@ def docs():
             g = by_id[gid]
             pages.append((f"/docs/{gid}" if gid != "getting-started" else "/docs", g["title"], short(g["description"]),
                           f"<h1>{E(g['title'])}</h1><p>{E(g['description'])}</p>{d['html'][gid]}", [("Docs", "/docs"), (g["title"], f"/docs/{gid}")]))
-    pages.append(("/docs/mcp", "MCP server", "Connect Claude, ChatGPT, Cursor, Codex, Antigravity or VS Code to Delivrie with the remote MCP server at https://delivrie.io/api/mcp: 64 tools, OAuth sign-in and scoped access.",
-                  "<h1>Delivrie MCP server</h1><p>Server URL: <code>https://delivrie.io/api/mcp</code> (streamable HTTP). Sign in with OAuth or use an API key. 64 tools for sending email, broadcasts, automations, contacts, domains, metrics and inbox replies.</p>", [("Docs", "/docs"), ("MCP server", "/docs/mcp")]))
+    pages.append(("/docs/mcp", "MCP server", "Connect Claude, ChatGPT, Cursor, Codex, Antigravity or VS Code to Delivrie with the remote MCP server at https://delivrie.io/api/mcp: 92 tools, OAuth sign-in and scoped access.",
+                  "<h1>Delivrie MCP server</h1><p>Server URL: <code>https://delivrie.io/api/mcp</code> (streamable HTTP). Sign in with OAuth or use an API key. 92 tools for sending email, broadcasts, automations, contacts, domains, metrics and inbox replies.</p>", [("Docs", "/docs"), ("MCP server", "/docs/mcp")]))
     pages.append(("/docs/api", "API reference", f"The Delivrie REST API: {len(d['ALL_ENDPOINTS'])} endpoints for emails, domains, contacts, broadcasts, templates, webhooks and more, with request and response examples.",
                   "<h1>API reference</h1><p>Base URL <code>https://delivrie.io/api</code>. Authenticate with <code>Authorization: Bearer dlv_…</code>.</p><ul>" + api_nav + "</ul>", [("Docs", "/docs"), ("API reference", "/docs/api")]))
     for e in d["ALL_ENDPOINTS"]:

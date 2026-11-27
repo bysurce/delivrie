@@ -105,7 +105,7 @@ DD_DOCS = ('<div class="dd-body dd-docs-body">'
   + dd_col("REFERENCE", [("code", "API reference", "Every endpoint, with examples", "/docs/api"),
                          ("terminal", "SDKs", "Node.js and Python", "/docs/sdks"),
                          ("webhook", "Webhooks", "Events, payloads and signatures", "/docs/webhooks")])
-  + dd_col("BUILD WITH AI", [("sparkle", "MCP server", "64 tools for Claude, Cursor and more", "/docs/mcp"),
+  + dd_col("BUILD WITH AI", [("sparkle", "MCP server", "92 tools for Claude, Cursor and more", "/docs/mcp"),
                              ("mail", "SMTP relay", "Ports 587 and 465", "/docs/smtp"),
                              ("check", "Status", "Live uptime and incidents", "/status")])
   + '</div><div class="dd-foot"><button type="button" class="dd-install" data-copy="npm install delivrie" aria-label="Copy npm install delivrie">'

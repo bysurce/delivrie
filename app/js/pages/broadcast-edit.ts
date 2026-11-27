@@ -3,6 +3,7 @@ import { esc, icon, toast, errToast, menu, modal, debounce, selectHtml, bindSele
 import { mountEditor, previewModal, stylesPopover } from "./editor.js";
 import { renderBlocks } from "../lib/blocks.js";
 import { runChecks, checksHtml } from "../lib/checks.js";
+import { aiButtonHtml, mountAi, rewritePopover, watchAgentEdits } from "../lib/ai-writer.js";
 
 export default async function broadcastEdit(ctx) {
   const id = ctx.params.id;
@@ -22,7 +23,7 @@ export default async function broadcastEdit(ctx) {
   const root = ctx.root;
   root.innerHTML = `<div class="editor-shell">
     <div class="editor-top"><a class="ibtn" href="/broadcasts" title="Back">${icon("arrow-left", 15)}</a><span class="dim">Broadcasts</span><span class="dim">/</span><input class="name-input" data-name value="${esc(b.name)}" size="${Math.max(8, b.name.length)}"><span class="dim" data-saved style="font-size:calc(12px + var(--fs-up, 0px))">Saved</span>
-      <span class="grow"></span><button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test email</button><button class="btn btn-primary btn-sm" data-review>Review</button></div>
+      <span class="grow"></span>${aiButtonHtml()}<button class="btn btn-ghost btn-sm" data-styles>${icon("sparkle", 13)} Styles</button><button class="btn btn-ghost btn-sm" data-preview>${icon("eye", 13)} Preview</button><button class="btn btn-secondary btn-sm" data-test>${icon("send", 13)} Test email</button><button class="btn btn-primary btn-sm" data-review>Review</button></div>
     <div class="editor-main"><div class="editor-canvas"><div class="editor-doc">
       <div class="hdr-fields">
         <div class="hdr-row"><span>From</span><input data-f="from" placeholder="Acme <news@${esc(verified[0]?.name || "yourdomain.com")}>" value="${esc(b.from || "")}" list="dlv-from"><datalist id="dlv-from">${verified.map((d) => `<option value="${esc(state.team.name)} <hello@${esc(d.name)}>">`).join("")}</datalist></div>
@@ -49,7 +50,17 @@ export default async function broadcastEdit(ctx) {
   window.addEventListener("beforeunload", flush);
 
   const vars = () => [{ name: "first_name", label: "First name" }, { name: "last_name", label: "Last name" }, { name: "email", label: "Email" }, ...(props || []).map((p) => ({ name: p.key, label: p.key, type: p.type })), { name: "unsubscribe_url", label: "Unsubscribe URL" }];
-  const ed = mountEditor(root.querySelector("[data-editor]"), { doc: b.content, mode: "broadcast", vars, inspectorHost: root.querySelector("[data-insp]"), onChange: (doc) => set("content", doc) });
+  let ai;
+  const ed = mountEditor(root.querySelector("[data-editor]"), { doc: b.content, mode: "broadcast", vars, inspectorHost: root.querySelector("[data-insp]"), onChange: (doc) => set("content", doc), onAiRewrite: (ids, anchor) => rewritePopover(ai, anchor, ids) });
+  const setMeta = (m, persist = true) => {
+    for (const k of ["subject", "preview_text"]) if (m[k] !== undefined) {
+      const inp = root.querySelector(`[data-f="${k}"]`); if (inp) inp.value = m[k] || "";
+      if (persist) set(k, m[k] || null); else b[k] = m[k];
+    }
+  };
+  ai = { ed, kind: "broadcast", id, getMeta: () => ({ subject: b.subject, preview_text: b.preview_text }), setMeta, vars: () => vars().map((v) => v.name) };
+  mountAi(root, ai);
+  watchAgentEdits(root, { ...ai, table: "broadcasts", initial: b.agent_edit, hasPending: () => Object.keys(patch).length > 0, onApplied: (row) => { b.content = row.content; b.subject = row.subject; b.preview_text = row.preview_text; } });
 
   root.querySelector("[data-name]").addEventListener("input", (e) => { e.target.size = Math.max(8, e.target.value.length); set("name", e.target.value || "Untitled"); });
   root.querySelectorAll("[data-f]").forEach((inp) => inp.addEventListener("input", () => set(inp.dataset.f, inp.value.trim() || null)));
