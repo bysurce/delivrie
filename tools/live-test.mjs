@@ -1,5 +1,5 @@
 // Live API test: sends real emails to Delivrie's test addresses and checks the parts that only a real
-// round trip proves: the delivrie SDK, the official Resend SDK pointed at Delivrie, idempotent retries
+// round trip proves: the delivrie SDK, the CLI in sdk/cli, the official Resend SDK pointed at Delivrie, idempotent retries
 // (single, batch and two identical requests at once) and the error format.
 //
 // Needs DELIVRIE_TEST_KEY (a sending access key). Optional: DELIVRIE_TEST_FROM (default onboarding@delivrie.io),
@@ -111,6 +111,28 @@ await check("Resend SDK: API errors arrive as Resend-style errors", async () => 
   assert(data === null, "expected no data");
   assert(error?.name === "validation_error", `got ${JSON.stringify(error)}`);
 });
+
+// ---------------------------------------------------------------- the CLI in this repository (sdk/cli)
+{
+  const { execFile } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const bin = fileURLToPath(new URL("../sdk/cli/bin/delivrie.js", import.meta.url));
+  const cli = (args) => new Promise((resolve) => execFile(process.execPath, [bin, ...args], { env: { ...process.env, DELIVRIE_API_KEY: KEY, DELIVRIE_BASE_URL: BASE, DELIVRIE_CONFIG_DIR: "/tmp/delivrie-cli-ci" } }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, stdout, stderr })));
+  await check("CLI: delivrie send", async () => {
+    const r = await cli(["send", "-f", FROM, "-t", "delivered@test.delivrie.io", "-s", `[CI ${RUN}] CLI send`, "--text", `Live API test ${RUN}`, "-q"]);
+    assert(r.code === 0, `exit ${r.code}: ${r.stderr}`);
+    assert(/^[\w-]{10,}\n$/.test(r.stdout), `expected an email id, got ${JSON.stringify(r.stdout)}`);
+  });
+  await check("CLI: whoami recognises the key", async () => {
+    const r = await cli(["whoami", "--json"]);
+    assert(r.code === 0, `exit ${r.code}: ${r.stderr}`);
+    assert(["full", "sending"].includes(JSON.parse(r.stdout).permission), `got ${r.stdout}`);
+  });
+  await check("CLI: API errors exit 1 with the message", async () => {
+    const r = await cli(["send", "-f", FROM, "-t", "delivered@test.delivrie.io", "-s", "x", "--text", "x", "--schedule", "not-a-date-xyz"]);
+    assert(r.code === 1 && r.stderr.includes("Error:"), `exit ${r.code}: ${r.stderr}`);
+  });
+}
 
 // ---------------------------------------------------------------- summary
 const lines = results.map(([s, n, m]) => `| ${s === "ok" ? "✅" : "❌"} | ${n} |${m ? ` ${m.replace(/\|/g, "\\|").slice(0, 200)}` : ""}`);
