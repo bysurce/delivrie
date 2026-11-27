@@ -899,7 +899,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 }
 :root:not([data-theme="dark"]) .code-win { border-color: var(--code-bg); }
 /* Client logos are drawn white; darken them on light surfaces. */
-:root:not([data-theme="dark"]) img[src*="/assets/clients/"]:not([src$="claude.svg"]) { filter: invert(1) brightness(.25); }
+:root:not([data-theme="dark"]) img[src*="assets/clients/"]:not([src$="claude.svg"]) { filter: invert(1) brightness(.25); }
 /* The Resend wordmark was recoloured white for dark surfaces. */
 :root:not([data-theme="dark"]) img[src$="/assets/compare/resend.png"] { filter: invert(1); }
 

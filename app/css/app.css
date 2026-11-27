@@ -699,7 +699,7 @@ html.theme-anim, html.theme-anim * { transition: background-color .25s ease, bor
 .cb { width: 14px; height: 14px; accent-color: var(--yellow); cursor: pointer; }
 .t tbody tr.sel { background: rgba(250,214,0,.06); }
 :root:not([data-theme="light"]) img[src$="/assets/logo.svg"] { content: url("/assets/logo-dark.svg"); }
-:root[data-theme="light"] img[src*="/assets/clients/"]:not([src$="claude.svg"]) { filter: invert(1) brightness(.25); }
+:root[data-theme="light"] img[src*="assets/clients/"]:not([src$="claude.svg"]) { filter: invert(1) brightness(.25); }
 .tpl-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; }
 .tpl-folders { display: flex; flex-direction: column; gap: 1px; position: sticky; top: 12px; align-self: start; }
 .tf-h { font-size: calc(11px + var(--fs-up, 0px)); letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); font-weight: 500; padding: 4px 8px 8px; }
