@@ -4,11 +4,13 @@ The Go client for [Delivrie](https://delivrie.io): send transactional email, man
 contacts, broadcasts and templates, and verify webhook signatures. Standard library only; Go 1.21 or later.
 
 ```sh
-go get github.com/codeddesigner/delivrie/sdk/go
+go get github.com/bysurce/delivrie/sdk/go
 ```
 
+The module moved from `github.com/codeddesigner/delivrie/sdk/go` in v0.2.0. Code that imports the old path keeps working on v0.1.0; to upgrade, change the import path and run `go get` again.
+
 ```go
-import delivrie "github.com/codeddesigner/delivrie/sdk/go"
+import delivrie "github.com/bysurce/delivrie/sdk/go"
 
 client := delivrie.New(os.Getenv("DELIVRIE_API_KEY"))
 

@@ -2,7 +2,7 @@ name: Publish to MCP Registry
 
 # Lists the Delivrie MCP server (server.json) in the official MCP Registry, so MCP clients and directories can find it.
 # Run it from the Actions tab (or `gh workflow run publish-mcp-registry.yml`) after changing server.json.
-# Authenticates with GitHub OIDC, which owns the io.github.codeddesigner/* namespace: no secret needed.
+# Authenticates with GitHub OIDC, which owns the io.github.bysurce/* namespace: no secret needed.
 
 on:
   workflow_dispatch:
@@ -46,8 +46,8 @@ jobs:
       - name: Confirm the listing
         run: |
           for i in 1 2 3 4 5 6; do
-            out=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.codeddesigner/delivrie")
-            echo "$out" | grep -q '"io.github.codeddesigner/delivrie"' && { echo "$out" | head -c 1500; exit 0; }
+            out=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.bysurce/delivrie")
+            echo "$out" | grep -q '"io.github.bysurce/delivrie"' && { echo "$out" | head -c 1500; exit 0; }
             sleep 10
           done
           echo "Published, but the search index hasn't picked it up yet."

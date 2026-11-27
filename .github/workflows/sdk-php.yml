@@ -1,6 +1,6 @@
 # Tests the PHP SDK (sdk/php) on every change.
 # Publishing: Packagist reads composer.json from a repository's root, so the SDK is mirrored to its own repository
-# (codeddesigner/delivrie-php) by the "split" job. It runs only when the SPLIT_TOKEN secret exists (a GitHub token
+# (bysurce/delivrie-php) by the "split" job. It runs only when the SPLIT_TOKEN secret exists (a GitHub token
 # with write access to that repository); then a tag like php-v0.1.0 here becomes v0.1.0 there and on Packagist.
 name: PHP SDK
 
@@ -43,15 +43,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Mirror sdk/php to codeddesigner/delivrie-php
+      - name: Mirror sdk/php to bysurce/delivrie-php
         if: env.SPLIT_TOKEN != ''
         run: |
           git subtree split --prefix=sdk/php -b php-split
-          git push "https://x-access-token:${SPLIT_TOKEN}@github.com/codeddesigner/delivrie-php.git" php-split:main --force
+          git push "https://x-access-token:${SPLIT_TOKEN}@github.com/bysurce/delivrie-php.git" php-split:main --force
           if [[ "$GITHUB_REF" == refs/tags/php-v* ]]; then
             v="${GITHUB_REF#refs/tags/php-}"
             git tag "$v" php-split
-            git push "https://x-access-token:${SPLIT_TOKEN}@github.com/codeddesigner/delivrie-php.git" "$v"
+            git push "https://x-access-token:${SPLIT_TOKEN}@github.com/bysurce/delivrie-php.git" "$v"
           fi
       - if: env.SPLIT_TOKEN == ''
         run: echo "::notice::SPLIT_TOKEN isn't set, so sdk/php wasn't mirrored for Packagist."

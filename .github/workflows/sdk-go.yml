@@ -1,5 +1,5 @@
 # Tests the Go SDK (sdk/go) on every change. Releasing is a git tag: sdk/go/v0.1.0 makes
-# `go get github.com/codeddesigner/delivrie/sdk/go@v0.1.0` work (the Go module proxy picks it up from the public repo).
+# `go get github.com/bysurce/delivrie/sdk/go@v0.2.0` work (the Go module proxy picks it up from the public repo).
 # Run this workflow by hand with "release" ticked to tag the version in sdk/go/client.go (const Version).
 name: Go SDK
 
@@ -52,5 +52,5 @@ jobs:
       - name: Ask the Go module proxy to fetch it
         run: |
           v=$(sed -n 's/^const Version = "\(.*\)"/\1/p' sdk/go/client.go)
-          for i in 1 2 3 4 5; do curl -fsS "https://proxy.golang.org/github.com/codeddesigner/delivrie/sdk/go/@v/v$v.info" && exit 0; sleep 10; done
+          for i in 1 2 3 4 5; do curl -fsS "https://proxy.golang.org/github.com/bysurce/delivrie/sdk/go/@v/v$v.info" && exit 0; sleep 10; done
           echo "::warning::The module proxy hasn't listed v$v yet; it usually does within a few minutes."

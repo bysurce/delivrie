@@ -7,8 +7,10 @@ description: Send email from Go with the Delivrie Go SDK: typed requests, idempo
 The Go SDK is standard library only and needs Go 1.21 or later.
 
 ```bash
-go get github.com/codeddesigner/delivrie/sdk/go
+go get github.com/bysurce/delivrie/sdk/go
 ```
+
+The module moved from `github.com/codeddesigner/delivrie/sdk/go` in v0.2.0. Code that imports the old path keeps working on v0.1.0; to upgrade, change the import path and run `go get` again.
 
 ## Send an email
 
@@ -21,7 +23,7 @@ import (
 	"log"
 	"os"
 
-	delivrie "github.com/codeddesigner/delivrie/sdk/go"
+	delivrie "github.com/bysurce/delivrie/sdk/go"
 )
 
 func main() {

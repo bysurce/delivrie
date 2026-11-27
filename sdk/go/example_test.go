@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	delivrie "github.com/codeddesigner/delivrie/sdk/go"
+	delivrie "github.com/bysurce/delivrie/sdk/go"
 )
 
 func Example() {

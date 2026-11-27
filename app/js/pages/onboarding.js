@@ -44,7 +44,7 @@ uri = URI("${base}/emails")
 req = Net::HTTP::Post.new(uri, "Authorization" => "Bearer ${key}", "Content-Type" => "application/json")
 req.body = { from: "${from}", to: "${to}", subject: "${subject}", html: "${html}" }.to_json
 Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| puts http.request(req).body }`, "js"],
-    Go: [`// go get github.com/codeddesigner/delivrie/sdk/go
+    Go: [`// go get github.com/bysurce/delivrie/sdk/go
 client := delivrie.New("${key}")
 
 sent, err := client.Emails.Send(ctx, &delivrie.SendEmailRequest{

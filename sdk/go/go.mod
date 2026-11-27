@@ -1,3 +1,3 @@
-module github.com/codeddesigner/delivrie/sdk/go
+module github.com/bysurce/delivrie/sdk/go
 
 go 1.21

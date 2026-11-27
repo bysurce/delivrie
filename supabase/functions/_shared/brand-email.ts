@@ -127,7 +127,7 @@ ${o.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px"><tr><td align="center" style="padding:32px 40px 8px">
 <p style="margin:0 auto;max-width:440px;font:400 13px/1.5 ${FONT};color:${C.sub}">Questions? Read the docs at <a href="${SITE}/docs" style="color:${C.sub}">delivrie.io/docs</a> or reply to this email. A person reads every reply.</p>
 <div style="width:170px;height:1px;background:${C.line};margin:16px auto"></div>
-<div style="margin:0 0 14px">${icon("github", "https://github.com/codeddesigner/delivrie", "GitHub")}${icon("globe", SITE, "delivrie.io")}${icon("book", `${SITE}/docs`, "Docs")}</div>
+<div style="margin:0 0 14px">${icon("github", "https://github.com/bysurce/delivrie", "GitHub")}${icon("globe", SITE, "delivrie.io")}${icon("book", `${SITE}/docs`, "Docs")}</div>
 <div style="margin:0 0 14px">${link(`${SITE}/emails`, "Dashboard")}${sep}${link(`${SITE}/docs`, "Docs")}${sep}${link(`${SITE}/status`, "Status")}${sep}${link(`${SITE}/privacy`, "Privacy")}</div>
 <p style="margin:0;font:400 11px/1.65 ${FONT};color:${C.mute}">${footText}<br>8 The Green, Suite R, Dover, DE 19901, United States<br>&copy; ${new Date().getUTCFullYear()} Surce Inc &middot; delivrie.io</p>
 </td></tr></table>

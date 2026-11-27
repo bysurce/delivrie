@@ -2,7 +2,7 @@
 
 The official delivrie npm package for Node.js and TypeScript: install, configuration, results and errors, retries, every method, attachments and webhook verification.
 
-The `delivrie` package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs (`fetch` and Web Crypto), so the same code runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge. Source: [github.com/codeddesigner/delivrie](https://github.com/codeddesigner/delivrie/tree/main/sdk/node).
+The `delivrie` package is the official SDK for Node.js and TypeScript. It has no dependencies and uses only web-standard APIs (`fetch` and Web Crypto), so the same code runs on Node.js 18+, Bun, Deno, Cloudflare Workers and Vercel Edge. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/node).
 
 ```bash npm
 npm install delivrie

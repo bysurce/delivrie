@@ -1,6 +1,6 @@
 # Delivrie
 
-[![mcptry](https://mcptry.com/badge/io.github.codeddesigner/delivrie)](https://mcptry.com/servers/io.github.codeddesigner/delivrie)
+[![mcptry](https://mcptry.com/badge/io.github.bysurce/delivrie)](https://mcptry.com/servers/io.github.bysurce/delivrie)
 
 Email for developers: transactional and marketing email with a REST API, signed webhooks, a visual broadcast editor, audiences, metrics, and an MCP server for AI agents. Sending runs on Amazon SES.
 

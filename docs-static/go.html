@@ -34,7 +34,8 @@
 </head>
 <body>
   <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Go</h1><p>Send email from Go with the Delivrie Go SDK: typed requests, idempotent retries, errors you can inspect, and webhook verification.</p><p>The Go SDK is standard library only and needs Go 1.21 or later.</p>
-<pre><code class="language-bash">go get github.com/codeddesigner/delivrie/sdk/go</code></pre>
+<pre><code class="language-bash">go get github.com/bysurce/delivrie/sdk/go</code></pre>
+<p>The module moved from <code>github.com/codeddesigner/delivrie/sdk/go</code> in v0.2.0. Code that imports the old path keeps working on v0.1.0; to upgrade, change the import path and run <code>go get</code> again.</p>
 <h2 id="send-an-email">Send an email</h2>
 <pre><code class="language-go">package main
 
@@ -44,7 +45,7 @@ import (
 	&quot;log&quot;
 	&quot;os&quot;
 
-	delivrie &quot;github.com/codeddesigner/delivrie/sdk/go&quot;
+	delivrie &quot;github.com/bysurce/delivrie/sdk/go&quot;
 )
 
 func main() {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.codeddesigner/delivrie",
+  "name": "io.github.bysurce/delivrie",
   "title": "Delivrie",
   "description": "Send email, run broadcasts and automations, and answer your inbox from any AI agent.",
   "websiteUrl": "https://delivrie.io/docs/mcp",
@@ -14,7 +14,7 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/codeddesigner/delivrie",
+    "url": "https://github.com/bysurce/delivrie",
     "source": "github"
   },
   "version": "1.1.1",

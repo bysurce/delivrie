@@ -1,6 +1,6 @@
 # Tests the Python SDK on every change, and publishes it to PyPI when run by hand from main with "publish" ticked.
 # Publishing uses PyPI trusted publishing (no token): on pypi.org, add a publisher for project "delivrie",
-# owner codeddesigner, repository delivrie, workflow publish-sdk-python.yml, environment pypi.
+# owner bysurce, repository delivrie, workflow publish-sdk-python.yml, environment pypi.
 name: Python SDK
 
 on:
