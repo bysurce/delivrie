@@ -1,0 +1,16 @@
+{
+  "name": "delivrie-cli",
+  "version": "0.1.0",
+  "description": "The Delivrie command-line tool: send email, check deliveries, and manage domains, API keys, webhooks and templates from your terminal.",
+  "keywords": ["delivrie", "email", "cli", "email-api", "transactional-email", "resend-alternative"],
+  "homepage": "https://delivrie.io/docs/cli",
+  "repository": { "type": "git", "url": "git+https://github.com/codeddesigner/delivrie.git", "directory": "sdk/cli" },
+  "bugs": { "url": "https://delivrie.io/support" },
+  "license": "MIT",
+  "author": "Surce Inc <support@delivrie.io>",
+  "type": "module",
+  "bin": { "delivrie": "./bin/delivrie.js" },
+  "files": ["bin", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.js" }
+}
