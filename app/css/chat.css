@@ -6,14 +6,20 @@
 .sc button { font: inherit; }
 .sc-tab { position: absolute; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px; padding: 10px 18px 10px 10px; border-radius: 999px; background: #1f1d1e; color: #f4eee4; font-size: calc(15px + var(--sc-fs)); font-weight: 500; box-shadow: 0 2px 4px rgba(31,28,28,.08), 0 24px 30px rgba(31,28,28,.16); transition: transform .15s var(--ease); white-space: nowrap; }
 :root:not([data-theme="light"]) .sc-tab { box-shadow: 0 0 0 1px var(--border), 0 12px 30px rgba(0,0,0,.45); }
+.sc-tab { cursor: pointer; border: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .sc-tab:hover { transform: translateY(-1px); }
+.sc-tab:active { transform: scale(.97); }
+/* While the chat code is still loading after a click: the logo spins so the click visibly landed. */
+.sc-tab[aria-busy="true"] .sc-tab-av svg { animation: sc-spin .9s linear infinite; }
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+.sc-panel.sc-shell .sc-hero h2 { width: 70%; height: 30px; border-radius: 8px; background: rgba(255,255,255,.08); }
 .sc-tab:focus-visible, .sc button:focus-visible, .sc a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .sc-tab-av { width: 32px; height: 32px; border-radius: 50%; background: #2b2829; display: grid; place-items: center; }
 .sc-tab.open { padding: 10px; color: #f4eee4; }
 .sc-badge { min-width: 20px; height: 20px; padding: 0 7px; border-radius: 999px; background: var(--yellow); color: #1f1d1e; font-size: calc(12px + var(--sc-fs)); font-weight: 600; display: inline-grid; place-items: center; font-style: normal; }
 .sc-badge.sm { min-width: 18px; height: 18px; padding: 0 5px; font-size: calc(11px + var(--sc-fs)); }
 .sc-dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); }
-.sc-panel { position: absolute; right: 0; bottom: 52px; width: 400px; height: min(680px, calc(100vh - 100px)); display: flex; flex-direction: column; background: var(--sc-bg); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--sc-sh); overflow: hidden; animation: sc-in .18s var(--ease); color: var(--fg); }
+.sc-panel { position: absolute; right: 0; bottom: 64px; width: 400px; height: min(680px, calc(100vh - 112px)); height: min(680px, calc(100dvh - 112px)); display: flex; flex-direction: column; background: var(--sc-bg); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--sc-sh); overflow: hidden; animation: sc-in .18s var(--ease); color: var(--fg); }
 .sc-panel[hidden] { display: none; }
 @keyframes sc-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 .sc-nudge, .sc-preview { position: absolute; right: 0; bottom: 64px; background: var(--sc-sf); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--sc-sh); animation: sc-in .2s var(--ease); }
@@ -60,6 +66,7 @@
 .sc-acts { display: flex; gap: 2px; }
 .sc-head { display: flex; align-items: center; gap: 10px; padding: 14px 12px; background: var(--sc-sf); border-bottom: 1px solid var(--border); position: relative; flex: none; }
 .sc-head.plain { padding: 14px 12px 14px 20px; }
+.sc-head .grow { flex: 1; min-width: 0; }
 .sc-head.plain b { font-size: calc(15px + var(--sc-fs)); font-weight: 500; }
 .sc-head .sc-av-d { width: 30px; height: 30px; }
 .sc-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -110,7 +117,7 @@
 .sc-tabs { display: flex; padding: 8px 8px 10px; background: var(--sc-sf); border-top: 1px solid var(--border); flex: none; }
 .sc-tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 4px; border-radius: 10px; color: var(--fg-3); font-size: calc(11px + var(--sc-fs)); position: relative; }
 .sc-tabs button.on { color: var(--fg); font-weight: 500; }
-.sc-tabs button:hover { background: var(--hover); }
+@media (hover: hover) { .sc-tabs button:hover { background: var(--hover); } }
 .sc-tabs .sc-dot { position: absolute; top: 4px; left: calc(50% + 6px); }
 /* messages */
 .sc-me { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
@@ -184,8 +191,11 @@ button.sc-chip:disabled { cursor: default; opacity: .7; }
 .sc-composer > p { font-size: calc(11px + var(--sc-fs)); color: var(--fg-3); text-align: center; }
 @media (max-width: 640px) {
   .sc { right: 14px; bottom: 14px; }
-  .sc-panel { position: fixed; inset: 0; width: auto; height: auto; border-radius: 0; border: 0; }
+  .sc-panel { position: fixed; inset: 0; width: auto; height: auto; border-radius: 0; border: 0; padding-bottom: env(safe-area-inset-bottom); }
   .sc.on .sc-tab { display: none; }
+  html.sc-open, html.sc-open body { overflow: hidden; }
+  /* 16px stops iPhones zooming the page when a field is tapped. */
+  .sc-ask input, .sc-input textarea, .sc-email input, .sc-rate textarea { font-size: 16px; }
   .sc-preview { width: calc(100vw - 28px); }
 }
 @media (prefers-reduced-motion: reduce) { .sc-panel, .sc-nudge, .sc-preview { animation: none; } .sc-dots i, .sc-skel { animation: none; } }

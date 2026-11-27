@@ -7,7 +7,11 @@
 // everyone else gets the assistant (docs only) and leaves an email address when they ask for a person.
 import { api as appApi, state, loadSession, loadTeams } from "./sb.js";
 import { esc, icon, errToast, toast } from "./ui.js";
-import { DOCS, searchDocs } from "./docs.js";
+// The docs index is big (about 150 KB), so it loads only when the Help tab needs it, or quietly once the chat is open.
+let docsMod = null;
+const loadDocs = () => (docsMod ||= import("./docs.js").catch((e) => { docsMod = null; throw e; }));
+// Phones: don't pop the keyboard the moment the panel opens.
+const finePointer = () => { try { return matchMedia("(hover: hover) and (pointer: fine)").matches; } catch { return true; } };
 
 const MARK_PATHS = '<path d="M45.621 15.8308C47.0004 16.948 47.0004 19.052 45.621 20.1692L33.6 29.9049C31.775 31.3829 29.0518 30.0841 29.0518 27.7357L29.0518 8.26426C29.0518 5.91588 31.775 4.61707 33.6 6.09507L45.621 15.8308Z" fill="#FAD600"/><path d="M27.7507 14.2163C29.6239 16.391 29.624 19.609 27.7507 21.7837L19.8975 30.9006C17.5846 33.5857 13.4253 33.5857 11.1125 30.9006L3.25923 21.7837C1.386 19.609 1.386 16.391 3.25923 14.2163L11.1124 5.09937C13.4253 2.41433 17.5846 2.41432 19.8975 5.09937L27.7507 14.2163Z" fill="#FAD600"/>';
 const mark = (w) => `<svg width="${w}" height="${(w * 0.75).toFixed(2)}" viewBox="0 0 48 36" fill="none" aria-hidden="true">${MARK_PATHS}</svg>`;
@@ -52,6 +56,7 @@ async function guestApi(method, path, body) {
   return j;
 }
 const api = (m, p, b) => T.api(m, p, b);
+let tReady = Promise.resolve();
 let mounted = false;
 const S = { open: false, view: "home", threadId: null, home: null, list: null, thread: null, msgs: [], typing: false, seen: false, promise: null, sending: false, topic: null, keep: null, expanded: {}, helpQ: "", poll: null, unread: 0, preview: null, nudged: false, menu: false, statusOk: null };
 let root, tab, panel, nudgeEl, previewEl;
@@ -88,7 +93,8 @@ export function mountChat(opts = {}) {
   if (q) {
     history.replaceState(history.state, "", location.pathname + location.hash); // keep the resume key out of the address bar
     if (q !== "1") { S.view = "thread"; S.threadId = q; }
-    const claim = T.guest && q !== "1" && qs.get("key") ? api("POST", "/support/claim", { thread_id: q, key: qs.get("key") }).catch(() => null) : Promise.resolve();
+    const key = qs.get("key");
+    const claim = q !== "1" && key ? tReady.then(() => (T.guest ? api("POST", "/support/claim", { thread_id: q, key }) : null)).catch(() => null) : Promise.resolve();
     claim.then(() => setOpen(true));
   } else if (!opts.open) checkUnread();
   if (opts.open && !q) setOpen(true);
@@ -96,10 +102,14 @@ export function mountChat(opts = {}) {
 }
 
 // The marketing site: signed-in visitors use their session, everyone else is a visitor. Called by site-config.js.
-export async function mountSite({ root: el, open = false } = {}) {
-  let signedIn = false;
-  try { await loadSession(); if (state.user) { await loadTeams(); signedIn = !!state.team; } } catch { /* treat as a visitor */ }
-  T = signedIn ? { api: (m, p, b) => appApi(m, p, b), guest: false, name: state.profile?.full_name || "", email: state.user.email } : { api: guestApi, guest: true, name: "", email: "" };
+export function mountSite({ root: el, open = false } = {}) {
+  // Draw and open straight away; the sign-in check runs alongside, and the first request waits for it.
+  const guestT = { api: guestApi, guest: true, name: "", email: "" };
+  tReady = (async () => {
+    try { await loadSession(); if (state.user) { await loadTeams(); if (state.team) return { api: (m, p, b) => appApi(m, p, b), guest: false, name: state.profile?.full_name || "", email: state.user.email }; } } catch { /* treat as a visitor */ }
+    return guestT;
+  })().then((t) => { T = t; if (S.open && S.view === "home") draw(); });
+  T = { api: async (m, p, b) => { await tReady; return T.api(m, p, b); }, guest: true, name: "", email: "" };
   mountChat({ site: true, root: el, open });
   return { open: () => setOpen(true) };
 }
@@ -118,9 +128,11 @@ async function setOpen(v) {
   S.open = v; S.menu = false;
   panel.hidden = !v; tab.setAttribute("aria-expanded", String(v));
   root.classList.toggle("on", v);
+  document.documentElement.classList.toggle("sc-open", v);
   nudgeEl.hidden = true; previewEl.hidden = true;
   drawTab();
   if (v) {
+    setTimeout(() => loadDocs().catch(() => {}), 1200);
     if (S.view === "thread" && S.threadId) await loadThread(); else { S.view = S.view === "thread" ? "home" : S.view; await loadHome(); }
     focusInput();
   }
@@ -320,7 +332,7 @@ function onKey(e) {
   if (e.target.matches(".sc-input textarea") && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.target.closest("form").requestSubmit(); }
 }
 function grow(ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; const s = ta.closest("form")?.querySelector(".sc-send"); if (s) s.classList.toggle("ready", !!ta.value.trim()); }
-function focusInput() { requestAnimationFrame(() => panel.querySelector(".sc-input textarea, .sc-ask input")?.focus({ preventScroll: true })); }
+function focusInput() { if (!finePointer()) return; requestAnimationFrame(() => panel.querySelector(".sc-input textarea, .sc-ask input")?.focus({ preventScroll: true })); }
 
 // ------------------------------------------------------------ drawing
 function draw(opt = {}) {
@@ -380,6 +392,12 @@ function drawHelpResults() {
   const box = panel.querySelector("[data-help-results]");
   if (!box) return;
   const q = S.helpQ.trim();
+  if (!docsMod?.done) {
+    if (!box.innerHTML) box.innerHTML = '<div class="sc-skel"></div><div class="sc-skel"></div><div class="sc-skel"></div>';
+    loadDocs().then((m) => { docsMod.done = m; drawHelpResults(); }).catch(() => { box.innerHTML = '<p class="sc-muted">Couldn’t load the docs. <a href="/docs">Open them here</a>.</p>'; });
+    return;
+  }
+  const { DOCS, searchDocs } = docsMod.done;
   const docs = q ? searchDocs(q, 6) : POPULAR.map((id) => DOCS.find((d) => d.id === id)).filter(Boolean);
   panel.querySelector("[data-help-label]").textContent = q ? (docs.length ? "Articles" : "No articles match. Press Enter to ask the assistant.") : "Popular articles";
   box.hidden = !docs.length;

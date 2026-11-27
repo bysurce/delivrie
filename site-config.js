@@ -283,25 +283,48 @@
   document.documentElement.classList.add('sc-site');
   var root = document.createElement('div'); root.className = 'sc site';
   root.innerHTML = '<button class="sc-tab" aria-label="Contact support" aria-expanded="false"><span class="sc-tab-av">' + MARK + '</span><span>Contact support</span></button>';
-  var loading = null;
+  var loading = null, tab = root.querySelector('.sc-tab');
+  // Warm the browser cache (fetch, don't run) the first time someone hovers or touches the button, or once the page is idle.
+  var warmed = false;
+  function warm() {
+    if (warmed) return; warmed = true;
+    ['/app/js/lib/chat.js', '/app/js/lib/sb.js', '/app/js/lib/ui.js', '/app/js/lib/icons.js', '/app/vendor/supabase-js.js'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = h; document.head.appendChild(l); });
+  }
+  // The panel frame appears the moment the button is pressed; the chat fills it in when its code has arrived.
+  // Pressing again (or its close button) before then just closes the frame, and the chat mounts closed.
+  var want = false;
+  function shell(on) {
+    var p = root.querySelector('.sc-shell');
+    if (on && !p) {
+      p = document.createElement('section'); p.className = 'sc-panel v-home sc-shell'; p.setAttribute('aria-label', 'Delivrie support'); p.setAttribute('aria-busy', 'true');
+      p.innerHTML = '<header class="sc-hero"><div class="sc-hero-top"><div class="sc-brand"><span class="sc-av-d big">' + MARK + '</span><b>Delivrie support</b></div><div class="sc-acts"><button class="sc-ib" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div><h2></h2></header><div class="sc-scroll"><div class="sc-skel"></div><div class="sc-skel"></div><div class="sc-skel"></div></div>';
+      p.querySelector('button').addEventListener('click', function () { want = false; shell(false); });
+      root.insertBefore(p, tab);
+    } else if (!on && p) p.remove();
+    root.classList.toggle('on', on); document.documentElement.classList.toggle('sc-open', on);
+    tab.setAttribute('aria-expanded', String(on));
+    if (on) tab.setAttribute('aria-busy', 'true'); else tab.removeAttribute('aria-busy');
+  }
   function load(open) {
-    if (!loading) {
-      root.querySelector('.sc-tab').setAttribute('aria-busy', 'true');
-      loading = import('/app/js/lib/chat.js').then(function (m) { document.removeEventListener('keydown', onKey); return m.mountSite({ root: root, open: open }); });
-    } else if (open) loading.then(function (w) { w.open(); });
-    loading.catch(function () { loading = null; location.href = 'mailto:support@delivrie.io'; });
+    if (open) { want = !want || open === 'force'; shell(want); }
+    if (loading) return;
+    warm();
+    loading = import('/app/js/lib/chat.js').then(function (m) { document.removeEventListener('keydown', onKey); return m.mountSite({ root: root, open: want }); });
+    loading.catch(function () { loading = null; var w = want; shell(false); want = false; if (w) location.href = 'mailto:support@delivrie.io'; });
   }
   function onKey(e) {
     var a = document.activeElement;
-    if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable))) { e.preventDefault(); load(true); }
+    if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable))) { e.preventDefault(); load('force'); }
   }
-  root.querySelector('.sc-tab').addEventListener('click', function () { load(true); });
+  tab.addEventListener('click', function () { load(true); });
+  ['pointerenter', 'touchstart', 'focus'].forEach(function (ev) { tab.addEventListener(ev, warm, { passive: true, once: true }); });
   document.addEventListener('keydown', onKey);
   function start() {
     document.body.appendChild(root);
     var active = false; try { active = !!localStorage.getItem('dlv_support_active'); } catch (e) {}
-    if (/[?&]support=/.test(location.search)) load(true);
+    if (/[?&]support=/.test(location.search)) load('force');
     else if (active) (window.requestIdleCallback || function (f) { setTimeout(f, 2500); })(function () { load(false); });
+    else setTimeout(function () { (window.requestIdleCallback || function (f) { f(); })(warm); }, 4000);
   }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
