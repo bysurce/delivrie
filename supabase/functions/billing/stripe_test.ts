@@ -21,7 +21,7 @@ eq(await verifyStripeSignature(body, `t=${now},v1=${sig}`, "", 300, now), false,
 
 // subscription states
 eq(subState({ status: "active" }), "active", "active");
-eq(subState({ status: "trialing" }), "active", "trialing counts as active (Paystack customers switching)");
+eq(subState({ status: "trialing" }), "active", "trialing counts as active (customers switching from an older plan)");
 eq(subState({ status: "active", cancel_at_period_end: true }), "cancelling", "cancelling");
 eq(subState({ status: "past_due" }), "past_due", "past due");
 eq(subState({ status: "unpaid" }), "past_due", "unpaid");
@@ -35,7 +35,7 @@ eq(periodEnd({}), null, "no period");
 eq(priceKey("transactional", "pro", "monthly", 2000), "delivrie_transactional_pro_monthly_2000", "price key");
 
 const nowMs = Date.UTC(2026, 10, 18);
-eq(trialEndFor("2026-12-12T15:53:00Z", nowMs), Date.UTC(2026, 11, 12, 15, 53) / 1000, "trial until Paystack period ends");
+eq(trialEndFor("2026-12-12T15:53:00Z", nowMs), Date.UTC(2026, 11, 12, 15, 53) / 1000, "trial until the older plan's period ends");
 eq(trialEndFor(new Date(nowMs + 24 * 3600e3).toISOString(), nowMs), null, "under 48h: no trial");
 eq(trialEndFor(null, nowMs), null, "no paid period");
 

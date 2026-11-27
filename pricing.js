@@ -7,7 +7,7 @@
   var P = {
     USD: { sym: '$', starter: 10, starterY: 100, starterOver: 0.45, pro: 20, scale: 45, proY: 200, scaleY: 450, proOver: 0.45, scaleOver: 0.40, payg: 0.60, growth: 20, mktPro: 40, extraContacts: 3.5, packs: [[5, 8300, 'Minimum', 0.60], [25, 41600, '', 0.60], [100, 172400, 'Save 3%', 0.58], [500, 925900, 'Save 10%', 0.54]] }
   };
-  // Prices are in US dollars for everyone (Naira pricing was retired on 27 Nov 2026).
+  // Prices are in US dollars for everyone.
   var cur = 'USD', mode = 'monthly';
   if (/yearly/.test(location.hash)) mode = 'yearly'; else if (/payg|credits/.test(location.hash)) mode = 'payg';
   var view = /^\/(compare|vs\/)/.test(location.pathname) || /compare|vs/.test(location.hash) ? 'compare' : 'plans';

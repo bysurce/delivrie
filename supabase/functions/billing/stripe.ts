@@ -59,7 +59,7 @@ export function periodEnd(sub: Record<string, any>): string | null {
 // subscribers keep the price they signed up at.
 export const priceKey = (kind: string, plan: string, interval: string, amount: number) => `delivrie_${kind}_${plan}_${interval}_${amount}`;
 
-// Checkout's trial_end must be at least 48 hours away; a Paystack customer switching closer to their renewal than
+// Checkout's trial_end must be at least 48 hours away; a customer switching from an older plan closer to its renewal than
 // that simply starts paying in USD now.
 export function trialEndFor(paidUntil: string | null | undefined, nowMs = Date.now()) {
   if (!paidUntil) return null;

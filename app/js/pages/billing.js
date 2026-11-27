@@ -4,8 +4,8 @@ import { esc, icon, fmtDate, num, toast, errToast, modal, formModal, confirmModa
 import { usageTab } from "./settings.js";
 
 const TABS = [["overview", "Overview"], ["usage", "Usage"], ["credits", "Credits & top-ups"], ["invoices", "Invoices"], ["payment-methods", "Payment methods"]];
-// Everything is billed in US dollars; the older Paystack subscriptions (in NGN) only appear for teams that still have one.
-const money = (amount, currency = "USD", exact) => new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", { style: "currency", currency, minimumFractionDigits: exact && amount % 100 ? 2 : 0, maximumFractionDigits: exact ? 2 : 0 }).format((amount || 0) / 100);
+// Everything is billed in US dollars. (Old receipts keep the currency they were paid in.)
+const money = (amount, currency = "USD", exact) => new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: exact && amount % 100 ? 2 : 0, maximumFractionDigits: exact ? 2 : 0 }).format((amount || 0) / 100);
 const cap1 = (x) => String(x || "").replace(/^\w/, (c) => c.toUpperCase());
 const DAY = 864e5;
 const fullDate = (d) => d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
@@ -33,13 +33,13 @@ export default async function billingPage(ctx) {
   const body = ctx.root.querySelector("[data-body]");
   if (tab === "usage") return usageTab(body);
 
-  // Returning from checkout: Stripe adds ?session_id=, Paystack adds ?reference= (and ?trxref=)
-  const sid = ctx.query.session_id, ref = ctx.query.reference || ctx.query.trxref;
+  // Returning from Stripe Checkout: ?session_id=
+  const sid = ctx.query.session_id;
   let s;
-  if (sid || ref) {
+  if (sid) {
     body.innerHTML = `<div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Confirming your payment…</span></div>`;
     try {
-      s = await api("POST", "/billing/verify", sid ? { session_id: sid } : { reference: ref });
+      s = await api("POST", "/billing/verify", { session_id: sid });
       const ok = s.status === "success";
       const what = s.kind === "credits" ? `Credits added. You have ${money(s.credit_value, s.currency)} of credit.` : s.kind === "marketing" ? "Marketing plan updated. Thanks!" : `You're on ${cap1(s.plan)}. Thanks!`;
       toast(ok ? what : "Payment wasn't completed. You haven't been charged.", ok ? "ok" : "info", 6000);
@@ -105,16 +105,12 @@ function overview(B) {
 }
 
 function payBanner(s) {
-  const ps = s.provider === "paystack";
   const L = s.legacy && s.admin ? s.legacy : null;
-  const cname = (c) => c === "NGN" ? "Naira" : "US dollars";
-  // The team's plan was bought through the other provider, which now isn't used for new payments.
-  const legacy = !L ? "" : L.to === "stripe"
-    ? banner("warn", "Billing has moved to US dollars", `${L.status === "cancelling" ? `Your ${esc(cap1(L.plan))} plan is paid until ${fullDate(L.ends)} and ends then.` : `Your ${esc(cap1(L.plan))} plan is paid until ${fullDate(L.ends)} and still renews on its original billing for now.`} Continue in US dollars${L.switch_free_until ? `: your first dollar payment is on ${fullDate(L.switch_free_until)}, so you won't pay twice` : ""}. Top-ups are in dollars from now on.`, `<button class="btn btn-primary btn-sm" data-upgrade="${esc(L.plan)}">Continue in USD</button>`)
-    : banner("warn", "Billing has moved to Naira", `Your ${esc(cap1(L.plan))} plan is paid in US dollars until ${fullDate(L.ends)}${L.status === "cancelling" ? " and ends then. After that," : " and still renews through Stripe for now. Cancel it under Payment methods and, when it ends,"} choose a plan in Naira to keep going. Top-ups are in Naira from now on.`, "");
+  // A plan bought before billing moved to US dollars that is still running out its paid period.
+  const legacy = !L ? "" : banner("warn", "Billing has moved to US dollars", `${L.status === "cancelling" ? `Your ${esc(cap1(L.plan))} plan is paid until ${fullDate(L.ends)} and ends then.` : `Your ${esc(cap1(L.plan))} plan is paid until ${fullDate(L.ends)} and still renews on its original billing for now.`} Continue in US dollars${L.switch_free_until ? `: your first dollar payment is on ${fullDate(L.switch_free_until)}, so you won't pay twice` : ""}. Top-ups are in dollars from now on.`, `<button class="btn btn-primary btn-sm" data-upgrade="${esc(L.plan)}">Continue in USD</button>`);
   if (s.payments_paused) return legacy + `<div class="banner">${icon("info", 14)} Payments are paused right now. Your plan and credits keep working; upgrades and top-ups will be back shortly.</div>`;
-  if (!s.payments_ready) return legacy + `<div class="banner">${icon("info", 14)} Payments aren't connected yet. Plans can't be bought until the ${ps ? "Paystack" : "Stripe"} key is added.</div>`;
-  if (s.mode === "test") return legacy + `<div class="banner">${icon("info", 14)} <span>Test mode: ${ps ? "use Paystack's test card <b>4084 0840 8408 4081</b>, any future expiry, CVV <b>408</b>" : "pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC"}. No real money moves.</span></div>`;
+  if (!s.payments_ready) return legacy + `<div class="banner">${icon("info", 14)} Payments aren't connected yet. Plans can't be bought until the Stripe key is added.</div>`;
+  if (s.mode === "test") return legacy + `<div class="banner">${icon("info", 14)} <span>Test mode: pay with Stripe's test card <b>4242 4242 4242 4242</b>, any future expiry and any CVC. No real money moves.</span></div>`;
   return legacy;
 }
 
@@ -252,7 +248,7 @@ function invoicesTab(B) {
   const s = B.s, d = s.details || {};
   B.body.innerHTML = s.invoices.length ? `<div class="table-wrap"><table class="t inv"><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>
       ${s.invoices.map((i, n) => `<tr><td class="muted">${fullDate(i.paid_at)}</td><td>${esc(i.description || cap1(i.plan))}</td><td><span class="badge gray">${TYPE[i.kind] || "Subscription"}</span></td><td class="num">${money(i.amount, i.currency, true)}${i.tax ? ` <span class="dim sm">incl. ${money(i.tax, i.currency, true)} tax</span>` : ""}</td><td>${statusBadge(i)}</td><td class="r">${i.url ? `<a class="btn btn-ghost btn-sm" href="${esc(i.url)}" target="_blank" rel="noopener" data-native>${icon("download", 12)} Receipt</a>` : `<button class="btn btn-ghost btn-sm" data-pdf="${n}">${icon("download", 12)} PDF</button>`}</td></tr>`).join("")}</tbody></table></div>
-      <p class="dim sm foot-note">${icon("info", 12)} Receipts go to ${esc(d.email || state.user?.email || "your billing email")}. ${s.provider === "paystack" ? `Payments are processed by Paystack.${s.vat_rate ? ` Prices include VAT at ${s.vat_rate}% where it applies.` : ""} Add your address and tax ID under Payment methods to show them on invoices.` : "Payments are processed by Stripe; edit your billing address and tax ID under Payment methods."}</p>`
+      <p class="dim sm foot-note">${icon("info", 12)} Receipts go to ${esc(d.email || state.user?.email || "your billing email")}. Payments are processed by Stripe; edit your billing address and tax ID under Payment methods.</p>`
     : `<div class="empty"><b>No invoices yet</b><span class="dim">Invoices appear here after your first payment.</span></div>`;
 }
 
@@ -264,7 +260,7 @@ function printInvoice(s, i) {
     <div class="grid" style="margin:0"><div><h1>${i.status === "success" ? "Receipt" : "Invoice"}</h1><div class="muted">${esc(i.reference)}</div></div><div class="r"><b>Delivrie</b><br><span class="muted">Surce Inc · delivrie.io<br>billing@delivrie.io</span></div></div>
     <div class="grid"><div><div class="muted">Billed to</div>${addr || esc(state.team?.name || "")}${d.tax_id ? `<br>Tax ID: ${esc(d.tax_id)}` : ""}${d.email ? `<br>${esc(d.email)}` : ""}</div><div class="r"><div class="muted">Date</div>${fullDate(i.paid_at)}<div class="muted" style="margin-top:8px">Status</div>${i.status === "success" ? "Paid" : cap1(i.status)}${i.card ? `<div class="muted" style="margin-top:8px">Payment</div>${esc(i.card)}` : ""}</div></div>
     <table><thead><tr><th>Description</th><th>Type</th><th class="r">Amount</th></tr></thead><tbody><tr><td>${esc(i.description || cap1(i.plan))}</td><td>${TYPE[i.kind] || "Subscription"}</td><td class="r">${money(i.amount, i.currency, true)}</td></tr><tr class="tot"><td>Total</td><td></td><td class="r">${money(i.amount, i.currency, true)}</td></tr></tbody></table>
-    <p class="muted">Team: ${esc(state.team?.name || "")}. Payments are processed by ${i.currency === "NGN" ? "Paystack" : "Stripe"}.</p><button onclick="print()">Print or save as PDF</button><script>setTimeout(()=>print(),300)<\/script></body></html>`);
+    <p class="muted">Team: ${esc(state.team?.name || "")}. ${i.currency === "USD" ? "Payments are processed by Stripe." : ""}</p><button onclick="print()">Print or save as PDF</button><script>setTimeout(()=>print(),300)<\/script></body></html>`);
   w.document.close();
 }
 
@@ -276,12 +272,7 @@ function methodsTab(B) {
   const tPrice = sub ? `${money(sub.price, sub.currency)} / ${per(sub)}` : money(0, s.currency);
   const mPrice = msub ? `${money(msub.price, msub.currency)} / ${per(msub)}` : `${money(0, s.currency)} / mo`;
   const st = (x) => !x ? "" : x.status === "cancelling" ? badge(`Ends ${fmtDate(x.cancel_at)}`, "orange") : x.status === "past_due" ? badge("Payment failed", "red") : "";
-  const ps = s.provider === "paystack";
-  const portal = admin && (ps ? s.can_update_card : s.has_customer);
-  const COUNTRIES = ["Nigeria", "Ghana", "Kenya", "South Africa", "United Kingdom", "United States", "Other"];
-  const TAX_TYPES = [["ng_tin", "NG TIN"], ["vat", "VAT"], ["other", "Other"]];
-  const field = (name, label, val, attrs = "") => `<div class="field"><label>${label}</label><input class="input" name="${name}" value="${esc(val || "")}" ${admin ? "" : "disabled"} ${attrs}></div>`;
-  const sel = (name, label, val, opts) => `<div class="field"><label>${label}</label><select class="input" name="${name}" ${admin ? "" : "disabled"}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === val ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
+  const portal = admin && s.has_customer;
   B.body.innerHTML = `${payBanner(s)}
     ${sect("Payment method", "Used for subscriptions, overage and auto top-ups.", `<div class="pm-row">${icon("card", 15)}<span class="grow">${s.card ? `${esc(s.card)}${s.can_charge_card ? ` <span class="dim">· Default</span>` : ""}` : `<span class="muted">No card yet. Add one when you upgrade or top up.</span>`}</span>${portal ? `<button class="btn btn-secondary btn-sm" data-card>${icon("edit", 12)} ${s.card ? "Update card" : "Add card"}</button>` : ""}</div>${ps && admin && s.card && !s.can_update_card ? `<p class="dim sm" style="margin:8px 0 0">To use a different card, pay with it on your next top-up. It becomes the saved card.</p>` : ""}`)}
     ${sect("Subscriptions", "Plans for this team.", `<div class="table-wrap"><table class="t"><thead><tr><th>Product</th><th>Plan</th><th class="r">Price</th></tr></thead><tbody>
@@ -291,9 +282,7 @@ function methodsTab(B) {
       ${admin ? `<div class="row-flex" style="gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" data-plan ${s.payments_ready ? "" : "disabled"}>${s.plan === "free" ? "Upgrade plan" : "Change plan"}</button><button class="btn btn-secondary btn-sm" data-mkt ${s.payments_ready ? "" : "disabled"}>Marketing plan</button><span class="grow"></span>${sub?.can_manage && sub.status !== "cancelling" ? `<button class="btn btn-ghost btn-sm" data-cancel-sub style="color:var(--red)">Cancel subscription</button>` : ""}${msub?.can_manage && msub.status !== "cancelling" ? `<button class="btn btn-ghost btn-sm" data-cancel-mkt style="color:var(--red)">Cancel marketing</button>` : ""}</div>` : ""}`)}
     ${sect("Spending cap", "The most overage you'll pay in a month.", `<div class="row-flex" style="gap:8px"><span class="grow">${s.spend_cap ? money(s.spend_cap, s.currency) : `<span class="muted">No cap</span>`}</span>${admin ? `<button class="btn btn-secondary btn-sm" data-cap>Edit</button>` : ""}</div>`)}
     ${sect("Billing email", "Receipts go here.", `<div class="row-flex" style="gap:8px"><input class="input" data-bemail type="email" placeholder="${esc(state.user?.email || "finance@company.com")}" value="${esc(d.email || "")}" ${admin ? "" : "disabled"}>${admin ? `<button class="btn btn-secondary" data-save-email>Save</button>` : ""}</div>`)}
-    ${ps ? `${sect("Billing address", "Shown on invoices.", `<form data-addr class="addr">${field("name", "Full name", d.name, 'placeholder="Acme Ltd."')}<div class="two">${sel("country", "Country", d.country || "", [["", "Select a country"], ...COUNTRIES.map((c) => [c, c])])}${field("state", "State", d.state, 'placeholder="Lagos"')}</div>${field("address", "Address", d.address, 'placeholder="12 Admiralty Way"')}<div class="two">${field("city", "City", d.city, 'placeholder="Lekki"')}${field("postal_code", "Postal code", d.postal_code, 'placeholder="106104"')}</div>${admin ? `<button class="btn btn-primary btn-sm" type="submit">Save address</button>` : ""}</form>`)}
-    ${sect("Tax ID", "Optional. Appears on invoices.", `<div class="row-flex" style="gap:8px"><select class="input" data-taxtype style="width:120px" ${admin ? "" : "disabled"}>${TAX_TYPES.map(([v, l]) => `<option value="${v}" ${v === (d.tax_id_type || "ng_tin") ? "selected" : ""}>${l}</option>`).join("")}</select><input class="input" data-taxid placeholder="Tax ID number" value="${esc(d.tax_id || "")}" ${admin ? "" : "disabled"}>${admin ? `<button class="btn btn-secondary" data-save-tax>Save</button>` : ""}</div>`)}`
-    : sect("Billing address and tax ID", "Shown on receipts and used to work out tax. Kept securely by Stripe.", s.has_customer ? `<div class="row-flex" style="gap:8px"><span class="grow muted">Edit your company name, address and tax ID in Stripe's billing portal.</span>${admin ? `<button class="btn btn-secondary btn-sm" data-portal>${icon("external", 12)} Edit billing details</button>` : ""}</div>` : `<span class="muted">You'll enter these at checkout the first time you pay.</span>`)}`;
+    ${sect("Billing address and tax ID", "Shown on receipts and used to work out tax. Kept securely by Stripe.", s.has_customer ? `<div class="row-flex" style="gap:8px"><span class="grow muted">Edit your company name, address and tax ID in Stripe's billing portal.</span>${admin ? `<button class="btn btn-secondary btn-sm" data-portal>${icon("external", 12)} Edit billing details</button>` : ""}</div>` : `<span class="muted">You'll enter these at checkout the first time you pay.</span>`)}`;
 }
 
 // ------------------------------------------------------------ actions
@@ -321,8 +310,6 @@ function bindActions(B) {
   on(body, "click", "[data-cancel-sub]", () => cancelSub(B));
   on(body, "click", "[data-cancel-mkt]", () => cancelMkt(B));
   on(body, "click", "[data-cap]", () => editCap(B));
-  on(body, "click", "[data-save-tax]", (_e, b) => saveDetails({ tax_id_type: body.querySelector("[data-taxtype]").value, tax_id: body.querySelector("[data-taxid]").value.trim() }, b, "Tax ID saved"));
-  on(body, "submit", "[data-addr]", (e, f) => { e.preventDefault(); saveDetails(Object.fromEntries(new FormData(f)), f.querySelector("button"), "Billing address updated"); });
   on(body, "click", "[data-save-email]", (_e, b) => saveDetails({ email: body.querySelector("[data-bemail]").value.trim() }, b, "Billing email saved"));
 }
 
@@ -332,7 +319,7 @@ async function saveSettings(B, patch, msg) {
 
 function editCap(B) {
   const s = B.s, cur = s.currency;
-  formModal({ title: "Spending cap", desc: `The most overage you'll pay in a month, in ${cur === "NGN" ? "Naira" : "US dollars"}. When a send would go past it, the API returns spending_cap_reached. Leave empty for no cap.`, fields: [{ name: "amount", label: `Cap (${cur})`, placeholder: cur === "NGN" ? "50000" : "50", value: s.spend_cap ? String(s.spend_cap / 100) : "" }], submit: "Save",
+  formModal({ title: "Spending cap", desc: `The most overage you'll pay in a month, in US dollars. When a send would go past it, the API returns spending_cap_reached. Leave empty for no cap.`, fields: [{ name: "amount", label: `Cap (${cur})`, placeholder: "50", value: s.spend_cap ? String(s.spend_cap / 100) : "" }], submit: "Save",
     async onSubmit(v) { await B.refresh(await api("POST", "/billing/cap", { amount: v.amount.trim() })); toast(B.s.spend_cap ? "Spending cap saved" : "Spending cap removed"); } });
 }
 
@@ -374,7 +361,7 @@ function autoTopup(B) {
 
 // Top up credits (Figma 9.11 · Top up)
 function topUp(B, preset) {
-  const s = B.s, cur = s.currency, ps = s.provider === "paystack";
+  const s = B.s, cur = s.currency;
   if (!s.admin) return toast("Only team admins can buy credits.", "info");
   if (!s.payments_ready) return toast("Payments aren't connected yet.", "info");
   let pick = preset === "custom" ? "custom" : preset != null && s.packs[preset] ? Number(preset) : 1;
@@ -392,12 +379,11 @@ function topUp(B, preset) {
       const autoPack = () => pick === "custom" ? 1 : pick;
       const render = () => {
         const a = amount(), vat = Math.round(a * (s.vat_rate || 0) / 100);
-        const methods = ps ? [[s.can_charge_card ? "card" : "checkout", s.can_charge_card ? esc(s.card) : "Card"], ...(s.can_charge_card ? [["checkout", "Another card"]] : []), ["bank_transfer", "Bank transfer"], ["ussd", "USSD"]]
-          : s.can_charge_card ? [["card", esc(s.card)], ["checkout", "Another card"]] : null;
+        const methods = s.can_charge_card ? [["card", esc(s.card)], ["checkout", "Another card"]] : null;
         tb.innerHTML = `<div class="packs">${shown.map((i) => { const k = s.packs[i]; return `<button type="button" class="pack ${pick === i ? "on" : ""}" data-k="${i}"><b>${money(k.price[cur], cur)}</b><span class="dim">${num(k.emails)} emails</span>${k.note && k.note !== "Minimum" ? `<span class="badge green">${esc(k.note)}</span>` : ""}</button>`; }).join("")}
             <div class="pack ${pick === "custom" ? "on" : ""}" data-k="custom" tabindex="0"><b>Custom</b>${pick === "custom" ? `<input class="input sm" data-custom inputmode="decimal" placeholder="${s.min_topup[cur] / 100}" value="${esc(custom)}">` : `<span class="dim">Min ${money(s.min_topup[cur], cur)}</span>`}</div></div>
           ${methods ? `<div class="field" style="margin-top:14px"><label>Pay with</label>${segmented(methods, method, "data-mth")}</div>` : ""}
-          <label class="auto-row"><span class="grow"><b>Turn on auto top-up</b><span class="dim">Add ${money(s.packs[autoPack()].price[cur], cur)} when credits drop below ${money(s.auto_topup.threshold, cur)} · charged to your saved card${method === "bank_transfer" || method === "ussd" ? " (needs a card payment)" : ""}</span></span><input type="checkbox" class="toggle" data-autot ${auto ? "checked" : ""} ${s.auto_topup.enabled ? "disabled" : ""}></label>
+          <label class="auto-row"><span class="grow"><b>Turn on auto top-up</b><span class="dim">Add ${money(s.packs[autoPack()].price[cur], cur)} when credits drop below ${money(s.auto_topup.threshold, cur)} · charged to your saved card</span></span><input type="checkbox" class="toggle" data-autot ${auto ? "checked" : ""} ${s.auto_topup.enabled ? "disabled" : ""}></label>
           <div class="sum"><div><span class="muted">Credits${pick === "custom" && a ? ` · ${num(emails())} emails` : ""}</span><span>${money(a, cur)}</span></div>${vat ? `<div><span class="muted">VAT ${s.vat_rate}%</span><span>${money(vat, cur)}</span></div>` : ""}<div class="tot"><span>Charged today</span><span>${money(a + vat, cur)}${s.tax_ready ? ` <span class="dim sm">+ tax</span>` : ""}</span></div></div>`;
         go.textContent = a ? `Pay ${money(a + vat, cur)}` : "Pay";
         go.disabled = !a || a < s.min_topup[cur];
@@ -431,7 +417,7 @@ function changePlan(B, kind, startMode, preselect) {
   const currency = s.currency;
   let mode = startMode || (s.subscription?.interval === "yearly" ? "yearly" : "monthly");
   let pick = preselect || null;
-  // A Stripe plan changes in place; Paystack starts a new subscription at checkout and stops the old one.
+  // A plan changes in place on Stripe (the difference is charged or credited now).
   const stripeSub = (x) => x && x.provider === "stripe" && s.provider === "stripe" && x.status !== "canceled";
   const live = kind === "marketing" ? stripeSub(s.marketing_subscription) : stripeSub(s.subscription);
   // A plan bought through the other provider isn't "current" here: picking it again is how the team moves over.
@@ -454,9 +440,8 @@ function changePlan(B, kind, startMode, preselect) {
             + s.plans.map((p) => row(p.id, p.name, `${num(p.emails)} emails/month${p.id === "starter" ? " · 1,500/day" : ""} · ${money(p.overage[cur], cur, true)} per extra 1k${yr ? ` · ${money(p.yearly[cur], cur)} billed yearly` : ""}`, money(yr ? Math.round(p.yearly[cur] / 12) : p.monthly[cur], cur, yr) + "<em>/mo</em>", isCurrent(p.id))).join("")
             + `<a class="pick" href="/contact-sales" target="_blank" data-native><span class="radio" style="visibility:hidden"></span><span class="grow"><b>Enterprise</b><span class="dim">Custom volume, SSO, SLA</span></span><span class="pr">Talk to sales</span></a>`;
         }
-        mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span><span class="dim sm">${currency === "NGN" ? "Prices in Naira, paid through Paystack" : `Prices in USD${s.tax_ready ? ", plus tax where it applies" : ""}`}</span></div>
-          ${s.legacy && kind === "transactional" ? `<p class="hint" style="margin:0 0 10px">${s.legacy.to === "stripe" ? `Your current plan is paid until ${fullDate(s.legacy.ends)}.${s.legacy.switch_free_until ? " Your first dollar payment is on that date, so you won't pay twice." : ""} Its old billing stops when you switch.` : `Your current plan is paid in US dollars until ${fullDate(s.legacy.ends)}. You can choose a Naira plan once it has ended.`}</p>` : ""}
-          ${!s.legacy && !live && currency === "NGN" && s.subscription && s.subscription.status !== "canceled" && kind === "transactional" && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">You'll pay for the new plan at checkout. Your current Paystack subscription stops once it goes through, so you aren't charged twice.</p>` : ""}
+        mb.innerHTML = `<div class="row-flex" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">${kind === "marketing" ? "" : segmented([["monthly", "Monthly"], ["yearly", `Yearly <span class="save">2 months free</span>`]], mode, "data-m")}<span class="grow"></span><span class="dim sm">Prices in USD${s.tax_ready ? ", plus tax where it applies" : ""}</span></div>
+          ${s.legacy && kind === "transactional" ? `<p class="hint" style="margin:0 0 10px">${`Your current plan is paid until ${fullDate(s.legacy.ends)}.${s.legacy.switch_free_until ? " Your first dollar payment is on that date, so you won't pay twice." : ""} Its old billing stops when you switch.`}</p>` : ""}
           ${!s.legacy && live && pick && pick !== "free" && !isCurrent(pick) ? `<p class="hint" style="margin:0 0 10px">Your plan changes right away. You'll be charged the difference for the rest of this billing period (or get a credit when moving down).</p>` : ""}
           <div class="picks stagger">${list}</div>${kind === "marketing" ? "" : `<p class="dim sm" style="margin:12px 0 0">Need emails without a monthly fee? <button class="link" data-payg>Buy pay-as-you-go credits</button></p>`}`;
         go.textContent = !pick ? "Continue" : pick === "free" ? (kind === "marketing" ? "Move to Starter" : "Downgrade to Free") : `Continue with ${planName(pick, kind)}${kind === "transactional" ? ` · ${mode}` : ""}`;

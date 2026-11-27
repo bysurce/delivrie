@@ -15,7 +15,7 @@ except Exception:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOOT = ('<script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";'
         'document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}'
-    # Prices are in US dollars for everyone (Naira was retired on 27 Nov 2026). Anything still marked only-ngn stays hidden.
+    # Prices are in US dollars for everyone.
     'document.documentElement.dataset.cur="USD";'
         # Signed in already (a Supabase session is stored on this origin): the nav offers Dashboard instead of
         # Log in / Get started. Hidden before first paint; the button is relabelled as soon as the page is parsed.
@@ -27,7 +27,7 @@ BOOT = ('<script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"l
         'a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";'
         'if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t))a.textContent="Go to dashboard"})};'
         'document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}'
-        '</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}.only-ngn{display:none!important}</style>')
+        '</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}</style>')
 ICONS = {
     "system": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
     "light": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',

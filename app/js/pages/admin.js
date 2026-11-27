@@ -11,7 +11,7 @@ const RANK = { viewer: 1, admin: 2, owner: 3 };
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
 let ROLE = null;
 const can = (min) => (RANK[ROLE] || 0) >= RANK[min];
-const money = (amount, currency) => new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format((amount || 0) / 100);
+const money = (amount, currency) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format((amount || 0) / 100);
 const pct = (a, b, d = 1) => b ? `${((a / b) * 100).toFixed(d)}%` : "0%";
 const planBadge = (p) => badge(p === "free" ? "Free" : p.replace(/^\w/, (c) => c.toUpperCase()), p === "free" ? "gray" : p === "scale" || p === "enterprise" ? "blue" : "yellow");
 
@@ -247,7 +247,7 @@ async function admins(body) {
 async function revenue(body) {
   const [o, inv] = await Promise.all([rpc("admin_overview"), rpc("admin_invoices", { p_limit: 200 })]);
   const paying = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
-  // Payments in US dollars through Stripe. (Older Naira payments stay in the database but aren't shown.)
+  // Payments in US dollars through Stripe.
   const section = (cur, title, provider) => {
     const rows = inv.filter((i) => (i.currency || "").toUpperCase() === cur);
     const paidRows = rows.filter((i) => i.status === "success");
@@ -318,7 +318,7 @@ function sitePayments(el, cfg, save) {
   draw();
   on(el, "change", "[data-pay]", async (_e, t) => {
     if (!t.checked && !(await confirmModal({ title: "Pause payments?", desc: "With Stripe off nobody can upgrade or top up. Plans already running keep working and renewing.", confirm: "Pause payments" }))) { t.checked = true; return; }
-    try { await save("billing", { stripe: t.checked, paystack: false }, "Saved. Applies within a minute."); } catch (e) { errToast(e); }
+    try { await save("billing", { stripe: t.checked }, "Saved. Applies within a minute."); } catch (e) { errToast(e); }
     draw();
   });
 }

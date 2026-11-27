@@ -166,8 +166,8 @@ async function checkQuota(c: Ctx, n: number) {
     if (L.day && (await count(day)) + n > L.day) throw new HttpError(429, "daily_quota_exceeded", `You've reached the ${name} plan's daily limit of ${L.day.toLocaleString("en-US")} emails. It resets at midnight UTC, or upgrade to Pro for no daily limit.`);
     const cap = Number(t?.billing?.spend_cap || 0);
     if (!cap || !L.month) return;
-    // The cap is in the currency the team pays in: Naira on Paystack, US dollars on Stripe.
-    const cur = t?.billing?.provider === "paystack" ? "NGN" : t?.billing?.provider === "stripe" ? "USD" : t?.billing?.currency === "NGN" ? "NGN" : "USD";
+    // The cap is in US dollars.
+    const cur = "USD";
     const over = Math.max(0, (await count(month)) + n - L.month);
     const cost = Math.ceil(over / 1000) * L.overage[cur];
     if (cost > cap) throw new HttpError(429, "spending_cap_reached", `This send would take overage past your spending cap. Raise or remove the cap in Billing.`);
@@ -978,8 +978,8 @@ async function publicRoutes(req: Request, path: string, url: URL): Promise<Respo
     const { data } = await db.from("site_config").select("key,value");
     const cfg: Any = { pages: {}, banner: null, compare: null, edits: {} };
     for (const r of data || []) cfg[r.key] = r.value;
-    // Which payment providers are on (Admin → Website → Payments); the site shows Naira or dollars to match.
-    cfg.billing = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false };
+    // Whether payments are on (Admin → Website → Payments).
+    cfg.billing = { stripe: cfg.billing?.stripe !== false };
     const only = url.searchParams.get("only");
     const body = only === "pages" ? { pages: cfg.pages, billing: cfg.billing } : cfg;
     return new Response(JSON.stringify(body), { headers: { ...CORS, "content-type": "application/json", "cache-control": "public, max-age=30, s-maxage=30, stale-while-revalidate=300" } });

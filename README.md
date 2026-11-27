@@ -14,7 +14,7 @@ Live at https://delivrie.io
 | `app.html`, `app/` | Dashboard SPA (vanilla JS ES modules, no build step) |
 | `assets/` | Logos, favicon and icons (from the Figma brand page) |
 | `supabase/functions/delivrie/` | Edge function: REST API, SES/SNS integration, webhooks, cron, MCP server |
-| `supabase/functions/billing/` | Edge function: subscriptions, credits and overage. Everyone pays in USD through Stripe; Naira subscriptions started before 27 Nov 2026 still renew through Paystack (with Stripe Tax). Served at `/api/billing/*` |
+| `supabase/functions/billing/` | Edge function: subscriptions, credits and overage. Everyone pays in USD through Stripe (with Stripe Tax). Served at `/api/billing/*` |
 | `supabase/migrations/` | Database schema: tables, row-level security, RPCs, cron job, storage bucket |
 | `vercel.json` | Rewrites `/api/*` to the edge function and app routes to `app.html` |
 
@@ -37,8 +37,6 @@ Live at https://delivrie.io
 | `ENFORCE_LIMITS` | Optional | `true` to enforce plan limits |
 | `STRIPE_SECRET_KEY` | For billing | Stripe secret key (`sk_test_…` while testing, `sk_live_…` in production) |
 | `STRIPE_WEBHOOK_SECRET` | For billing | Signing secret of the Stripe webhook endpoint `https://delivrie.io/api/billing/stripe/webhook` (`whsec_…`) |
-| `PAYSTACK_SECRET_KEY` | For billing | Paystack secret key, for renewals of Naira subscriptions started before 27 Nov 2026 (webhook `https://delivrie.io/api/billing/webhook` is signed with it) |
-| `VAT_RATE` | Optional | Percent VAT added to Naira charges on those legacy subscriptions, e.g. `7.5` |
 | `DLV_PROXY_SECRET` | Recommended | A long random value, set to the same value here and on Vercel (Project → Settings → Environment Variables). Lets the API trust the visitor country and address that delivrie.io passes along |
 
 The Supabase anon key in `app/js/lib/sb.js` is public by design; data access is protected by row-level security.
