@@ -243,7 +243,10 @@ async function saveBilling(teamId: string, patch: Record<string, unknown>, plan?
 // Audit log entries for billing (Enterprise teams can read them in Settings -> Audit log). A user's own action
 // names them; provider-confirmed changes are "system". Never blocks the billing action itself.
 async function auditLog(teamId: string, user: Any | null, action: string, label: string | null, metadata: Record<string, unknown> = {}, req?: Request) {
-  const ip = req ? (req.headers.get("x-forwarded-for") || "").split(",")[0].trim().slice(0, 64) || null : null;
+  // The visitor's address as delivrie.io saw it (signed, see countryOf); otherwise the address Supabase saw.
+  const viaSite = req?.headers.get("x-dlv-client-ip");
+  const signed = !!(viaSite && PROXY_SECRET && (req?.headers.get("x-dlv-proxy") || "").trim() === PROXY_SECRET);
+  const ip = req ? (signed ? viaSite!.trim().slice(0, 64) : (req.headers.get("cf-connecting-ip") || (req.headers.get("x-forwarded-for") || "").split(",")[0] || "").trim().slice(0, 64) || null) : null;
   const { error } = await db.from("audit_logs").insert({
     team_id: teamId, actor_type: user ? "user" : "system", actor_id: user?.id || null, actor_label: user ? user.email : "Billing",
     action, target_type: "billing", target_id: teamId, target_label: label, metadata, ip, user_agent: user ? "Dashboard" : null,

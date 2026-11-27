@@ -2,7 +2,7 @@
 // Settings are cached for 30 seconds per edge instance. If they can't be loaded, pages stay on (fail open).
 export const config = {
   // Every page (not assets, files or the API), so each visitor gets the country cookie below.
-  matcher: ['/sitemap.xml', '/api/billing/:path*', '/((?!api/|app/|assets/|docs-md/|_vercel/|.*\\.[a-z0-9]+$).*)'],
+  matcher: ['/sitemap.xml', '/api/:path*', '/((?!api/|app/|assets/|docs-md/|_vercel/|.*\\.[a-z0-9]+$).*)'],
 };
 
 // Pages that can be switched off in Admin → Website.
@@ -62,15 +62,20 @@ async function sitemap(url) {
 // and is sent with a shared secret (DLV_PROXY_SECRET) so requests that skip this middleware can't fake it.
 // Vercel forwards only the request headers named in x-middleware-override-headers, so every header is listed:
 // naming just the new one would drop Authorization and the rest.
+// The rest of the API gets the visitor's own address the same way (x-dlv-client-ip): Supabase only sees Vercel's
+// server, and the API needs the person's address for the audit log and for blocking banned accounts.
 function billing(request) {
   const cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+  const ip = (request.headers.get('x-real-ip') || (request.headers.get('x-forwarded-for') || '').split(',')[0] || '').trim().slice(0, 64);
   const fwd = new Headers(request.headers);
   fwd.delete('x-dlv-country');
   fwd.delete('x-dlv-proxy');
+  fwd.delete('x-dlv-client-ip');
   if (cc) fwd.set('x-dlv-country', cc);
-  // Proves to the billing function that the country came from here, not from the caller.
+  if (ip) fwd.set('x-dlv-client-ip', ip);
+  // Proves to the API that these came from here, not from the caller.
   const secret = (process.env.DLV_PROXY_SECRET || '').trim();
-  if (cc && secret) fwd.set('x-dlv-proxy', secret);
+  if ((cc || ip) && secret) fwd.set('x-dlv-proxy', secret);
   const out = new Headers({ 'x-middleware-next': '1' });
   const names = [];
   fwd.forEach((value, name) => { names.push(name); out.set('x-middleware-request-' + name, value); });
@@ -80,9 +85,9 @@ function billing(request) {
 
 export default async function middleware(request) {
   const url = new URL(request.url);
-  if (url.pathname.startsWith('/api/billing/')) {
+  if (url.pathname.startsWith('/api/')) {
     // Webhooks and cron calls pass through untouched: their signatures and secrets must arrive exactly as sent.
-    if (/\/(webhook|cron\/[a-z]+)\/?$/.test(url.pathname)) return new Response(null, { headers: { 'x-middleware-next': '1' } });
+    if (/\/(webhook|webhooks\/[a-z]+|cron(\/[a-z]+)?|ses|status\/run)\/?$/.test(url.pathname)) return new Response(null, { headers: { 'x-middleware-next': '1' } });
     return billing(request);
   }
   if (url.pathname === '/sitemap.xml') return url.searchParams.has('raw') ? new Response(null, { headers: { 'x-middleware-next': '1' } }) : sitemap(url);

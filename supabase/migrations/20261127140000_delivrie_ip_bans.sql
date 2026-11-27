@@ -2,7 +2,7 @@
 --
 -- account_ips: the addresses each person uses the dashboard from, recorded by the API (throttled) so they're still
 --   known after sessions end. Kept 180 days.
--- blocked_ips: addresses that can't use the API or dashboard API, or sign up. Filled automatically when an account is
+-- blocked_ips: addresses that can't use the API (including the dashboard's calls to it) or sign up. Filled automatically when an account is
 --   banned (auth.users.banned_until set in the future, from Admin or anywhere else) and cleared when it's unbanned.
 --   Each block lasts 90 days: mobile networks share and reuse addresses, so a permanent block would end up hitting
 --   other people.
@@ -40,15 +40,14 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.note_ip(uuid, uuid, text) from public, anon, authenticated;
 
--- Every address a person is known to have used from their own browser: dashboard requests, dashboard changes in the
--- audit log and current sessions. Addresses of API-key and connected-app requests are left out on purpose: those come
+-- Every address a person is known to have used from their own browser: dashboard requests (recorded by the API from
+-- the address delivrie.io signs, see clientIp) and current sign-in sessions. Not the audit log, which before
+-- 27 November recorded Vercel's server for dashboard requests; and not API-key or connected-app requests, which come
 -- from servers (hosting providers, AI assistants) that many other customers share.
 create or replace function public.ips_of_user(p_user uuid) returns setof text
 language sql stable security definer set search_path = public, auth as $$
   select distinct ip from (
     select ip from public.account_ips where user_id = p_user
-    union all
-    select ip from public.audit_logs where actor_id = p_user::text and actor_type = 'user' and user_agent = 'Dashboard' and ip is not null
     union all
     select host(s.ip) from auth.sessions s where s.user_id = p_user and s.ip is not null
   ) x where ip is not null and ip <> '';
