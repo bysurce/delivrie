@@ -278,7 +278,7 @@ def status():
     <h2 class="h2 sm">Incidents</h2><div class="st-inc" id="st-inc"><p class="dim">Loading…</p></div>
     <p class="dim st-foot">Something not working for you? Email <a href="mailto:support@delivrie.io">support@delivrie.io</a> or use the chat in your dashboard. Status data: <a href="/api/public/status">/api/public/status</a>.</p>
   </div></section>"""
-    page("/status", "System status", "Live status of every part of Delivrie: email API, sending, delivery, SMTP relay, webhooks, scheduled sends, MCP server, dashboard and billing, with 90 days of uptime.", body)
+    page("/status", "System status", "Live status of Delivrie: email API, sending, delivery, SMTP relay, webhooks, scheduled sends and the dashboard, with 90 days of uptime.", body)
 
 def contact_sales():
     feats = [("zap", "Volume pricing", "Discounts from 1M emails a month, billed in dollars or Naira."), ("shield", "Security review", "Our DPA, security answers and a call with the team."), ("globe", "Dedicated IPs", "Warm-up plans and help with deliverability."), ("users", "Migration help", "We help you move templates, contacts and suppressions.")]
@@ -302,7 +302,7 @@ def contact_sales():
 def support():
     feats = [("book", "Documentation", "Guides for sending, domains, webhooks, the API and the MCP server.", "/docs", "Read the docs"),
              ("mail", "Email support", "Write to support@delivrie.io. We reply within one business day, Monday to Friday (UTC+1).", "mailto:support@delivrie.io", "Email support"),
-             ("zap", "System status", "Live status of the API, delivery, webhooks, dashboard and MCP server.", "/status", "View status"),
+             ("zap", "System status", "Live status of the API, sending, delivery, webhooks and dashboard.", "/status", "View status"),
              ("shield", "Security", "Report a vulnerability or ask about how we protect your data.", "mailto:security@delivrie.io", "Email security")]
     cards_html = "".join(f'<article class="fcard"><span class="fic">{ICON.get(i, ICON["spark"])}</span><h3>{E(t)}</h3><p>{E(d)}</p><p><a href="{h}">{E(l)} &rarr;</a></p></article>' for i, t, d, h, l in feats)
     faq = [("I connected Delivrie to ChatGPT or Claude. How do I disconnect it?", "In Delivrie, open Settings, then Connected apps, and revoke the app. You can also remove it from the AI app's connector settings."),

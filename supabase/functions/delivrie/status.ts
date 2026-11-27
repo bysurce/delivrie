@@ -1,12 +1,14 @@
 // delivrie.io/status: every 5 minutes pg_cron calls POST /status/run, which checks each component and stores
 // the result in status_checks. GET /public/status returns the live state, 90 days of uptime and incidents.
 // Details shown publicly are written for customers: no provider names, keys, volumes or internal errors.
-import { type Any, APP_URL, db, SUPABASE_URL, setting } from "./util.ts";
+import { type Any, APP_URL, db } from "./util.ts";
 import { accountStatus, hasAws } from "./ses.ts";
 
 type State = "operational" | "degraded" | "down";
 interface Result { state: State; latency_ms?: number; detail?: string }
 
+// What customers rely on to send and receive email. Our marketing site, billing and the MCP endpoint aren't listed:
+// checking them from here mostly measured cold starts and the trip across the internet, not outages.
 export const COMPONENTS: { id: string; name: string; about: string }[] = [
   { id: "api", name: "Email API", about: "REST API for sending and managing email" },
   { id: "sending", name: "Email sending", about: "Accepting and sending new emails" },
@@ -14,10 +16,7 @@ export const COMPONENTS: { id: string; name: string; about: string }[] = [
   { id: "smtp", name: "SMTP relay", about: "smtp.delivrie.io on ports 587, 465, 2587 and 2465" },
   { id: "webhooks", name: "Webhooks", about: "Delivering events to your endpoints" },
   { id: "scheduler", name: "Scheduled sends and automations", about: "Scheduled emails, broadcasts and automation runs" },
-  { id: "mcp", name: "MCP server", about: "AI assistants connected through delivrie.io/api/mcp" },
   { id: "dashboard", name: "Dashboard", about: "The Delivrie app at delivrie.io" },
-  { id: "website", name: "Website and docs", about: "delivrie.io and the documentation" },
-  { id: "billing", name: "Billing", about: "Plans, checkout and credit top-ups" },
 ];
 
 async function timed<T>(fn: () => Promise<T>, ms = 8000): Promise<[T, number]> {
@@ -83,42 +82,11 @@ const CHECKS: Record<string, () => Promise<Result>> = {
     if (worst > 5) return { state: "degraded", detail: "Scheduled emails and automations are running late" };
     return { state: "operational" };
   },
-  async mcp() {
-    const probe = async () => {
-      // 15s: this request goes out through delivrie.io and back, and can land on a cold worker.
-      const [r, ms] = await timed(() => fetch(`${APP_URL}/api/mcp`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }) }), 15000);
-      await r.body?.cancel();
-      return { ok: r.status === 401 && /resource_metadata/.test(r.headers.get("www-authenticate") || ""), ms };
-    };
-    let { ok, ms } = await probe();
-    // A slow first answer is usually a cold start; only call it degraded if a second, warm request is slow too.
-    if (ok && ms > 4000) ({ ok, ms } = await probe());
-    return ok ? { state: ms > 4000 ? "degraded" : "operational", latency_ms: ms } : { state: "down", latency_ms: ms, detail: "The MCP server isn't responding" };
-  },
   async dashboard() {
     const [r, ms] = await timed(() => fetch(`${APP_URL}/app/js/main.js`, { headers: { "cache-control": "no-cache" } }));
     await r.body?.cancel();
-    return r.ok ? { state: ms > 4000 ? "degraded" : "operational", latency_ms: ms } : { state: "down", latency_ms: ms, detail: "The dashboard isn't loading" };
-  },
-  async website() {
-    const [r, ms] = await timed(() => fetch(`${APP_URL}/`, { headers: { "cache-control": "no-cache" } }));
-    const text = await r.text();
-    const [d] = await timed(() => fetch(`${APP_URL}/docs/send-email`)).catch(() => [null] as const);
-    await d?.body?.cancel();
-    if (!r.ok || !text.includes("Delivrie")) return { state: "down", latency_ms: ms, detail: "delivrie.io isn't loading" };
-    if (!d?.ok) return { state: "degraded", latency_ms: ms, detail: "The docs aren't loading" };
-    return { state: ms > 4000 ? "degraded" : "operational", latency_ms: ms };
-  },
-  async billing() {
-    const secret = String(await setting("cron_secret"));
-    // 15s: the billing function often starts cold for this check, then calls Stripe.
-    let r: Response, ms: number;
-    // No answer in time is a slow start of the billing service, not proof payments are down.
-    try { [r, ms] = await timed(() => fetch(`${SUPABASE_URL}/functions/v1/billing/cron/health`, { method: "POST", headers: { "x-cron-secret": secret } }), 20000); }
-    catch { return { state: "degraded", detail: "Checkout is slow to respond" }; }
-    const j: Any = await r.json().catch(() => ({}));
-    if (!j.configured) return { state: "degraded", latency_ms: ms, detail: "Payments aren't available right now" };
-    return j.ok ? { state: "operational", latency_ms: ms } : { state: "degraded", latency_ms: ms, detail: "Checkout may be unavailable" };
+    // Whether it loads, not how fast: a slow trip from our checker isn't something customers see.
+    return r.ok ? { state: "operational", latency_ms: ms } : { state: "down", latency_ms: ms, detail: "The dashboard isn't loading" };
   },
 };
 
@@ -160,6 +128,6 @@ export async function publicStatus() {
     sending: sending ? sending.state !== "down" : hasAws(),
     checked_at: checkedAt,
     components,
-    incidents: (s.incidents || []).map((i: Any) => ({ component: i.component, component_name: names.get(i.component) || i.component, severity: i.severity, detail: i.detail, started_at: i.started_at, resolved_at: i.resolved_at })),
+    incidents: (s.incidents || []).filter((i: Any) => names.has(i.component)).map((i: Any) => ({ component: i.component, component_name: names.get(i.component) || i.component, severity: i.severity, detail: i.detail, started_at: i.started_at, resolved_at: i.resolved_at })),
   };
 }
