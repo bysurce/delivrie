@@ -237,7 +237,7 @@ export async function render(forceShell = false) {
   if (r.kind !== "public" || ["/login", "/signup"].includes(path)) {
     await loadSession();
     if (state.user && !state.teams.length) await loadTeams();
-    if (state.user && state.platformAdmin === undefined) { state.platformAdmin = false; sb.rpc("is_platform_admin").then(({ data }) => { state.platformAdmin = !!data; }, () => {}); }
+    if (state.user && state.platformAdmin === undefined) { state.platformAdmin = false; sb.rpc("platform_role").then(({ data }) => { state.platformRole = data || null; state.platformAdmin = !!data; if (data && data !== "viewer") import("./lib/support-alerts.js").then((m) => m.startSupportAlerts(data)).catch(() => {}); }, () => {}); }
   }
   if (r.kind !== "public" && !state.user) { navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`, { replace: true }); return; }
   // Where to go after signing in (?next=…, or ?plan=pro from the pricing page). Kept through sign-up, the emailed code and team setup.

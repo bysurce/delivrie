@@ -2,7 +2,7 @@
 // person" turns the conversation into a numbered ticket (#DLV-2041) with a topic and context attached (the email in
 // question with its headers, the domain's DNS checks). The team replies from Admin → Support, resolves it, and the
 // customer rates it. Replies left unread for 5 minutes go out by email (see supportCron).
-import { type Any, APP_URL, bad, db, domainOf, forbidden, hmacUrl, json, LIMITS, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
+import { type Any, APP_URL, bad, db, domainOf, forbidden, HttpError, hmacUrl, json, LIMITS, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
 import { hasAws } from "./ses.ts";
 import { deliver } from "./send.ts";
 import { searchDocs } from "./docs.js";
@@ -23,9 +23,9 @@ const msgOut = (m: Any) => ({ id: m.id, author: m.author, author_name: m.author_
 function needDashboard(c: Any) { if (c.via !== "dashboard" || !c.userId) throw forbidden("Support chat is only available from the dashboard"); }
 async function isAdmin(userId: string | null) {
   if (!userId) return false;
-  // Support conversations are for owners and admins; usage viewers only see the admin dashboard's numbers.
+  // Support conversations are for owners, admins and support people; usage viewers only see the numbers.
   const { data } = await db.from("platform_admins").select("role").eq("user_id", userId).maybeSingle();
-  return data?.role === "owner" || data?.role === "admin";
+  return data?.role === "owner" || data?.role === "admin" || data?.role === "support";
 }
 async function needAdmin(c: Any) { needDashboard(c); if (!(await isAdmin(c.userId))) throw forbidden("Platform admins only"); }
 async function userEmail(id: string | null) {
@@ -62,7 +62,7 @@ const quote = (s: string) => `<blockquote style="margin:0 0 12px;padding:10px 14
 let teamCache: { at: number; people: { initials: string; name: string }[]; on_shift: number } | null = null;
 async function supportTeam() {
   if (teamCache && Date.now() - teamCache.at < 10 * 60e3) return teamCache;
-  const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
+  const { data: admins } = await db.from("platform_admins").select("user_id").in("role", STAFF);
   const people: { initials: string; name: string }[] = [];
   let onShift = 0;
   for (const a of admins || []) {
@@ -319,18 +319,26 @@ async function rateLimit(who: Who, kind: "message" | "thread" | "escalate" = "me
     if (ipIds.length) { const { count } = await db.from("support_messages").select("id", { count: "exact", head: true }).in("thread_id", ipIds).eq("author", "customer").gte("created_at", hour); if ((count || 0) >= 40) throw tooMany(); }
   }
 }
-async function notifyAdmins(t: Any, who: string, teamName: string | null, body: string, attachments: Any[] = []) {
+// Every new request emails everyone on the support team (owners, admins, support people). Follow-ups go to whoever
+// accepted the conversation, or to everyone while nobody has, at most once every 10 minutes per conversation.
+const STAFF = ["owner", "admin", "support"];
+async function staffEmails(only?: string | null) {
+  const { data: rows } = only ? { data: [{ user_id: only }] } : await db.from("platform_admins").select("user_id").in("role", STAFF);
+  return (await Promise.all((rows || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
+}
+async function notifyAdmins(t: Any, who: string, teamName: string | null, body: string, attachments: Any[] = [], fresh = false) {
   const last = t.support_notified_at ? new Date(t.support_notified_at).getTime() : 0;
-  if (Date.now() - last < 10 * 60_000) return;
-  const { data: admins } = await db.from("platform_admins").select("user_id").in("role", ["owner", "admin"]);
-  const to = (await Promise.all((admins || []).map((a: Any) => userEmail(a.user_id)))).filter(Boolean) as string[];
+  if (!fresh && Date.now() - last < 10 * 60_000) return;
+  const to = await staffEmails(fresh ? null : t.accepted_by);
   const link = `${APP_URL}/admin/support?t=${t.id}`;
   const att = attachments.map((a) => `${a.type === "email" ? "Email" : "Domain"}: ${a.title} (${a.sub})`).join("\n");
   const label = topicLabel(t.topic);
   const org = teamName ? ` (${teamName})` : !t.user_id ? " (website visitor, not signed in)" : "";
-  const sent = await notify(to, `${ticket(t.number)} ${who}${label ? ` · ${label}` : ""}`,
-    wrap(`<p><b>${esc(who)}</b>${esc(org)} wrote${label ? ` about <b>${esc(label)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">Reply in Delivrie →</a></p>`),
-    `${who}${org} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}Reply: ${link}`);
+  const subject = fresh ? `New support request ${ticket(t.number)} · ${who}${label ? ` · ${label}` : ""}` : `${ticket(t.number)} ${who} replied${t.accepted_by ? "" : " · not accepted yet"}`;
+  const action = fresh || !t.accepted_by ? "Open and accept it →" : "Reply in Delivrie →";
+  const sent = await notify(to, subject,
+    wrap(`<p><b>${esc(who)}</b>${esc(org)} wrote${label ? ` about <b>${esc(label)}</b>` : ""}:</p>${quote(body)}${att ? `<p style="color:#62666d;font-size:13px;white-space:pre-wrap">Attached: ${esc(att)}</p>` : ""}<p><a href="${link}" style="color:#1b1a1a;font-weight:600">${action}</a></p>${fresh ? `<p style="color:#62666d;font-size:13px">Everyone on the support team got this. Whoever accepts it first takes it; the others see who did.</p>` : ""}`),
+    `${who}${org} wrote:\n\n${body}\n\n${att ? `Attached:\n${att}\n\n` : ""}${action.replace(" →", "")}: ${link}`);
   if (sent) await db.from("support_threads").update({ support_notified_at: new Date().toISOString() }).eq("id", t.id);
 }
 // A link that opens a visitor's conversation in any browser (it moves the conversation to that browser).
@@ -490,7 +498,7 @@ const CUSTOMER: [string, string, H][] = [
       out.push(await addMessage(nt, "bot", "While you wait: adding DMARC usually fixes this. I can draft the record.", { author_name: "Delivrie assistant", meta: { actions: [{ id: "draft_dmarc", label: "Draft DMARC record", icon: "sparkle", domain_id: noDmarc.domain.id }] } }));
     }
     const { data: team } = who.teamId ? await db.from("teams").select("name").eq("id", who.teamId).maybeSingle() : { data: null };
-    await notifyAdmins(nt, name + (who.guest ? ` <${email}>` : ""), team?.name || null, body, attachments);
+    await notifyAdmins(nt, name + (who.guest ? ` <${email}>` : ""), team?.name || null, body, attachments, true);
     return { thread: threadOut(nt), messages: out.map(msgOut), promise: replyPromise(ctx.plan, who.guest) };
   }],
   // Assistant actions offered as buttons (only ones that read the customer's own account).
@@ -550,26 +558,52 @@ export function registerSupport(route: Route) {
   // ------------------------------------------------------------ customer (dashboard and signed-in site visitors)
   for (const [method, path, h] of CUSTOMER) route(method, path, (_r, c, p, url, b) => { needDashboard(c); return h(whoFromCtx(c), p, url, b); });
 
-  // ------------------------------------------------------------ admin
+  // ------------------------------------------------------------ admin (owners, admins and support people)
+  const listOut = (r: Any, tm: Map<string, Any>, me: string) => ({
+    id: r.id, ticket: ticket(r.number), topic: topicLabel(r.topic), email: r.email, visitor: !r.user_id, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null,
+    status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support, rating: r.rating,
+    accepted: r.accepted_by ? { name: first(r.accepted_by_name) || "Someone", initials: initials(r.accepted_by_name), me: r.accepted_by === me, at: r.accepted_at } : null, escalated_at: r.escalated_at,
+  });
   route("GET", "/support/admin/threads", async (_r, c, _p, url) => {
     await needAdmin(c);
     const status = url.searchParams.get("status") || "open";
     let q = db.from("support_threads").select("*").neq("status", "bot").order("last_message_at", { ascending: false }).limit(200);
-    if (status !== "all") q = q.eq("status", status);
+    if (status === "waiting") q = q.eq("status", "open").is("accepted_by", null);
+    else if (status === "mine") q = q.eq("status", "open").eq("accepted_by", c.userId);
+    else if (status !== "all") q = q.eq("status", status);
     const { data: rows } = await q;
     const teamIds = [...new Set((rows || []).map((r: Any) => r.team_id).filter(Boolean))];
     const { data: teams } = teamIds.length ? await db.from("teams").select("id,name,plan_transactional").in("id", teamIds) : { data: [] };
     const tm = new Map<string, Any>((teams || []).map((t: Any) => [t.id, t]));
-    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0);
-    return {
-      unread_threads: count || 0,
-      data: (rows || []).map((r: Any) => ({ id: r.id, ticket: ticket(r.number), topic: topicLabel(r.topic), email: r.email, visitor: !r.user_id, team: tm.get(r.team_id)?.name || null, plan: tm.get(r.team_id)?.plan_transactional || null, status: r.status, last_message_at: r.last_message_at, last_author: r.last_author, preview: r.last_preview, unread: r.unread_support, rating: r.rating, assignee: first(r.assignee_name) || null })),
-    };
+    const [{ count }, { count: waiting }, { count: mineN }] = await Promise.all([
+      db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0),
+      db.from("support_threads").select("id", { count: "exact", head: true }).eq("status", "open").is("accepted_by", null),
+      db.from("support_threads").select("id", { count: "exact", head: true }).eq("status", "open").eq("accepted_by", c.userId),
+    ]);
+    return { unread_threads: count || 0, waiting: waiting || 0, mine: mineN || 0, data: (rows || []).map((r: Any) => listOut(r, tm, c.userId)) };
   });
   route("GET", "/support/admin/unread", async (_r, c) => {
     await needAdmin(c);
-    const { count } = await db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0);
-    return { unread_threads: count || 0 };
+    const [{ count }, { count: waiting }] = await Promise.all([
+      db.from("support_threads").select("id", { count: "exact", head: true }).neq("status", "bot").gt("unread_support", 0),
+      db.from("support_threads").select("id", { count: "exact", head: true }).eq("status", "open").is("accepted_by", null),
+    ]);
+    return { unread_threads: count || 0, waiting: waiting || 0 };
+  });
+  // For in-app alerts anywhere in the dashboard: new requests, and who accepted what, since a moment in time.
+  route("GET", "/support/admin/pulse", async (_r, c, _p, url) => {
+    await needAdmin(c);
+    const since = new Date(Math.max(Date.now() - 3600e3, Date.parse(url.searchParams.get("since") || "") || Date.now() - 600e3)).toISOString();
+    const [{ data: fresh }, { data: accepted }, { count: waiting }] = await Promise.all([
+      db.from("support_threads").select("id,number,email,guest_name,topic,last_preview,escalated_at,user_id").gt("escalated_at", since).order("escalated_at").limit(20),
+      db.from("support_threads").select("id,number,accepted_by,accepted_by_name,accepted_at").gt("accepted_at", since).neq("accepted_by", c.userId).order("accepted_at").limit(20),
+      db.from("support_threads").select("id", { count: "exact", head: true }).eq("status", "open").is("accepted_by", null),
+    ]);
+    return {
+      now: new Date().toISOString(), waiting: waiting || 0,
+      new: (fresh || []).map((t: Any) => ({ id: t.id, ticket: ticket(t.number), who: t.guest_name || t.email || "A customer", visitor: !t.user_id, topic: topicLabel(t.topic), preview: t.last_preview, at: t.escalated_at })),
+      accepted: (accepted || []).map((t: Any) => ({ id: t.id, ticket: ticket(t.number), by: first(t.accepted_by_name) || "Someone", at: t.accepted_at })),
+    };
   });
   route("GET", "/support/admin/threads/:id", async (_r, c, p) => {
     await needAdmin(c);
@@ -577,7 +611,25 @@ export function registerSupport(route: Route) {
     if (!t) throw notFound("Conversation");
     await db.from("support_threads").update({ unread_support: 0, support_seen_at: new Date().toISOString() }).eq("id", t.id);
     const { data: team } = t.team_id ? await db.from("teams").select("id,name,plan_transactional,created_at").eq("id", t.team_id).maybeSingle() : { data: null };
-    return { thread: { id: t.id, ticket: ticket(t.number), topic: topicLabel(t.topic), email: t.email, visitor: !t.user_id, guest_name: t.guest_name, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at, assignee: first(t.assignee_name) || null, rating: t.rating, rating_comment: t.rating_comment, resolved_by: t.resolved_by }, messages: await messages(t.id) };
+    return { thread: { id: t.id, ticket: ticket(t.number), topic: topicLabel(t.topic), email: t.email, visitor: !t.user_id, guest_name: t.guest_name, status: t.status, team, customer_seen_at: t.customer_seen_at, created_at: t.created_at, escalated_at: t.escalated_at, rating: t.rating, rating_comment: t.rating_comment, resolved_by: t.resolved_by,
+      accepted: t.accepted_by ? { name: first(t.accepted_by_name) || "Someone", full: t.accepted_by_name, me: t.accepted_by === c.userId, at: t.accepted_at } : null }, messages: await messages(t.id) };
+  });
+  // Accept a conversation (or take it over from someone): everyone sees who has it; the customer sees them join.
+  route("POST", "/support/admin/threads/:id/accept", async (_r, c, p, _u, b) => {
+    await needAdmin(c);
+    const { data: t } = await db.from("support_threads").select("*").eq("id", p.id).maybeSingle();
+    if (!t || t.status === "bot") throw notFound("Conversation");
+    if (t.accepted_by === c.userId) return { accepted: true };
+    if (t.accepted_by && !b?.takeover) throw new HttpError(409, "already_accepted", `${first(t.accepted_by_name) || "Someone"} already accepted this conversation.`);
+    const full = (await profileName(c.userId)) || (await userEmail(c.userId)) || "Delivrie";
+    const now = new Date().toISOString();
+    // Only one person can win a race to accept: the update applies only if nobody else got there first.
+    let q = db.from("support_threads").update({ accepted_by: c.userId, accepted_by_name: full, accepted_at: now, assignee_id: c.userId, assignee_name: full, status: "open" }).eq("id", t.id);
+    q = t.accepted_by ? q.eq("accepted_by", t.accepted_by) : q.is("accepted_by", null);
+    const { data: won } = await q.select("id").maybeSingle();
+    if (!won) throw new HttpError(409, "already_accepted", "Someone accepted this conversation a moment ago. Refresh to see who.");
+    await addMessage(t, "system", t.accepted_by ? `${first(full)} took over from ${first(t.accepted_by_name) || "the team"}` : `${first(full)} joined`, { meta: { icon: "users", kind: "joined" } });
+    return { accepted: true, by: first(full) };
   });
   route("POST", "/support/admin/threads/:id/typing", async (_r, c, p) => {
     await needAdmin(c);
@@ -594,11 +646,15 @@ export function registerSupport(route: Route) {
     const full = (await profileName(c.userId)) || "Delivrie";
     const agent = first(full);
     const now = new Date().toISOString();
-    // The first reply from someone new: "Tolu joined · 11:58".
-    if (t.assignee_id !== c.userId) await addMessage(t, "system", `${agent} joined`, { meta: { icon: "users", kind: "joined" } });
+    const patch: Any = { status: "open", agent_typing_at: null, last_message_at: now, last_author: "support", last_preview: preview(body), unread_customer: (t.unread_customer || 0) + 1, unread_support: 0, support_seen_at: now };
+    // Replying to a conversation nobody has accepted accepts it. Helping on someone else's leaves it with them.
+    if (!t.accepted_by) Object.assign(patch, { accepted_by: c.userId, accepted_by_name: full, accepted_at: now, assignee_id: c.userId, assignee_name: full });
+    if (!t.first_response_at) Object.assign(patch, { first_response_at: now, first_response_by: c.userId });
+    const { data: earlier } = await db.from("support_messages").select("id").eq("thread_id", t.id).eq("author", "support").eq("user_id", c.userId).limit(1);
+    if (!earlier?.length && t.accepted_by !== c.userId) await addMessage(t, "system", `${agent} joined`, { meta: { icon: "users", kind: "joined" } });
     const m = await addMessage(t, "support", body, { user_id: c.userId, author_name: agent, meta: { initials: initials(full) } });
-    await db.from("support_threads").update({ status: "open", assignee_id: c.userId, assignee_name: full, agent_typing_at: null, last_message_at: now, last_author: "support", last_preview: preview(body), unread_customer: (t.unread_customer || 0) + 1, unread_support: 0, support_seen_at: now }).eq("id", t.id);
-    return { message: msgOut(m), emailed: false };
+    await db.from("support_threads").update(patch).eq("id", t.id);
+    return { message: msgOut(m), emailed: false, accepted: !t.accepted_by };
   });
   route("PATCH", "/support/admin/threads/:id", async (_r, c, p, _u, b) => {
     await needAdmin(c);
@@ -607,10 +663,66 @@ export function registerSupport(route: Route) {
     const status = b?.status === "closed" ? "closed" : "open";
     const agent = first(await profileName(c.userId)) || "Delivrie";
     const now = new Date().toISOString();
-    const patch: Any = status === "closed" ? { status, resolved_at: now, resolved_by: agent, agent_typing_at: null } : { status, resolved_at: null };
+    const patch: Any = status === "closed" ? { status, resolved_at: now, resolved_by: agent, resolved_by_id: c.userId, agent_typing_at: null } : { status, resolved_at: null };
     await db.from("support_threads").update(patch).eq("id", t.id);
     if (status !== t.status) await addMessage(t, "system", status === "closed" ? `Marked resolved by ${agent}` : `Reopened by ${agent}`, { meta: { icon: status === "closed" ? "check-circle" : "refresh", kind: status === "closed" ? "resolved" : "reopened" } });
     return { id: t.id, status };
+  });
+
+  // Leaderboard, for everyone in the admin area. Points: 3 per resolved conversation, 2 per Great rating, 1 per Okay,
+  // minus 2 per Bad, and 1 per first reply within an hour of the request. Ties go to the faster median first reply.
+  route("GET", "/support/admin/leaderboard", async (_r, c, _p, url) => {
+    needDashboard(c);
+    const { data: me } = await db.from("platform_admins").select("role").eq("user_id", c.userId).maybeSingle();
+    if (!me) throw forbidden("Platform admins only");
+    const days = Math.min(Math.max(parseInt(url.searchParams.get("days") || "30") || 30, 1), 365);
+    const since = new Date(Date.now() - days * 86400e3).toISOString();
+    const [{ data: staff }, { data: rows }, { data: replies }] = await Promise.all([
+      db.from("platform_admins").select("user_id,role").in("role", ["owner", "admin", "support"]),
+      db.from("support_threads").select("id,status,escalated_at,accepted_by,accepted_at,first_response_at,first_response_by,resolved_by_id,resolved_at,rating,assignee_id").neq("status", "bot").gte("escalated_at", since).limit(5000),
+      db.from("support_messages").select("user_id").eq("author", "support").gte("created_at", since).limit(20000),
+    ]);
+    const board = new Map<string, Any>();
+    const person = (id: string | null) => {
+      if (!id) return null;
+      if (!board.has(id)) board.set(id, { user_id: id, accepted: 0, resolved: 0, great: 0, okay: 0, bad: 0, fast: 0, firsts: [] as number[], replies: 0 });
+      return board.get(id);
+    };
+    for (const s of staff || []) person(s.user_id);
+    for (const t of rows || []) {
+      const owner = person(t.accepted_by || t.assignee_id);
+      if (owner) {
+        owner.accepted++;
+        if (t.rating === "great") owner.great++; else if (t.rating === "okay") owner.okay++; else if (t.rating === "bad") owner.bad++;
+      }
+      const res = person(t.status === "closed" ? (t.resolved_by_id || t.accepted_by) : null);
+      if (res) res.resolved++;
+      const fr = person(t.first_response_by);
+      if (fr && t.first_response_at && t.escalated_at) {
+        const mins = (Date.parse(t.first_response_at) - Date.parse(t.escalated_at)) / 60000;
+        if (mins >= 0) { fr.firsts.push(mins); if (mins <= 60) fr.fast++; }
+      }
+    }
+    for (const r of replies || []) { const x = person(r.user_id); if (x) x.replies++; }
+    const ids = [...board.keys()];
+    const names = new Map<string, string>();
+    await Promise.all(ids.map(async (id) => names.set(id, (await profileName(id)) || (await userEmail(id)) || "Someone")));
+    const roles = new Map((staff || []).map((s: Any) => [s.user_id, s.role]));
+    const median = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const out = ids.map((id) => {
+      const x = board.get(id);
+      const rated = x.great + x.okay + x.bad;
+      return {
+        user_id: id, name: names.get(id), initials: initials(names.get(id)), role: roles.get(id) || "former", me: id === c.userId,
+        accepted: x.accepted, resolved: x.resolved, replies: x.replies, fast: x.fast, median_first_reply_min: median(x.firsts),
+        ratings: { great: x.great, okay: x.okay, bad: x.bad }, satisfaction: rated ? Math.round((x.great + x.okay * 0.5) / rated * 100) : null,
+        score: x.resolved * 3 + x.great * 2 + x.okay - x.bad * 2 + x.fast,
+      };
+    }).filter((x) => x.role !== "former" || x.accepted || x.replies)
+      .sort((a, b) => b.score - a.score || (a.median_first_reply_min ?? 1e9) - (b.median_first_reply_min ?? 1e9) || b.resolved - a.resolved);
+    const total = rows?.length || 0;
+    const firsts = (rows || []).filter((t: Any) => t.first_response_at && t.escalated_at).map((t: Any) => (Date.parse(t.first_response_at) - Date.parse(t.escalated_at)) / 60000);
+    return { days, totals: { requests: total, resolved: (rows || []).filter((t: Any) => t.status === "closed").length, waiting: (rows || []).filter((t: Any) => t.status === "open" && !t.accepted_by).length, median_first_reply_min: median(firsts) }, data: out };
   });
 }
 

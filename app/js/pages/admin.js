@@ -6,11 +6,12 @@ import { lineChart } from "../lib/chart.js";
 
 // Roles: owner (everything, manages admins), admin (everything else), viewer (read-only usage oversight).
 // The database enforces this; the page only hides what a role can't use.
-const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["blocked", "Blocked IPs", "admin"], ["revenue", "Revenue", "viewer"], ["support", "Support", "admin"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
-const RANK = { viewer: 1, admin: 2, owner: 3 };
-const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
+// "support" (answer customers) and "everyone" (any admin role) sit outside the viewer < admin < owner ladder.
+const TABS = [["overview", "Overview", "viewer"], ["users", "Users", "viewer"], ["teams", "Teams", "viewer"], ["blocked", "Blocked IPs", "admin"], ["revenue", "Revenue", "viewer"], ["support", "Support", "support"], ["leaderboard", "Leaderboard", "everyone"], ["inbox", "Inbox", "admin"], ["website", "Website", "admin"], ["admins", "Admins", "owner"]];
+const RANK = { support: 0, viewer: 1, admin: 2, owner: 3 };
+const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer", support: "Support" };
 let ROLE = null;
-const can = (min) => (RANK[ROLE] || 0) >= RANK[min];
+const can = (min) => min === "everyone" ? !!ROLE : min === "support" ? ["owner", "admin", "support"].includes(ROLE) : (RANK[ROLE] ?? -1) >= RANK[min];
 const money = (amount, currency) => new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: (amount || 0) % 100 ? 2 : 0, maximumFractionDigits: 2 }).format((amount || 0) / 100);
 const pct = (a, b, d = 1) => b ? `${((a / b) * 100).toFixed(d)}%` : "0%";
 const planBadge = (p) => badge(p === "free" ? "Free" : p.replace(/^\w/, (c) => c.toUpperCase()), p === "free" ? "gray" : p === "scale" || p === "enterprise" ? "blue" : "yellow");
@@ -23,21 +24,21 @@ async function rpc(name, args) {
 
 export default async function admin(ctx) {
   const root = ctx.root;
-  const tab = ctx.params.tab || "overview";
   ROLE = await rpc("platform_role").catch(() => null);
+  const tab = ctx.params.tab || (ROLE === "support" ? "support" : "overview");
   root.innerHTML = `<div class="admin">
     <header class="admin-top"><a href="/emails" class="row-flex" style="gap:10px"><img src="/assets/logo.svg" width="122" height="22" alt="Delivrie"></a>${badge(ROLE_LABEL[ROLE] || "Admin", "yellow")}<span class="grow"></span><span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))">${esc(state.user?.email || "")}</span><a class="btn btn-ghost btn-sm" href="/emails">Back to app ${icon("arrow-right", 12)}</a></header>
-    <div class="page wide"><div class="ul-tabs">${TABS.filter((t) => can(t[2])).map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="/admin/${k === "overview" ? "" : k}">${l}</a>`).join("")}</div><div data-body><div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div></div></div></div>`;
+    <div class="page wide"><div class="ul-tabs">${TABS.filter((t) => can(t[2])).map(([k, l]) => `<a class="ul-tab ${k === tab ? "on" : ""}" href="/admin/${k === "overview" ? "" : k}">${l}${k === "support" ? '<span data-support-count></span>' : ""}</a>`).join("")}</div><div data-body><div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div></div></div></div>`;
   const body = root.querySelector("[data-body]");
 
   if (!ROLE) {
     body.innerHTML = `<div class="card">${emptyState({ icon: "shield", title: "Admins only", desc: "This account isn't a Delivrie platform admin. Ask an existing admin to add you." })}</div>`;
     return;
   }
-  if (can("admin")) api("GET", "/support/admin/unread").then((r) => { const a = root.querySelector('.ul-tab[href="/admin/support"]'); if (a && r.unread_threads) a.insertAdjacentHTML("beforeend", ` <span class="badge yellow" style="margin-left:4px">${r.unread_threads}</span>`); }).catch(() => {});
-  const fn = { overview, users, teams, blocked, revenue, support, inbox, website, admins }[tab];
+  if (can("support")) api("GET", "/support/admin/unread").then((r) => { const n = r.waiting || r.unread_threads; const a = root.querySelector("[data-support-count]"); if (a && n) a.innerHTML = ` <span class="badge yellow" style="margin-left:4px" title="${r.waiting ? `${r.waiting} waiting to be accepted` : "unread"}">${n}</span>`; }).catch(() => {});
+  const fn = { overview, users, teams, blocked, revenue, support, leaderboard, inbox, website, admins }[tab];
   const need = TABS.find((t) => t[0] === tab)?.[2];
-  if (!fn || !need || !can(need)) return ctx.navigate("/admin", { replace: true });
+  if (!fn || !need || !can(need)) return ctx.navigate(ROLE === "support" ? "/admin/support" : "/admin", { replace: true });
   try { await fn(body, ctx); } catch (e) { errToast(e); body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; }
 }
 
@@ -249,8 +250,9 @@ async function teams(body) {
 
 // ---------------------------------------------------------------- admins (owners only)
 async function admins(body) {
-  const ROLES = [["viewer", "Usage viewer", "Sees the overview, users, teams, usage and revenue. Can’t change anything or read support conversations."],
-    ["admin", "Admin", "Everything except managing admins: plans, credits, pausing sending, support and website settings."],
+  const ROLES = [["support", "Support", "Answers customers in Support: gets an email for every new request, accepts conversations, replies and resolves them. Sees the leaderboard, nothing else."],
+    ["viewer", "Usage viewer", "Sees the overview, users, teams, usage, revenue and the support leaderboard. Can’t change anything or read support conversations."],
+    ["admin", "Admin", "Everything except managing admins: plans, credits, pausing sending, support (with request emails) and website settings."],
     ["owner", "Owner", "Everything, including adding and removing admins."]];
   const roleOpts = (cur) => ROLES.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`).join("");
   let rows = [];
@@ -274,8 +276,8 @@ async function admins(body) {
       if (!(await confirmModal({ title: "Remove admin access", desc: `<b>${esc(a.full_name || a.email)}</b> will no longer be able to open the admin area. Their own Delivrie account and teams aren’t affected.`, confirm: "Remove access" }))) return;
       try { await rpc("admin_remove_admin", { p_user: a.user_id }); toast("Admin access removed"); if (a.user_id === state.user?.id) return location.assign("/emails"); await load(); } catch (e) { errToast(e); }
     });
-    on(body, "click", "[data-add]", () => formModal({ title: "Add admin", desc: "They need a Delivrie account first. Ask them to sign up at delivrie.io, then add them here with the email they used.",
-      fields: [{ name: "email", label: "Email", type: "email", placeholder: "teammate@company.com" }, { name: "role", label: "Role", type: "select", value: "viewer", options: ROLES.map(([value, label]) => ({ value, label })) }],
+    on(body, "click", "[data-add]", () => formModal({ title: "Add a person", desc: "Give someone Support to have them answer customers, or an admin role for more. They need a Delivrie account first. Ask them to sign up at delivrie.io, then add them here with the email they used.",
+      fields: [{ name: "email", label: "Email", type: "email", placeholder: "teammate@company.com" }, { name: "role", label: "Role", type: "select", value: "support", options: ROLES.map(([value, label]) => ({ value, label })) }],
       submit: "Add admin", validate: (v) => /@/.test(v.email || ""),
       async onSubmit(v) { await rpc("admin_add_admin", { p_email: v.email.trim(), p_role: v.role }); toast(`${v.email.trim()} added as ${ROLE_LABEL[v.role]}`); await load(); } }));
   await load();
@@ -501,27 +503,61 @@ function siteEditor(el, cfg, save) {
 }
 const stripTags = (h) => String(h || "").replace(/<[^>]+>/g, "");
 
+// ---------------------------------------------------------------- support leaderboard
+// Everyone in the admin area sees it. The points are spelled out under the table so nobody has to guess.
+async function leaderboard(body) {
+  let days = 30;
+  const mins = (m) => m == null ? "—" : m < 1 ? "under a minute" : m < 60 ? `${Math.round(m)} min` : m < 1440 ? `${(m / 60).toFixed(1).replace(/\.0$/, "")} h` : `${(m / 1440).toFixed(1).replace(/\.0$/, "")} days`;
+  const medal = (i) => ["🥇", "🥈", "🥉"][i] || `<span class="dim">${i + 1}</span>`;
+  const draw = async () => {
+    body.innerHTML = `<div class="card card-pad row-flex"><span class="spinner"></span><span class="muted">Loading…</span></div>`;
+    let r;
+    try { r = await api("GET", `/support/admin/leaderboard?days=${days}`); } catch (e) { body.innerHTML = `<div class="card">${emptyState({ icon: "alert", title: "Couldn't load", desc: esc(e.message) })}</div>`; return; }
+    const t = r.totals;
+    const rows = r.data;
+    body.innerHTML = `<div class="row-flex" style="margin-bottom:14px"><div><h3 style="margin:0;font-size:max(15px, var(--fs-min, 0px))">Support leaderboard</h3><p class="dim" style="margin:4px 0 0;font-size:calc(12.5px + var(--fs-up, 0px))">Who’s helping customers most effectively, over requests opened in the last ${days} days.</p></div><span class="grow"></span><div class="seg">${[7, 30, 90].map((d) => `<button class="${d === days ? "on" : ""}" data-days="${d}">${d}d</button>`).join("")}</div></div>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat"><div class="k">Requests</div><div class="v">${num(t.requests)}</div></div>
+        <div class="stat"><div class="k">Resolved</div><div class="v">${num(t.resolved)}</div></div>
+        <div class="stat"><div class="k">Waiting to be accepted</div><div class="v">${num(t.waiting)}</div></div>
+        <div class="stat"><div class="k">Median first reply</div><div class="v">${esc(mins(t.median_first_reply_min))}</div></div></div>
+      ${rows.length ? `<div class="table-wrap"><table class="t lb"><thead><tr><th style="width:44px"></th><th>Person</th><th class="r">Points</th><th class="r">Accepted</th><th class="r">Resolved</th><th class="r">First reply (median)</th><th class="r">Within an hour</th><th>Ratings</th><th class="r">Replies</th></tr></thead><tbody>${rows.map((x, i) => `<tr class="${x.me ? "me" : ""}">
+        <td style="font-size:16px;text-align:center">${x.score > 0 ? medal(i) : `<span class="dim">${i + 1}</span>`}</td>
+        <td><div class="cell"><span class="avatar" style="width:26px;height:26px;font-size:calc(10.5px + var(--fs-up, 0px))">${esc(x.initials)}</span><div><div>${esc(x.name)}${x.me ? ' <span class="dim">(you)</span>' : ""}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(ROLE_LABEL[x.role] || "Former")}</div></div></div></td>
+        <td class="r"><b style="font-weight:600">${num(x.score)}</b></td><td class="r">${num(x.accepted)}</td><td class="r">${num(x.resolved)}</td><td class="r">${esc(mins(x.median_first_reply_min))}</td><td class="r">${num(x.fast)}</td>
+        <td>${x.ratings.great || x.ratings.okay || x.ratings.bad ? `${x.ratings.great ? badge(`${x.ratings.great} Great`, "green") : ""} ${x.ratings.okay ? badge(`${x.ratings.okay} Okay`, "yellow") : ""} ${x.ratings.bad ? badge(`${x.ratings.bad} Bad`, "red") : ""}${x.satisfaction != null ? ` <span class="dim">${x.satisfaction}%</span>` : ""}` : '<span class="dim">No ratings yet</span>'}</td>
+        <td class="r">${num(x.replies)}</td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="card">${emptyState({ icon: "users", title: "No support people yet", desc: "Add people with the Support role in Admins." })}</div>`}
+      <p class="dim" style="margin-top:12px;font-size:calc(12px + var(--fs-up, 0px));line-height:1.6">Points: 3 for each conversation resolved, 2 for each Great rating, 1 for each Okay, minus 2 for each Bad, and 1 for each first reply sent within an hour of the request. Ratings count for whoever accepted the conversation. Ties go to the faster median first reply. Satisfaction is Great plus half of Okay, over all ratings.</p>`;
+  };
+  on(body, "click", "[data-days]", (_e, b) => { days = Number(b.dataset.days); draw(); });
+  await draw();
+}
+
 // ---------------------------------------------------------------- support chat
-// Customers write from the chat button in the dashboard. New messages also email every platform admin.
+// Customers write from Contact support (dashboard and website). Every new request emails the whole support team;
+// whoever accepts it takes it, and everyone sees who did.
 async function support(body) {
   let filter = "open", threads = [], current = new URLSearchParams(location.search).get("t"), conv = null, timer = null, lastSig = "";
   body.innerHTML = `<div class="row-flex" style="margin-bottom:12px;gap:10px"><span class="dim" style="font-size:calc(12.5px + var(--fs-up, 0px))" data-sum></span><span class="grow"></span><button class="btn btn-secondary btn-sm" data-notify hidden>${icon("bell", 12)} Turn on desktop alerts</button></div>
-    <div class="sp"><div class="sp-list"><div class="sp-filter">${[["open", "Open"], ["closed", "Resolved"], ["all", "All"]].map(([k, l]) => `<button class="seg-tab ${k === filter ? "on" : ""}" data-f="${k}" style="display:inline-flex;align-items:center">${l}</button>`).join("")}</div><div class="sp-items" data-items></div></div>
+    <div class="sp"><div class="sp-list"><div class="sp-filter">${[["waiting", "Waiting"], ["mine", "Mine"], ["open", "Open"], ["closed", "Resolved"], ["all", "All"]].map(([k, l]) => `<button class="seg-tab ${k === filter ? "on" : ""}" data-f="${k}" style="display:inline-flex;align-items:center;gap:5px">${l}<span data-fc="${k}"></span></button>`).join("")}</div><div class="sp-items" data-items></div></div>
     <div class="sp-conv" data-conv><div class="sp-empty">Pick a conversation.</div></div></div>`;
   const items = body.querySelector("[data-items]"), convEl = body.querySelector("[data-conv]"), notifyBtn = body.querySelector("[data-notify]");
   if ("Notification" in window && Notification.permission === "default") notifyBtn.hidden = false;
   notifyBtn.addEventListener("click", async () => { await Notification.requestPermission(); notifyBtn.hidden = Notification.permission !== "default"; });
 
   const RATE = { great: ["Great", "green"], okay: ["Okay", "yellow"], bad: ["Bad", "red"] };
-  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${ago(t.last_message_at)}</span></div><div class="r2"><span class="mono dim">${esc(t.ticket || "")}</span>${t.topic ? ` · ${esc(t.topic)}` : ""}${t.team ? " · " + esc(t.team) : ""}${t.rating ? ` · ${badge(RATE[t.rating][0], RATE[t.rating][1])}` : ""}</div><div class="r2">${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">No ${filter === "all" ? "" : filter === "closed" ? "resolved " : filter + " "}conversations.</div>`;
+  const listHtml = () => threads.length ? threads.map((t) => `<button class="sp-item ${t.id === current ? "on" : ""} ${t.unread ? "unread" : ""}" data-t="${t.id}"><div class="r1"><b>${esc(t.email || "Unknown")}</b><span class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${ago(t.last_message_at)}</span></div><div class="r2">${t.status === "open" ? (t.accepted ? `<span class="sp-acc ${t.accepted.me ? "me" : ""}" title="Accepted ${esc(ago(t.accepted.at))}">${esc(t.accepted.me ? "You" : t.accepted.name)}</span> ` : `${badge("Waiting", "yellow")} `) : ""}<span class="mono dim">${esc(t.ticket || "")}</span>${t.visitor ? " · visitor" : ""}${t.topic ? ` · ${esc(t.topic)}` : ""}${t.team ? " · " + esc(t.team) : ""}${t.rating ? ` · ${badge(RATE[t.rating][0], RATE[t.rating][1])}` : ""}</div><div class="r2">${t.last_author === "support" ? "You: " : ""}${esc(t.preview || "")}</div></button>`).join("") : `<div class="sp-empty">${{ waiting: "Nothing waiting to be accepted.", mine: "You haven’t accepted any open conversations.", open: "No open conversations.", closed: "No resolved conversations.", all: "No conversations yet." }[filter]}</div>`;
   const loadList = async (alert = false) => {
     const r = await api("GET", `/support/admin/threads?status=${filter}`);
     const before = new Map(threads.map((t) => [t.id, t.last_message_at]));
     if (alert && "Notification" in window && Notification.permission === "granted" && document.visibilityState !== "visible")
       for (const t of r.data) if (t.unread && t.last_author === "customer" && before.get(t.id) !== t.last_message_at) new Notification(`Support: ${t.email || "a customer"}`, { body: t.preview || "", tag: t.id });
     threads = r.data;
-    body.querySelector("[data-sum]").textContent = r.unread_threads ? `${r.unread_threads} conversation${r.unread_threads === 1 ? "" : "s"} waiting for a reply` : "You're all caught up";
-    document.title = (r.unread_threads ? `(${r.unread_threads}) ` : "") + "Support · Delivrie admin";
+    body.querySelector("[data-sum]").textContent = [r.waiting ? `${r.waiting} waiting to be accepted` : "", r.unread_threads ? `${r.unread_threads} with unread messages` : "", r.mine ? `${r.mine} accepted by you` : ""].filter(Boolean).join(" · ") || "You're all caught up";
+    body.querySelector('[data-fc="waiting"]').innerHTML = r.waiting ? `<span class="badge yellow">${r.waiting}</span>` : "";
+    body.querySelector('[data-fc="mine"]').innerHTML = r.mine ? `<span class="badge gray">${r.mine}</span>` : "";
+    document.title = (r.waiting || r.unread_threads ? `(${r.waiting || r.unread_threads}) ` : "") + "Support · Delivrie admin";
     items.innerHTML = listHtml();
   };
   // The customer's side: their messages, what the assistant told them before the handoff, and what they attached.
@@ -538,12 +574,15 @@ async function support(body) {
   const loadConv = async (keepDraft = true) => {
     if (!current) return;
     const r = await api("GET", `/support/admin/threads/${current}`);
-    const sig = r.messages.length + ":" + (r.messages.at(-1)?.id || "") + ":" + r.thread.status;
+    const sig = r.messages.length + ":" + (r.messages.at(-1)?.id || "") + ":" + r.thread.status + ":" + (r.thread.accepted?.name || "");
     if (sig === lastSig && keepDraft && conv) return;
     lastSig = sig; conv = r;
     const draft = convEl.querySelector("textarea")?.value || "";
     const t = r.thread;
     convEl.innerHTML = `<div class="sp-top"><div class="who"><b>${esc(t.email || "Unknown")} <span class="mono dim" style="font-weight:400">${esc(t.ticket || "")}</span></b><div>${t.topic ? `${esc(t.topic)} · ` : ""}${t.team ? `${esc(t.team.name)} · ${esc((t.team.plan_transactional || "free").replace(/^\w/, (c) => c.toUpperCase()))} plan · ` : ""}started ${fmtDate(t.created_at)}${t.customer_seen_at ? ` · last seen ${ago(t.customer_seen_at)}` : ""}${t.rating ? ` · rated ${badge(RATE[t.rating][0], RATE[t.rating][1])}${t.rating_comment ? ` “${esc(t.rating_comment)}”` : ""}` : ""}</div></div>
+        ${t.status === "open" ? (!t.accepted ? `<button class="btn btn-primary btn-sm" data-accept>${icon("check", 12)} Accept</button>`
+          : t.accepted.me ? `<span class="sp-acc me" title="Accepted ${esc(ago(t.accepted.at))}">${icon("check", 11)} You accepted this</span>`
+          : `<span class="sp-acc" title="Accepted ${esc(ago(t.accepted.at))}">Accepted by ${esc(t.accepted.name)}</span><button class="btn btn-ghost btn-sm" data-accept="takeover">Take over</button>`) : ""}
         ${t.email ? `<a class="btn btn-ghost btn-sm" href="mailto:${esc(t.email)}">${icon("mail", 12)} Email</a>` : ""}<button class="btn btn-secondary btn-sm" data-status="${t.status === "open" ? "closed" : "open"}">${t.status === "open" ? `${icon("check", 12)} Mark resolved` : "Reopen"}</button></div>
       <div class="sc-body">${r.messages.map(msgHtml).join("")}</div>
       <form class="sc-form"><textarea rows="2" maxlength="5000" placeholder="Reply to ${esc(t.email || "the customer")}… Enter to send, Shift+Enter for a new line. Use \`\`\` for code, > for quoted headers."></textarea><button class="btn btn-primary" type="submit" aria-label="Send">${icon("send", 14)}</button></form>`;
@@ -556,7 +595,7 @@ async function support(body) {
     convEl.querySelector("form").addEventListener("submit", async (e) => {
       e.preventDefault(); const text = ta.value.trim(); if (!text) return;
       const btn = e.target.querySelector("button"); btn.disabled = true;
-      try { const res = await api("POST", `/support/admin/threads/${current}/messages`, { body: text }); ta.value = ""; lastSig = ""; await loadConv(false); await loadList(); toast("Sent. If they haven’t read it in 5 minutes, they’ll get it by email."); }
+      try { const res = await api("POST", `/support/admin/threads/${current}/messages`, { body: text }); ta.value = ""; lastSig = ""; await loadConv(false); await loadList(); toast(res.accepted ? "Sent, and you’ve accepted this conversation." : "Sent. If they haven’t read it in 5 minutes, they’ll get it by email."); }
       catch (err) { errToast(err); }
       btn.disabled = false; ta.focus();
     });
@@ -569,6 +608,14 @@ async function support(body) {
   };
   on(body, "click", "[data-t]", (_e, b) => select(b.dataset.t).catch(errToast));
   on(body, "click", "[data-f]", (_e, b) => { filter = b.dataset.f; body.querySelectorAll("[data-f]").forEach((x) => x.classList.toggle("on", x === b)); loadList().catch(errToast); });
+  on(body, "click", "[data-accept]", async (_e, b) => {
+    const takeover = b.dataset.accept === "takeover";
+    if (takeover && !(await confirmModal({ title: "Take over this conversation", desc: `<b>${esc(conv?.thread?.accepted?.name || "Someone")}</b> accepted it. You’ll take it from here and the customer will see you join. Let them know.`, confirm: "Take over", danger: false }))) return;
+    b.disabled = true;
+    try { await api("POST", `/support/admin/threads/${current}/accept`, { takeover }); toast(takeover ? "It’s yours now." : "Accepted. Everyone can see it’s yours."); }
+    catch (e) { errToast(e); }
+    lastSig = ""; await loadConv(false); await loadList();
+  });
   on(body, "click", "[data-status]", async (_e, b) => {
     try { await api("PATCH", `/support/admin/threads/${current}`, { status: b.dataset.status }); toast(b.dataset.status === "closed" ? "Marked resolved. They can rate it and reply to reopen." : "Conversation reopened"); lastSig = ""; await loadConv(false); await loadList(); } catch (e) { errToast(e); }
   });
