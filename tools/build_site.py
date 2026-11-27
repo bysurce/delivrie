@@ -63,7 +63,7 @@ ICON = {
 
 ORG = {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io",
        "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io",
-       "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Ste R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"},
+       "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"},
        "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}
 
 def ld(*items):
