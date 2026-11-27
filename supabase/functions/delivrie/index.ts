@@ -25,6 +25,7 @@ async function assertNotBlocked(req: Request) {
     const now = Date.now();
     blocked = { at: now, ips: error ? blocked.ips : new Set((data || []).filter((r: Any) => !r.expires_at || new Date(r.expires_at).getTime() > now).map((r: Any) => String(r.ip).trim())) };
   }
+  if ((req.headers.get("user-agent") || "").startsWith("pg_net/")) console.log("ipcheck", { xff: req.headers.get("x-forwarded-for"), xri: req.headers.get("x-real-ip"), cf: req.headers.get("cf-connecting-ip"), size: blocked.ips.size }); // TEMP
   if (!blocked.ips.size) return;
   const hops = [...(req.headers.get("x-forwarded-for") || "").split(","), req.headers.get("x-real-ip") || ""].map((x) => x.trim()).filter(Boolean);
   if (hops.some((x) => blocked.ips.has(x))) throw new HttpError(403, "access_blocked", "Access from this network is blocked. Contact support@delivrie.io if you think this is a mistake.");
