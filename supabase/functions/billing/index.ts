@@ -1,9 +1,6 @@
 // Delivrie billing: Starter/Pro/Scale (monthly or yearly), the marketing add-on, pay-as-you-go credits and
-// month-end overage. Two payment providers, chosen per team:
-//   - Teams in Nigeria pay in Naira through Paystack (card, bank transfer, USSD).
-//   - Everyone else pays in US dollars through Stripe (card, with Stripe Tax).
-// A team stays on the provider it first paid with, so its currency never changes under it. Before that, the
-// country of the request decides (x-dlv-country, set by middleware.js from Vercel's geolocation).
+// month-end overage. Everyone pays in US dollars through Stripe (card, with Stripe Tax). Naira through Paystack was
+// retired on 27 Nov 2026 (see NAIRA_RETIRED): only subscriptions already running in Naira still renew there.
 //
 // Routes (served at https://delivrie.io/api/billing/* via a Vercel rewrite):
 //   GET  /summary         plan, prices, subscription and invoices for the current team
@@ -89,13 +86,17 @@ const CUR: Record<Provider, string> = { stripe: "USD", paystack: "NGN" };
 // Admin → Website → Payments can switch a provider off. Everyone then pays through the other one, whatever their
 // country or history: Stripe off means Naira through Paystack for all, Paystack off means dollars through Stripe
 // for all. With both off, payments are paused. Read from site_config and cached for 30 seconds.
-let FLAGS: { stripe: boolean; paystack: boolean; at: number } = { stripe: true, paystack: true, at: 0 };
+// Naira pricing is retired (27 Nov 2026): every new payment is in US dollars through Stripe, as if Paystack were
+// switched off for good. Naira subscriptions that were already running keep renewing through Paystack (its webhook
+// still applies them) and are shown as "legacy" in Billing until they end or the team moves to a dollar plan.
+const NAIRA_RETIRED = true;
+let FLAGS: { stripe: boolean; paystack: boolean; at: number } = { stripe: true, paystack: !NAIRA_RETIRED, at: 0 };
 async function loadFlags() {
   if (Date.now() - FLAGS.at < 30_000) return;
   try {
     const { data } = await db.from("site_config").select("value").eq("key", "billing").maybeSingle();
     const v = (data?.value || {}) as Any;
-    FLAGS = { stripe: v.stripe !== false, paystack: v.paystack !== false, at: Date.now() };
+    FLAGS = { stripe: v.stripe !== false, paystack: !NAIRA_RETIRED && v.paystack !== false, at: Date.now() };
   } catch (e) { console.error("billing switches", e); FLAGS.at = Date.now() - 20_000; } // keep the last known, retry in 10s
 }
 const otherOf = (p: Provider): Provider => (p === "stripe" ? "paystack" : "stripe");

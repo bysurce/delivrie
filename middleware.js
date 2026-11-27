@@ -1,7 +1,7 @@
 // Vercel Routing Middleware: pages switched off in Admin → Website return the 404 page.
 // Settings are cached for 30 seconds per edge instance. If they can't be loaded, pages stay on (fail open).
 export const config = {
-  // Every page (not assets, files or the API), so each visitor gets the country cookie below.
+  // Every page (for the page switches), plus the API (to pass the visitor's address and country along).
   matcher: ['/sitemap.xml', '/api/:path*', '/((?!api/|app/|assets/|docs-md/|_vercel/|.*\\.[a-z0-9]+$).*)'],
 };
 
@@ -12,17 +12,9 @@ const SWITCHABLE = [
 ];
 const switchable = (path) => SWITCHABLE.some((p) => path === p || path.startsWith(p + '/'));
 
-// Pricing is shown in Naira to visitors in Nigeria and in US dollars everywhere else. Vercel tells us the visitor's
-// country; we pass it to the page in a short-lived cookie that pricing.js, script.js and the billing page read.
-// When one payment provider is switched off in Admin → Website → Payments, every visitor sees the other one's
-// currency: the cookie is set as if they were in Nigeria (Naira) or outside it (dollars).
-function next(request, billing) {
-  let cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-  if (billing && billing.paystack === false && billing.stripe !== false) cc = 'ZZ';
-  else if (billing && billing.stripe === false && billing.paystack !== false) cc = 'NG';
-  const headers = { 'x-middleware-next': '1' };
-  if (cc) headers['set-cookie'] = `dlv_cc=${cc}; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
-  return new Response(null, { headers });
+// Pages carry on to the static file. (Prices are in US dollars for everyone, so no currency cookie is set any more.)
+function next() {
+  return new Response(null, { headers: { 'x-middleware-next': '1' } });
 }
 
 // These pages can't be switched off: app directories and the support links reviewers check rely on them.
@@ -57,9 +49,8 @@ async function sitemap(url) {
   return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=300' } });
 }
 
-// Billing API: tell the billing function which country the request comes from, so Nigeria is offered Naira through
-// Paystack and everywhere else US dollars through Stripe. The value always comes from Vercel, never the client,
-// and is sent with a shared secret (DLV_PROXY_SECRET) so requests that skip this middleware can't fake it.
+// API: pass the visitor's country (for billing details) and address (audit log, IP blocks) from Vercel, never from the
+// client, signed with a shared secret (DLV_PROXY_SECRET) so requests that skip this middleware can't fake them.
 // Vercel forwards only the request headers named in x-middleware-override-headers, so every header is listed:
 // naming just the new one would drop Authorization and the rest.
 // The rest of the API gets the visitor's own address the same way (x-dlv-client-ip): Supabase only sees Vercel's
@@ -101,5 +92,5 @@ export default async function middleware(request) {
       return new Response(nf.body, { status: 404, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
     }
   }
-  return next(request, (await siteConfig()).billing);
+  return next();
 }

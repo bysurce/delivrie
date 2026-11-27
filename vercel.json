@@ -212,6 +212,11 @@
       "source": "/resend-vs-delivrie",
       "destination": "/resend-alternative",
       "permanent": true
+    },
+    {
+      "source": "/blog/pricing-in-naira",
+      "destination": "/pricing",
+      "permanent": true
     }
   ]
 }

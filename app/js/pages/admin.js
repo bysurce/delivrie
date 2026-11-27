@@ -309,29 +309,20 @@ function sitePages(el, cfg, save) {
   });
 }
 
-// Switch a payment provider off for new payments. The billing server and the public site read this within a minute;
-// nothing needs deploying.
+// Payments are in US dollars through Stripe for everyone (Naira through Paystack was retired on 27 Nov 2026). Turning
+// Stripe off pauses new payments; the billing server reads this within a minute, nothing needs deploying.
 function sitePayments(el, cfg, save) {
   const draw = () => {
-    const v = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false };
-    const now = v.stripe && v.paystack ? ["Teams in Nigeria pay in Naira through Paystack. Everyone else pays in US dollars through Stripe.", "green", "Both on"]
-      : v.stripe ? ["Everyone, Nigeria included, pays in US dollars through Stripe. Prices on the site show in dollars for all visitors.", "blue", "Stripe only"]
-      : v.paystack ? ["Everyone, in every country, pays in Naira through Paystack. Prices on the site show in Naira for all visitors.", "blue", "Paystack only"]
-      : ["Payments are paused. Nobody can upgrade or top up until one is switched back on.", "red", "Paused"];
-    const row = (k, name, desc) => `<label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">${name}</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${desc}</div></span><input type="checkbox" class="toggle" data-pay="${k}" ${v[k] ? "checked" : ""} aria-label="${name} on"></label>`;
+    const on = cfg.billing?.stripe !== false;
     el.innerHTML = `<div class="card card-pad" style="max-width:640px;display:flex;flex-direction:column;gap:16px">
-        ${row("stripe", "Stripe · US dollars", "Card payments in USD, with Stripe Tax.")}
-        ${row("paystack", "Paystack · Naira", "Card, bank transfer and USSD in NGN.")}
-        <div class="banner" style="margin:0"><span class="badge ${now[1]}">${now[2]}</span> <span>${now[0]}</span></div>
-        <p class="dim" style="font-size:calc(12px + var(--fs-up, 0px));margin:0">Changes apply to new payments within a minute. Plans already running keep renewing with the provider they were bought on until they end or the customer moves. A team on a Naira plan can continue in dollars without paying twice; a team on a dollar plan picks a Naira plan once its current one ends.</p></div>`;
+        <label class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">Stripe · US dollars</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Every plan, top-up and overage, in every country. Card payments with Stripe Tax.</div></span><input type="checkbox" class="toggle" data-pay="stripe" ${on ? "checked" : ""} aria-label="Stripe on"></label>
+        <div class="row-flex" style="justify-content:space-between;gap:16px"><span><b style="font-weight:500">Paystack · Naira</b><div class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">Retired on 27 Nov 2026. Only Naira subscriptions started before then still renew here, until they end or the team continues in dollars.</div></span>${badge("Retired", "gray")}</div>
+        <div class="banner" style="margin:0">${on ? `${badge("Live", "green")} <span>Everyone pays in US dollars through Stripe.</span>` : `${badge("Paused", "red")} <span>Payments are paused. Nobody can upgrade or top up until Stripe is switched back on.</span>`}</div></div>`;
   };
   draw();
   on(el, "change", "[data-pay]", async (_e, t) => {
-    const next = { stripe: cfg.billing?.stripe !== false, paystack: cfg.billing?.paystack !== false, [t.dataset.pay]: t.checked };
-    const what = !next.stripe && !next.paystack ? "This pauses all payments: nobody will be able to upgrade or top up."
-      : !t.checked ? `Everyone will pay through ${t.dataset.pay === "stripe" ? "Paystack in Naira" : "Stripe in US dollars"}, in every country.` : null;
-    if (what && !(await confirmModal({ title: `Turn off ${t.dataset.pay === "stripe" ? "Stripe" : "Paystack"}?`, desc: what, confirm: "Turn off" }))) { t.checked = !t.checked; return; }
-    try { await save("billing", next, "Saved. Applies within a minute."); } catch (e) { errToast(e); }
+    if (!t.checked && !(await confirmModal({ title: "Pause payments?", desc: "With Stripe off nobody can upgrade or top up. Plans already running keep working and renewing.", confirm: "Pause payments" }))) { t.checked = true; return; }
+    try { await save("billing", { stripe: t.checked, paystack: false }, "Saved. Applies within a minute."); } catch (e) { errToast(e); }
     draw();
   });
 }
@@ -369,7 +360,6 @@ async function siteCompare(el, cfg, save) {
   const inp = (name, value, ph, w = "") => `<input class="input" name="${name}" value="${esc(value ?? "")}" placeholder="${esc(ph ?? "")}" style="${w}">`;
   el.innerHTML = `<p class="dim" style="margin:0 0 14px;font-size:calc(13px + var(--fs-up, 0px))">Figures and notes for Pricing → Compare. Leave a box empty to keep the default (shown in grey). Delivrie's own prices come from your plans and aren't edited here.</p>
     <div class="card card-pad" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
-      <div class="field"><label>₦ per $1</label>${inp("fx", c.fx, "1350")}</div>
       <div class="field"><label>Prices checked on</label>${inp("date", c.date, "13 November 2026")}</div>
       ${CMP_PRICES.map(([k, l, d]) => `<div class="field"><label>${l}</label>${inp("p_" + k, c.prices?.[k], String(d))}</div>`).join("")}
     </div>
@@ -386,7 +376,6 @@ async function siteCompare(el, cfg, save) {
   el.querySelector("[data-save]").addEventListener("click", async (e) => {
     const v = (n) => el.querySelector(`[name="${n}"]`).value.trim();
     const next = { prices: {}, rows: {} };
-    if (v("fx")) { if (!(+v("fx") > 0)) return toast("₦ per $1 must be a number", "error"); next.fx = +v("fx"); }
     if (v("date")) next.date = v("date");
     for (const [k] of CMP_PRICES) { const x = v("p_" + k); if (x) { if (!(+x >= 0)) return toast("Prices must be numbers", "error"); next.prices[k] = +x; } }
     el.querySelectorAll("[data-row]").forEach((r) => {

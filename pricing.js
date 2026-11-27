@@ -5,14 +5,10 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var P = {
-    NGN: { sym: '₦', starter: 10000, starterY: 100000, starterOver: 450, pro: 27000, scale: 45000, proY: 270000, scaleY: 450000, proOver: 450, scaleOver: 400, payg: 600, growth: 20000, mktPro: 40000, extraContacts: 3500, packs: [[5000, 8300, 'Minimum', 600], [25000, 41600, '', 600], [100000, 172400, 'Save 3%', 580], [500000, 925900, 'Save 10%', 540]] },
     USD: { sym: '$', starter: 10, starterY: 100, starterOver: 0.45, pro: 20, scale: 45, proY: 200, scaleY: 450, proOver: 0.45, scaleOver: 0.40, payg: 0.60, growth: 20, mktPro: 40, extraContacts: 3.5, packs: [[5, 8300, 'Minimum', 0.60], [25, 41600, '', 0.60], [100, 172400, 'Save 3%', 0.58], [500, 925900, 'Save 10%', 0.54]] }
   };
-  var cur, mode = 'monthly';
-  // Naira for visitors in Nigeria, US dollars everywhere else. The country comes from the dlv_cc cookie set by
-  // middleware.js; without it (local previews) we fall back to the browser's time zone.
-  var cc = (document.cookie.match(/(?:^|; )dlv_cc=([A-Z]{2})/) || [])[1];
-  cur = cc ? (cc === 'NG' ? 'NGN' : 'USD') : (/^Africa\/Lagos$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || '') ? 'NGN' : 'USD');
+  // Prices are in US dollars for everyone (Naira pricing was retired on 27 Nov 2026).
+  var cur = 'USD', mode = 'monthly';
   if (/yearly/.test(location.hash)) mode = 'yearly'; else if (/payg|credits/.test(location.hash)) mode = 'payg';
   var view = /^\/(compare|vs\/)/.test(location.pathname) || /compare|vs/.test(location.hash) ? 'compare' : 'plans';
 
@@ -38,7 +34,7 @@
         '<a class="' + (c.cta[2] ? 'b-primary' : 'b-secondary') + ' block" href="' + c.cta[1] + '">' + c.cta[0] + '</a>' +
         '<div class="fh">' + c.head + '</div><ul>' + c.feats.map(function (f) { return '<li>' + check + f + '</li>'; }).join('') + '</ul></div>';
     }).join('');
-    $('#plan-note').textContent = (cur === 'NGN' ? 'Prices in Naira, exclusive of VAT. ' : 'Prices in US dollars, exclusive of taxes. ') + (y ? 'Yearly plans are billed upfront and renew annually.' : 'Billed monthly, cancel anytime.');
+    $('#plan-note').textContent = 'Prices in US dollars, exclusive of taxes. ' + (y ? 'Yearly plans are billed upfront and renew annually.' : 'Billed monthly, cancel anytime.');
     $('#plans').style.display = mode === 'payg' ? 'none' : '';
     $('#payg-wrap').style.display = mode === 'payg' ? '' : 'none';
   }
@@ -51,16 +47,15 @@
       '</tbody></table><div class="pg-f"><span>' + check + 'Credits never expire</span><span>' + check + 'No daily limit</span><span>' + check + 'Same API as every plan</span></div></div>';
   }
 
-  // Delivrie vs Resend vs Brevo. Competitor prices are their published US-dollar prices (checked 13 Nov 2026);
-  // in Naira they are converted at the official NFEM rate below. Delivrie Naira prices are our own.
+  // Delivrie vs Resend vs Brevo. Competitor prices are their published US-dollar prices (checked 13 Nov 2026).
   // Defaults below; Admin → Website → Compare can change the figures, any cell, and the Explain notes.
   var CMP_DEFAULT = { fx: 1350, date: '13 November 2026', prices: { r20: 20, b20: 32, r100: 65, b100: 82, rOver: 0.9, bBrand: 12 } };
   var BRANDS = [['delivrie', 'Delivrie', '/assets/logo.svg', true], ['resend', 'Resend', '/assets/compare/resend.png', true], ['brevo', 'Brevo', '/assets/compare/brevo.png', true]];
   var arrow = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   var escH = function (t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   function compareRows(c) {
-    var p = P[cur], Y = check, N = dash, pr = c.prices, FX = c.fx;
-    var usd = function (v) { return cur === 'NGN' ? '₦' + (Math.round(v * FX / 100) * 100).toLocaleString('en-US') : '$' + v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
+    var p = P[cur], Y = check, N = dash, pr = c.prices;
+    var usd = function (v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
     var price = function (v, plan) { return '<b>' + v + '</b><span class="vs-sub">' + plan + '</span>'; };
     return [
       ['free', 'Free plan', price('4,000 / month', '133 a day'), price('3,000 / month', '100 a day'), price('300 / day', 'about 9,000 a month'),
@@ -71,8 +66,6 @@
         'A product with steady traffic. Resend’s cheapest option here is Pro (50,000 included) plus 50,000 extra emails at ' + usd(pr.rOver) + ' per 1,000. Brevo moves you up a Starter tier. Delivrie Scale includes all 100,000.'],
       ['over', 'Extra emails, per 1,000', m(p.scaleOver, true) + ' – ' + m(p.starterOver, true), usd(pr.rOver), 'Upgrade the plan',
         'What a busy month costs. Delivrie keeps sending past your allowance and bills the extra at month end. Resend charges about twice as much per 1,000. Brevo has no per-email overage: you move to a bigger plan.'],
-      ['naira', 'Pay in Naira', Y + ' Paystack', N + ' Dollar card', N + ' Foreign currency',
-        'Resend and Brevo bill in foreign currency, so you need a dollar card. Nigerian banks cap international card spending and add charges, and renewals can fail when the cap is reached. Delivrie bills in Naira through Paystack with local cards, and your price doesn’t move with the exchange rate.'],
       ['smtp', 'SMTP relay', Y + ' Ports 587 and 465', Y, Y,
         'For tools that can’t call an API, like WordPress, Laravel or Supabase Auth. All three offer it. On Delivrie, SMTP mail gets the same limits, logs and webhooks as the API.'],
       ['brand', 'Provider branding', 'None', 'None', '“Sent with Brevo” on Starter',
@@ -91,7 +84,7 @@
     var c = { fx: +site.fx || CMP_DEFAULT.fx, date: site.date || CMP_DEFAULT.date, prices: {} };
     Object.keys(CMP_DEFAULT.prices).forEach(function (k) { var v = site.prices && site.prices[k]; c.prices[k] = v === 0 || +v ? +v : CMP_DEFAULT.prices[k]; });
     var over = site.rows || {};
-    var rows = compareRows(c).filter(function (r) { return !(over[r[0]] && over[r[0]].hidden) && (r[0] !== 'naira' || cur === 'NGN'); }).map(function (r) {
+    var rows = compareRows(c).filter(function (r) { return !(over[r[0]] && over[r[0]].hidden); }).map(function (r) {
       var o = over[r[0]] || {};
       return [r[0], o.label ? escH(o.label) : r[1], o.delivrie ? escH(o.delivrie) : r[2], o.resend ? escH(o.resend) : r[3], o.brevo ? escH(o.brevo) : r[4], o.explain ? escH(o.explain) : r[5]];
     });
@@ -104,8 +97,7 @@
         '<td class="us">' + r[2] + '</td><td>' + r[3] + '</td><td>' + r[4] + '</td></tr>' +
         '<tr class="ex" id="ex-' + i + '" hidden><td colspan="4"><p>' + r[5] + '</p></td></tr>';
     }).join('') + '</tbody>';
-    $('#vs-note').textContent = 'Resend and Brevo prices are from their websites on ' + c.date + ' and can change. Each column shows the cheapest plan that covers the volume; Brevo prices are its Starter plan, billed monthly. ' +
-      (cur === 'NGN' ? 'Their dollar prices are shown in Naira at ₦' + c.fx.toLocaleString('en-US') + ' to $1, the official rate; dollar cards often cost more.' : '');
+    $('#vs-note').textContent = 'Resend and Brevo prices are from their websites on ' + c.date + ' and can change. Each column shows the cheapest plan that covers the volume; Brevo prices are its Starter plan, billed monthly.';
   }
 
   function extra() {
@@ -116,8 +108,7 @@
   var FAQ = [
     ['What counts as an email?', 'Each recipient is one email. One message to a To, a CC and a BCC address counts as three.'],
     ['What happens if I go over my plan?', 'On Starter, Pro and Scale we keep sending and bill the extra per 1,000 at the end of the month. On Free, sending pauses until the next day or month.'],
-    cur === 'NGN' ? ['How do I pay?', 'In Naira, by card, bank transfer or USSD through Paystack. Your price is fixed in Naira, so it doesn’t move with the exchange rate.']
-      : ['How do I pay?', 'By card in US dollars, through Stripe. Sales tax or VAT is added where it applies, based on your billing address.'],
+    ['How do I pay?', 'By card in US dollars, through Stripe. Sales tax or VAT is added where it applies, based on your billing address.'],
     ['How do yearly plans work?', 'You pay for ten months and get twelve, billed upfront.'],
     ['Can I change plans anytime?', 'Yes. Upgrades start right away. If you downgrade, you keep your plan until the end of the period you paid for.']
   ];

@@ -24,7 +24,7 @@ LEGAL = [
                          "Full details are in the <a href=\"/acceptable-use\">Acceptable Use Policy</a>."]),
       ("API keys, apps and AI agents", ["API keys and MCP clients act on your behalf. Anything sent with your credentials, including by an AI agent you connect, is treated as sent by you.",
                                         "Use sending-access keys where you can, limit keys to one domain, and delete keys you no longer need. We are not liable for actions taken by tools you authorise, but we will help you investigate and revoke access."]),
-      ("Plans, billing and credits", [["Free plans have the monthly and daily limits shown on the <a href=\"/pricing\">pricing page</a>.", "Paid plans (Starter, Pro and Scale) renew monthly or yearly until cancelled. Usage above your allowance is billed in arrears at the overage rate for your plan.", "Pay-as-you-go credits are prepaid, never expire and are non-refundable except where the law requires.", "Prices are in Naira or US dollars as shown at checkout and exclude VAT and other taxes, which we add where required."],
+      ("Plans, billing and credits", [["Free plans have the monthly and daily limits shown on the <a href=\"/pricing\">pricing page</a>.", "Paid plans (Starter, Pro and Scale) renew monthly or yearly until cancelled. Usage above your allowance is billed in arrears at the overage rate for your plan.", "Pay-as-you-go credits are prepaid, never expire and are non-refundable except where the law requires.", "Prices are in US dollars as shown at checkout and exclude VAT and other taxes, which we add where required. Subscriptions started in Naira before 27 November 2026 keep their Naira price until they end."],
                                       "If a payment fails we will retry and email you. After 14 days we may downgrade the team to Free."]),
       ("Your content and data", ["You keep all rights to the email content, templates, contact lists and other data you upload (“Customer Data”). You grant us a limited licence to host, process and transmit Customer Data only to provide and secure the service.",
                                  "When we process personal data on your behalf, we act as your processor under the <a href=\"/dpa\">Data Processing Addendum</a>."]),
@@ -49,7 +49,7 @@ LEGAL = [
     "sections": [
       ("Who we are", ["Surce Inc, which operates Delivrie, is the controller of personal data about our customers and website visitors. For data inside your account, such as your recipients and contacts, you are the controller and Delivrie is your processor.",
                       "Our privacy team can be reached at privacy@delivrie.io."]),
-      ("Data we collect", [["Account data: name, email address, team name, password hash, and your Google or GitHub account id if you sign in with them.", "Billing data: billing address, tax ID, and your card brand and last four digits. Full card numbers are handled by our payment processors: Paystack for payments in Naira and Stripe for payments in US dollars.", "Usage data: API requests, IP addresses, browser details, and how you use the dashboard.", "Customer Data: email content, recipients, contacts and attachments you send or receive through Delivrie.", "Communications: support requests and feedback you send us."]]),
+      ("Data we collect", [["Account data: name, email address, team name, password hash, and your Google or GitHub account id if you sign in with them.", "Billing data: billing address, tax ID, and your card brand and last four digits. Full card numbers are handled by our payment processors: Stripe for payments in US dollars, and Paystack for Naira subscriptions started before 27 November 2026.", "Usage data: API requests, IP addresses, browser details, and how you use the dashboard.", "Customer Data: email content, recipients, contacts and attachments you send or receive through Delivrie.", "Communications: support requests and feedback you send us."]]),
       ("How we use it", [["Provide, secure and improve the service, including detecting abuse and spam.", "Process payments, send receipts and prevent fraud.", "Send service emails, such as sign-in codes, security alerts and billing notices.", "Comply with legal obligations and respond to lawful requests."],
                          "We do not use Customer Data to train AI models."]),
       ("Legal bases", ["Under the NDPA and GDPR we rely on: performance of our contract with you; legitimate interests such as keeping the platform secure and preventing spam; your consent where we ask for it; and legal obligations such as tax and accounting rules."]),
@@ -103,7 +103,7 @@ LEGAL = [
     "lede": "What Delivrie stores in your browser on delivrie.io and in the dashboard, and how to control it.",
     "sections": [
       ("What we use", ["We keep browser storage to a minimum and use no advertising or analytics cookies. Emails you send can include open and click tracking, which you control per domain; that is covered by the Privacy Policy, not this page."]),
-      ("What we store", [{"table": [["Name", "Purpose", "Type", "Kept"], ["sb-…-auth-token", "Keeps you signed in to the dashboard", "Essential", "Until you log out"], ["dlv_team", "Remembers your last team", "Essential", "Until cleared"], ["dlv_cc", "Your country (from your IP address, not stored by us), so prices show in Naira in Nigeria and in US dollars elsewhere", "Preference", "1 day"], ["dlv_theme", "Remembers System, Light or Dark theme", "Preference", "Until cleared"], ["dlv_docs_lang", "Remembers your code language in the docs", "Preference", "Until cleared"]]},
+      ("What we store", [{"table": [["Name", "Purpose", "Type", "Kept"], ["sb-…-auth-token", "Keeps you signed in to the dashboard", "Essential", "Until you log out"], ["dlv_team", "Remembers your last team", "Essential", "Until cleared"], ["dlv_theme", "Remembers System, Light or Dark theme", "Preference", "Until cleared"], ["dlv_docs_lang", "Remembers your code language in the docs", "Preference", "Until cleared"]]},
                          "These are stored in your browser’s local storage rather than as cookies, so they are never sent to other sites."]),
       ("Your choices", [["Essential: needed for sign-in and security. Always on.", "Preferences: theme, currency and layout choices. Clearing them resets the defaults."],
                         "You can clear this storage in your browser settings. Clearing essential items will sign you out."]),
@@ -114,7 +114,7 @@ LEGAL = [
     "lede": "Third parties that process personal data for Delivrie. We give 30 days notice before adding a new one.",
     "sections": [
       ("Infrastructure", [{"table": [["Provider", "Purpose", "Location"], ["Amazon Web Services", "Email sending and receiving (Amazon SES)", "EU (Ireland)"], ["Supabase", "Database, sign-in, file storage and backend functions", "EU (Ireland)"], ["Vercel", "Hosting for delivrie.io and the dashboard", "Global edge network"], ["Cloudflare", "DNS", "Global"]]}]),
-      ("Payments", [{"table": [["Provider", "Purpose", "Location"], ["Paystack", "Payments in Naira (card, bank transfer, USSD)", "Nigeria"], ["Stripe", "Card payments in US dollars, receipts and sales tax", "United States"]]}]),
+      ("Payments", [{"table": [["Provider", "Purpose", "Location"], ["Paystack", "Renewals of Naira subscriptions started before 27 November 2026", "Nigeria"], ["Stripe", "Card payments in US dollars, receipts and sales tax", "United States"]]}]),
       ("Sign-in", [{"table": [["Provider", "Purpose", "Location"], ["Google", "Optional Sign in with Google", "US, EU"], ["GitHub", "Optional Sign in with GitHub", "US"]]}]),
       ("Changes", [{"table": [["Date", "Change"], ["12 Nov 2026", "First published list"]]}]),
     ],
@@ -135,6 +135,7 @@ LEGAL = [
 ]
 
 CHANGELOG = [
+  ("Nov 27, 2026", "Prices in US dollars for everyone", ["Billing"], ["Every plan, top-up and overage is now priced and paid in US dollars by card through Stripe, wherever you are.", "Subscriptions already running in Naira keep renewing at their Naira price until they end. To move one to dollars, choose Continue in USD in Billing: your first dollar payment starts when the Naira period ends, so you don't pay twice."]),
   ("Nov 23, 2026", "Audit logs", ["Security", "API"], ["Enterprise teams can see who changed what in Settings -> Audit log: sign-ins, members and roles, invites, API keys, domains, webhooks, single sign-on, connected apps, billing and published content.", "Entries can't be edited or deleted and can be exported as CSV. Also available as GET /audit-logs.", "Activity is recorded for every team, so the full history is there on upgrade."]),
   ("Nov 23, 2026", "Starter daily limit", ["Plans"], ["The Starter plan now has a daily limit of 1,500 emails (20,000 a month is unchanged). Sends past it return 429 daily_quota_exceeded until midnight UTC.", "Pro and Scale keep no daily limit."]),
   ("Nov 23, 2026", "One-click DNS setup on Cloudflare", ["Domains", "API"], ["Domains on Cloudflare can now be set up in one step: open the domain, choose Set up with Cloudflare, and paste a Cloudflare token with Zone: Read and DNS: Edit.", "Delivrie only adds missing records. Existing SPF, DMARC and MX records are never changed, so your current email keeps working.", "The token is used once and never stored. Also available as POST /domains/:id/cloudflare."]),
@@ -154,16 +155,6 @@ CHANGELOG = [
 ]
 
 POSTS = [
-  {"slug": "pricing-in-naira", "cat": "Company", "date": "Nov 12, 2026", "mins": 4, "title": "Pricing in Naira",
-   "lede": "Why Delivrie charges Nigerian teams in Naira, what you get on each plan, and what stays the same in dollars.",
-   "body": [("p", "Most email platforms bill in dollars. For a Lagos startup that means a price that moves with the exchange rate, a card that may not work for foreign payments, and a bill that grows faster than revenue. We wanted a price you can plan around."),
-            ("h", "One price list, two currencies"),
-            ("p", "Every plan has a Naira price and a dollar price. Pro is ₦10,000 or $10 a month for 20,000 emails. Scale is ₦45,000 or $45 for 100,000. Teams in Nigeria pay in Naira with a local card, bank transfer or USSD through Paystack; everyone else pays in dollars by card through Stripe."),
-            ("h", "Pay for what you send"),
-            ("p", "If a subscription doesn’t fit, buy credits instead. They start at ₦5,000 for 8,300 emails and never expire, which suits seasonal campaigns and low-volume OTPs."),
-            ("p", "On Pro and Scale we don’t stop your email when you pass the allowance. Extra emails are billed per 1,000 at the end of the month, and you can set a spending cap so there are no surprises."),
-            ("h", "What stays the same"),
-            ("p", "The API, logs, webhooks and MCP server are identical on every plan and in both currencies. See the full breakdown on the <a href=\"/pricing\">pricing page</a>.")]},
   {"slug": "dmarc-in-10-minutes", "cat": "Guides", "date": "Nov 12, 2026", "mins": 6, "title": "DMARC in 10 minutes",
    "lede": "A practical walkthrough for adding a DMARC record to your domain, wherever your DNS is hosted.",
    "body": [("p", "Gmail and Yahoo now expect bulk senders to publish a DMARC record. It tells mailbox providers what to do with mail that claims to be from your domain but fails SPF and DKIM. Here is how to add one safely."),
