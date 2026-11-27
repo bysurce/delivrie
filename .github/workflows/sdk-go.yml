@@ -1,0 +1,29 @@
+# Tests the Go SDK (sdk/go) on every change. Releasing is a git tag: sdk/go/v0.1.0 makes
+# `go get github.com/codeddesigner/delivrie/sdk/go@v0.1.0` work (the Go module proxy picks it up from the public repo).
+name: Go SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/go/**", ".github/workflows/sdk-go.yml"]
+  pull_request:
+    paths: ["sdk/go/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.21", "1.22", "stable"]
+    defaults:
+      run:
+        working-directory: sdk/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - run: go test -race ./...

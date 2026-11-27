@@ -1,5 +1,5 @@
 # Sends real emails to Delivrie's test addresses after every API deploy (and once a day) to prove sending,
-# idempotent retries and Resend SDK compatibility work end to end. See tools/live-test.mjs.
+# idempotent retries, Resend SDK compatibility, the CLI and the Go and PHP SDKs work end to end. See tools/live-test.mjs.
 # Needs one repository secret: DELIVRIE_TEST_KEY (a sending access key). About 12 emails per run.
 name: Live API test
 
@@ -27,5 +27,14 @@ jobs:
           node-version: 22
       - name: Install the published SDKs
         run: npm install --no-save --prefix tools delivrie@latest resend@latest
-      - name: Run the live test
+      - name: Run the live test (Node SDK, Resend SDK, CLI)
         run: node tools/live-test.mjs
+      - uses: actions/setup-go@v5
+        if: always()
+        with:
+          go-version: stable
+          cache: false
+      - name: Go SDK against the live API
+        if: always()
+        working-directory: sdk/go
+        run: go test -count=1 -run TestLive -v ./...
