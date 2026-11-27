@@ -69,7 +69,8 @@ function billing(request) {
   fwd.delete('x-dlv-proxy');
   if (cc) fwd.set('x-dlv-country', cc);
   // Proves to the billing function that the country came from here, not from the caller.
-  if (cc && process.env.DLV_PROXY_SECRET) fwd.set('x-dlv-proxy', process.env.DLV_PROXY_SECRET);
+  const secret = (process.env.DLV_PROXY_SECRET || '').trim();
+  if (cc && secret) fwd.set('x-dlv-proxy', secret);
   const out = new Headers({ 'x-middleware-next': '1' });
   const names = [];
   fwd.forEach((value, name) => { names.push(name); out.set('x-middleware-request-' + name, value); });

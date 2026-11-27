@@ -161,15 +161,18 @@ async function setSetting(key: string, value: string) {
 // The visitor's country, as Vercel saw it. middleware.js sends it with a shared secret (x-dlv-proxy: the
 // DLV_PROXY_SECRET secret, set to the same value on Vercel and in this function's secrets), so a request sent straight
 // to this function can't claim to be from Nigeria to get Naira prices. Until the secret is set, the header is trusted.
-const PROXY_SECRET = env("DLV_PROXY_SECRET");
+const PROXY_SECRET = env("DLV_PROXY_SECRET").trim();
 async function countryOf(req: Request): Promise<string | null> {
   const want = PROXY_SECRET;
   if (want) {
-    const got = req.headers.get("x-dlv-proxy") || "";
-    if (got.length !== want.length) return null;
-    let diff = 0;
-    for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
-    if (diff) return null;
+    const got = (req.headers.get("x-dlv-proxy") || "").trim();
+    let diff = got.length ^ want.length;
+    for (let i = 0; i < Math.min(got.length, want.length); i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
+    if (diff) {
+      // Lengths only, never the values: tells "not sent by Vercel" (0) apart from "the two values differ".
+      if (req.headers.get("x-dlv-country")) console.warn("billing country ignored: proxy secret mismatch", { sent: got.length, expected: want.length });
+      return null;
+    }
   }
   const cc = (req.headers.get("x-dlv-country") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
   return cc || null;
