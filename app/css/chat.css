@@ -43,7 +43,7 @@
 /* buttons */
 .sc-ib { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--fg-2); flex: none; }
 .sc-ib:hover { background: var(--hover); color: var(--fg); }
-.sc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--sc-sf); color: var(--fg); font-size: calc(13px + var(--sc-fs)); font-weight: 500; white-space: nowrap; line-height: normal; }
+.sc-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--sc-sf); color: var(--fg); font-size: calc(13px + var(--sc-fs)); font-weight: 500; white-space: nowrap; line-height: normal; }
 .sc-btn:hover { background: var(--hover); }
 .sc-btn.dark { background: var(--sc-pr); color: var(--sc-on-pr); border-color: var(--sc-pr); }
 .sc-btn.dark:hover { opacity: .9; }

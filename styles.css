@@ -1187,3 +1187,43 @@ a.b-primary[href="/signup"]:hover { background: #ffe033; }
 .footer .fsocial .s-yt { --ic: url("https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/youtube.svg"); }
 .footer .fsocial .s-li { --ic: url("https://cdn.jsdelivr.net/npm/simple-icons@11.0.0/icons/linkedin.svg"); }
 .footer .fsocial .s-li::before { width: 14px; height: 14px; }
+
+/* =================================================================== Design system: buttons and type
+   One button shape (pill) and one size scale everywhere: site, dashboard, chat and emails.
+     small 28px · normal 32px · large 40px · full-width on phones 48px
+   One type scale per level that grows smoothly with the screen (no jumps between breakpoints):
+     page titles 38 → 72px · section titles 30 → 44px · closing call-to-action 30 → 56px · intros 16 → 17px
+   These rules come last on purpose: they replace the per-page sizes above. */
+:root {
+  --btn-sm: 28px; --btn-md: 32px; --btn-lg: 40px; --btn-xl: 48px;
+  --t-h1: clamp(38px, 3.2vw + 26px, 72px);
+  --t-h2: clamp(30px, 1.32vw + 25px, 44px);
+  --t-h2-xl: clamp(30px, 2.45vw + 21px, 56px);
+  --t-lede: clamp(16px, .1vw + 15.6px, 17px);
+}
+.b-primary, .b-secondary, .b-ghost, .b-primary.pill, .b-secondary.pill, .btn-signup, .ed-btn, .cs-form button, .mm-btn { border-radius: 999px; }
+.b-primary, .b-secondary, .b-primary.pill, .b-secondary.pill { height: var(--btn-lg); padding: 0 18px; font-size: 14px; gap: 8px; }
+.b-ghost { height: var(--btn-md); padding: 0 14px; font-size: 13px; }
+.b-ghost.sm { height: var(--btn-sm); padding: 0 11px; font-size: 12.5px; }
+.plan .block { height: var(--btn-lg); font-size: 14px; }
+.btn-signup { height: var(--btn-md); padding: 0 14px; font-size: 13.5px; }
+.ed-btn { padding: 0 16px; height: var(--btn-md); display: inline-flex; align-items: center; }
+.cs-form button { height: var(--btn-lg); }
+.seg-l { border-radius: 999px; }
+.seg-l button { border-radius: 999px; }
+.p-view { border-radius: 999px; }
+.p-view button { height: 36px; border-radius: 999px; }
+/* titles */
+.hero h1, .p-head h1, .s-hero h1, .site h1, .lg-head h1, .cs h1, .post-page h1 { font-size: var(--t-h1) !important; line-height: 1.05 !important; letter-spacing: -0.03em !important; }
+.section-head h2, .split-l h2, .section h2, .faq-h, .site .h2, .story-cta .h2 { font-size: var(--t-h2) !important; line-height: 1.12 !important; letter-spacing: -0.022em !important; }
+.cta h2 { font-size: var(--t-h2-xl) !important; line-height: 1.1 !important; letter-spacing: -0.026em !important; }
+.hero-lede, .p-head p, .section-head .lede, .split-l .lede, .faq-wrap .lede, .site .lede { font-size: var(--t-lede) !important; }
+@media (max-width: 900px) {
+  .nav .btn-signup { height: 40px; padding: 0 16px; font-size: 14px; }
+}
+@media (max-width: 640px) {
+  .hero-cta .pill, .cta .btn-row .b-primary, .mm-btn { height: var(--btn-xl) !important; font-size: 15px !important; }
+  .plan .block { height: var(--btn-xl); font-size: 15px; }
+}
+/* Plan cards side by side: the same room for every description, so prices and buttons line up across cards. */
+@media (min-width: 641px) { .plan .tag { min-height: calc(2 * 1.4em); line-height: 1.4; } }
