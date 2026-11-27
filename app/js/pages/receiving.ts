@@ -1,4 +1,5 @@
 // Receiving (Figma 12.1 set up receiving, 12.2 received email + forward).
+import { attAttr } from "../lib/attachments.js";
 import { sb, state, api, must } from "../lib/sb.js";
 import { esc, icon, ago, fmtDateTime, toast, errToast, modal, emptyState, codeBlock, copyText, initials, badge, on, selectHtml, bindSelects } from "../lib/ui.js";
 
@@ -142,7 +143,7 @@ export async function received(ctx, e, events) {
       <div class="ul-tabs" style="margin-bottom:12px">${[["preview", "Preview"], ["text", "Plain text"], ["headers", "Headers"], ["raw", "Raw"]].map(([k, l]) => `<button class="ul-tab" data-v="${k}">${l}</button>`).join("")}</div>
       <div data-vb></div>
       <h3 class="section-title">Attachments · ${(e.attachments || []).length}</h3>
-      ${(e.attachments || []).length ? `<div class="recv-atts">${e.attachments.map((a) => `<div class="card att">${icon("paperclip", 14)}<span class="grow"><b class="ellipsis">${esc(a.filename)}</b><span class="dim">${a.size ? (a.size > 1048576 ? (a.size / 1048576).toFixed(1) + " MB" : Math.ceil(a.size / 1024) + " KB") : ""} · ${esc(a.content_type || "")}</span></span></div>`).join("")}</div><p class="hint">Delivrie keeps each attachment’s name, type and size. The files themselves aren’t stored.</p>` : `<p class="dim">No attachments.</p>`}
+      ${(e.attachments || []).length ? `<div class="recv-atts">${e.attachments.map((a, i) => `<div class="card att" ${attAttr(e.id, a, i, true)}>${icon("paperclip", 14)}<span class="grow"><b class="ellipsis">${esc(a.filename)}</b><span class="dim">${a.size ? (a.size > 1048576 ? (a.size / 1048576).toFixed(1) + " MB" : Math.ceil(a.size / 1024) + " KB") : ""} · ${esc(a.content_type || "")}</span></span></div>`).join("")}</div><p class="hint">Click a file to download it. Files are kept for 30 days.</p>` : `<p class="dim">No attachments.</p>`}
     </div>
     <div style="min-width:0"><h3 class="section-title" style="margin-top:0">Webhook payload</h3>
       <div class="card hook-card"><div class="row-flex hc-head"><span class="dim">${hook ? `${hook.status_code ? hook.status_code + (hook.delivered ? " OK" : "") : "No response"} · ${hook.delivered ? "delivered" : `failed after ${hook.attempts} attempt${hook.attempts === 1 ? "" : "s"}`} ${ago(hook.updated_at || hook.created_at)}` : "No webhook listening for email.received"}</span><span class="grow"></span><button class="ibtn" data-copy-payload title="Copy">${icon("copy", 13)}</button></div>
@@ -177,7 +178,7 @@ async function forwardModal(e) {
   return modal({ title: "Forward email", body: `<div class="field"><label for="fwto">To</label><input class="input" id="fwto" placeholder="ops@yourcompany.com"></div>
       <div class="field"><label for="fwfrom">From</label><input class="input" id="fwfrom" value="${esc(fromDefault)}" placeholder="Support <support@yourdomain.com>">${doms.length ? "" : `<div class="hint">Verify a sending domain first.</div>`}</div>
       <div class="field"><label for="fwnote">Note <span class="dim">Optional</span></label><textarea class="textarea" id="fwnote" rows="3" placeholder="Can someone check this?"></textarea></div>
-      ${(e.attachments || []).length ? `<p class="hint">${icon("paperclip", 12)} ${esc(e.attachments.map((a) => a.filename).join(", "))} won’t be included. Delivrie doesn’t store attachment files.</p>` : ""}`,
+      ${(e.attachments || []).length ? `<p class="hint">${icon("paperclip", 12)} ${esc(e.attachments.map((a) => a.filename).join(", "))} will be attached when Delivrie still has the files (they’re kept for 30 days).</p>` : ""}`,
     foot: `<button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-go>Forward</button>`,
     onMount(m, close) {
       m.querySelector("#fwto").focus();

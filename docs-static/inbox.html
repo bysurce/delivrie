@@ -63,7 +63,7 @@ curl -G &quot;https://delivrie.io/api/inbox/threads&quot; --data-urlencode &quot
 
 # Send the agent&#39;s draft after checking it
 curl -X POST https://delivrie.io/api/inbox/drafts/DRAFT_ID/send -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre>
-<p>The Inbox has its own <a href="/docs/webhooks">webhook events</a>: <code>inbox.email.received</code>, <code>inbox.thread.updated</code>, <code>inbox.draft.created</code>, <code>inbox.agent.completed</code>, and <code>inbox.created</code>, <code>inbox.updated</code> and <code>inbox.deleted</code>.</p>
+<p>The Inbox has its own <a href="/docs/webhooks">webhook events</a>: <code>inbox.email.received</code>, <code>inbox.email.sent</code>, <code>inbox.thread.updated</code>, <code>inbox.draft.created</code>, <code>inbox.draft.sent</code>, <code>inbox.draft.discarded</code>, <code>inbox.note.created</code>, <code>inbox.agent.completed</code>, <code>inbox.agent.failed</code>, and <code>inbox.created</code>, <code>inbox.updated</code> and <code>inbox.deleted</code>.</p>
 <h2 id="work-the-inbox-from-your-own-agent">Work the Inbox from your own agent</h2>
 <p>Connect an assistant to the <a href="/docs/mcp">MCP server</a> and it can use the same features: <code>list_inboxes</code>, <code>list_inbox_threads</code> (with search), <code>get_inbox_thread</code>, <code>create_draft</code>, <code>send_draft</code>, <code>reply_to_thread</code>, <code>update_thread</code>, <code>add_thread_note</code>, <code>run_inbox_agent</code> and <code>update_inbox</code>. For example, in Claude:</p>
 <pre><code class="language-text">Check the support inbox in Delivrie for conversations that need a reply.

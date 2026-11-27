@@ -73,6 +73,9 @@
   <url><loc>https://delivrie.io/docs/api/cancel-email</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-emails</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-received-emails</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/list-attachments</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/list-received-attachments</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/share-email</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/forward-email</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/send-event</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-events</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
@@ -81,6 +84,7 @@
   <url><loc>https://delivrie.io/docs/api/create-automation</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-automation-runs</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/publish-automation</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/duplicate-automation</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-inboxes</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-inbox</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/update-inbox</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
@@ -105,6 +109,7 @@
   <url><loc>https://delivrie.io/docs/api/list-audit-logs</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-api-keys</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/delete-api-key</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/update-api-key</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-webhook</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-webhooks</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/webhook-events</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
@@ -115,10 +120,15 @@
   <url><loc>https://delivrie.io/docs/api/retrieve-contact</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/update-contact</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/delete-contact</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/create-contact-import</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/retrieve-contact-import</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/add-to-segment</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-segment</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-segments</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/delete-segment</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/update-segment</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/list-segment-contacts</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/remove-from-segment</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-topics</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-contact-properties</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-broadcast</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
@@ -127,11 +137,17 @@
   <url><loc>https://delivrie.io/docs/api/list-broadcasts</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/retrieve-broadcast</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/broadcast-recipients</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/broadcast-links</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/update-broadcast</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/duplicate-broadcast</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/delete-broadcast</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/create-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/publish-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/retrieve-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-templates</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/update-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/duplicate-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://delivrie.io/docs/api/delete-template</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/add-suppression</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/list-suppressions</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://delivrie.io/docs/api/delete-suppression</loc><lastmod>2026-11-28</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>

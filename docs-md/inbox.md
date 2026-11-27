@@ -91,7 +91,7 @@ curl -G "https://delivrie.io/api/inbox/threads" --data-urlencode "q=label:billin
 curl -X POST https://delivrie.io/api/inbox/drafts/DRAFT_ID/send -H "Authorization: Bearer $DELIVRIE_API_KEY"
 ```
 
-The Inbox has its own [webhook events](/docs/webhooks): `inbox.email.received`, `inbox.thread.updated`, `inbox.draft.created`, `inbox.agent.completed`, and `inbox.created`, `inbox.updated` and `inbox.deleted`.
+The Inbox has its own [webhook events](/docs/webhooks): `inbox.email.received`, `inbox.email.sent`, `inbox.thread.updated`, `inbox.draft.created`, `inbox.draft.sent`, `inbox.draft.discarded`, `inbox.note.created`, `inbox.agent.completed`, `inbox.agent.failed`, and `inbox.created`, `inbox.updated` and `inbox.deleted`.
 
 ## Work the Inbox from your own agent
 

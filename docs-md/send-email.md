@@ -100,11 +100,12 @@ Attach files as base64 `content`. The total size can be up to 40 MB per email.
 | Field | Notes |
 | --- | --- |
 | `filename` | Required. Shown to the recipient. |
-| `content` | Required. Base64-encoded file. (The Node.js SDK also accepts a `Buffer` or `Uint8Array`.) |
+| `content` | Base64-encoded file. (The Node.js SDK also accepts a `Buffer` or `Uint8Array`.) Provide `content` or `path`. |
+| `path` | A public `https://` URL to download the file from when the email is accepted. `filename` defaults to the URL's file name. |
 | `content_type` | Optional. Worked out from the filename when you leave it out. |
 | `content_id` | Optional. Set it to show the file inline (see below). |
 
-Attachments by URL (`path`) aren't supported yet. Download the file and send its contents instead.
+Up to 20 attachments and 40 MB per email. Sent files are kept for 30 days, like the email's content: `GET /emails/:id/attachments` returns them with download links that work for an hour.
 
 ### Inline images
 
@@ -169,4 +170,5 @@ Batch emails can't have attachments or `scheduled_at`. If any email in the batch
 
 - Check status in [Emails](https://delivrie.io/emails), or with `GET /emails/:id`, which returns the email and its events. See [Statuses and events](/docs/email-status).
 - Get pushed updates with [webhooks](/docs/webhooks).
+- Share an email with someone outside your team with `POST /emails/:id/share` (optionally `{ "expires_in_hours": 72 }`, up to 720). The link shows the email and its delivery timeline without signing in. `DELETE /emails/:id/share` revokes it.
 - If a send fails, the response says why. See [Errors](/docs/errors).

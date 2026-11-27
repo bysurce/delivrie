@@ -54,9 +54,10 @@ export async function apiKeys(ctx) {
 // ------------------------------------------------------------ webhooks
 export const EVENTS: [group: string, events: string[]][] = [
   ["Email", ["email.sent", "email.delivered", "email.delivery_delayed", "email.bounced", "email.complained", "email.opened", "email.clicked", "email.failed", "email.received"]],
-  ["Contact", ["contact.created", "contact.updated", "contact.deleted"]],
+  ["Contact", ["contact.created", "contact.updated", "contact.deleted", "contact.import.completed"]],
   ["Domain", ["domain.created", "domain.updated"]],
-  ["Inbox", ["inbox.email.received", "inbox.thread.updated", "inbox.draft.created", "inbox.agent.completed", "inbox.created", "inbox.updated", "inbox.deleted"]],
+  ["Broadcast", ["broadcast.created", "broadcast.updated", "broadcast.scheduled", "broadcast.canceled", "broadcast.sending", "broadcast.sent", "broadcast.deleted"]],
+  ["Inbox", ["inbox.email.received", "inbox.email.sent", "inbox.thread.updated", "inbox.draft.created", "inbox.draft.sent", "inbox.draft.discarded", "inbox.note.created", "inbox.agent.completed", "inbox.agent.failed", "inbox.created", "inbox.updated", "inbox.deleted"]],
 ];
 const ALL = EVENTS.flatMap(([, e]) => e);
 

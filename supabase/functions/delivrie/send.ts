@@ -4,6 +4,7 @@ import { creds } from "./ses.ts";
 import { type Any, APP_URL, db, domainOf, emailOnly, FUNCTION_URL, hmacB64, hmacUrl, HttpError, randomToken, setting, SYSTEM_FROM, SYSTEM_REGION } from "./util.ts";
 import { renderVars } from "./blocks.js";
 import { addGlobalSuppression, screenRecipients } from "./hygiene.ts";
+import { storeAttachments } from "./attachments.ts";
 
 export const TEST_ADDRESSES: Record<string, string> = {
   "delivered@test.delivrie.io": "success@simulator.amazonses.com",
@@ -172,8 +173,8 @@ export async function deliver(emailId: string) {
       ...(configSet ? { ConfigurationSetName: configSet } : {}),
     });
     const now = new Date().toISOString();
-    // strip attachment payloads once sent; keep metadata
-    const attMeta = (e.attachments || []).map((a: Any) => ({ filename: a.filename, content_type: a.content_type, size: a.content ? Math.floor(a.content.length * 0.75) : a.size }));
+    // Once sent, the files move to storage (for download links) and the row keeps metadata only.
+    const attMeta = e.attachments?.length ? await storeAttachments(e.team_id, e.id, e.attachments) : [];
     await db.from("emails").update({ status: "sent", sent_at: now, ses_message_id: res.MessageId, html, text, subject, attachments: attMeta, error: null }).eq("id", e.id);
     await db.from("email_events").insert({ email_id: e.id, team_id: e.team_id, type: "sent", data: { message_id: res.MessageId } });
     await emit(e.team_id, "email.sent", payloadFor({ ...e, subject }));
@@ -347,9 +348,13 @@ async function handleInbound(msg: Any) {
       headers: parsed?.headers ? Object.fromEntries(Object.entries(parsed.headers).slice(0, 60)) : {},
       attachments: attMeta, ses_message_id: msg.mail?.messageId, sent_at: msg.mail?.timestamp,
     }).select().single();
+    if (e && parsed?.attachments?.some((a: Any) => a.content)) {
+      e.attachments = await storeAttachments(d.team_id, e.id, parsed.attachments);
+      await db.from("emails").update({ attachments: e.attachments }).eq("id", e.id);
+    }
     if (e) {
       await db.from("email_events").insert({ email_id: e.id, team_id: d.team_id, type: "received", data: { spam: msg.receipt?.spamVerdict?.status, virus: msg.receipt?.virusVerdict?.status, spf: msg.receipt?.spfVerdict?.status, dkim: msg.receipt?.dkimVerdict?.status, dmarc: msg.receipt?.dmarcVerdict?.status } });
-      await emit(d.team_id, "email.received", { email_id: e.id, from: e.from, to: e.to, subject: e.subject, created_at: e.created_at, message_id: e.headers?.["message-id"] || null, attachments: (e.attachments || []).map((a: Any) => ({ filename: a.filename, content_type: a.content_type, size: a.size })) });
+      await emit(d.team_id, "email.received", { email_id: e.id, from: e.from, to: e.to, subject: e.subject, created_at: e.created_at, message_id: e.headers?.["message-id"] || null, attachments: (e.attachments || []).map((a: Any) => ({ id: a.id, filename: a.filename, content_type: a.content_type, size: a.size })) });
       await autoForward(d, e, rcpt, parsed, msg).catch((err) => console.error("auto-forward failed", e.id, err));
       if (onInboundMail) await onInboundMail(e, msg.receipt?.spamVerdict?.status === "FAIL").catch((err) => console.error("inbox handling failed", e.id, err));
     }

@@ -12,6 +12,8 @@ import { registerExtra } from "./extra.ts";
 import { onInboundMail, registerInbox } from "./inbox.ts";
 import { initAgent } from "./agent.ts";
 import { registerDedicated } from "./dedicated.ts";
+import { broadcastPayload, registerMore } from "./more.ts";
+import { loadAttachments, purgeAttachments } from "./attachments.ts";
 import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
 import * as Mail from "../_shared/emails.ts";
 import { senderFrom } from "../_shared/brand-email.ts";
@@ -290,6 +292,28 @@ export function parseWhen(v: unknown): Date | null {
   return isNaN(iso.getTime()) ? null : iso;
 }
 
+// Attachments sent as { path: "https://…" } are downloaded when the email is accepted (up to 40 MB, 20 s).
+// Only public https URLs: no IP literals, localhost or internal names.
+async function fetchAttachment(path: string) {
+  let u: URL;
+  try { u = new URL(path); } catch { throw bad(`Attachment path isn't a URL: ${path.slice(0, 200)}`); }
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (u.protocol !== "https:" || /^(localhost|.*\.local|.*\.internal|.*\.localhost)$/.test(host) || /^[\d.]+$/.test(host) || host.includes(":") || host === "metadata.google.internal") throw bad("Attachment paths must be public https:// URLs");
+  let res: Response;
+  try { res = await fetch(u, { redirect: "follow", signal: AbortSignal.timeout(20_000), headers: { "user-agent": "Delivrie attachment fetcher (+https://delivrie.io/docs/send-email)" } }); }
+  catch (e) { throw bad(`Couldn't download the attachment at ${u.origin}${u.pathname}: ${(e as Error).message}`); }
+  if (!res.ok) throw bad(`Couldn't download the attachment at ${u.origin}${u.pathname}: the server answered ${res.status}`);
+  if (Number(res.headers.get("content-length") || 0) > 40 * 1024 * 1024) throw bad("Attachments are limited to 40 MB per email");
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.length > 40 * 1024 * 1024) throw bad("Attachments are limited to 40 MB per email");
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const cd = res.headers.get("content-disposition") || "";
+  const fromHeader = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd)?.[1];
+  const filename = decodeURIComponent(fromHeader || u.pathname.split("/").pop() || "attachment") || "attachment";
+  return { content: btoa(bin), content_type: (res.headers.get("content-type") || "").split(";")[0] || undefined, filename };
+}
+
 async function prepareEmail(c: Ctx, b: Any, idempotencyKey?: string | null) {
   if (!b || typeof b !== "object") throw bad("Request body must be a JSON object");
   let { subject, html, text, from, reply_to } = b;
@@ -319,12 +343,16 @@ async function prepareEmail(c: Ctx, b: Any, idempotencyKey?: string | null) {
     if (t.getTime() > Date.now() + 30 * 86400e3) throw bad("scheduled_at can be at most 30 days in the future");
     if (t.getTime() > Date.now() + 30e3) scheduledAt = t.toISOString();
   }
-  const attachments = (b.attachments || []).map((a: Any) => {
+  if ((b.attachments || []).length > 20) throw bad("An email can have up to 20 attachments");
+  const attachments = await Promise.all((b.attachments || []).map(async (a: Any) => {
+    if (!a?.content && !a?.path) throw bad("Each attachment needs base64 `content` or a `path` (an https URL to fetch it from)");
+    if (a.path && !a.content) {
+      const f = await fetchAttachment(String(a.path));
+      return { filename: String(a.filename || f.filename), content: f.content, content_type: a.content_type || f.content_type, content_id: a.content_id };
+    }
     if (!a?.filename) throw bad("Each attachment needs a filename");
-    if (!a.content && !a.path) throw bad("Each attachment needs base64 `content`");
-    if (a.path) throw bad("Attachment `path` isn't supported yet. Send base64 `content` instead.");
     return { filename: String(a.filename), content: String(a.content), content_type: a.content_type, content_id: a.content_id };
-  });
+  }));
   const totalAtt = attachments.reduce((s: number, a: Any) => s + a.content.length * 0.75, 0);
   if (totalAtt > 40 * 1024 * 1024) throw bad("Attachments are limited to 40 MB per email");
   const tags = (b.tags || []).map((t: Any) => {
@@ -486,6 +514,7 @@ async function scheduleBroadcast(c: Ctx, id: string, when?: string | null) {
   if (isNaN(at.getTime())) throw bad("scheduled_at must be an ISO 8601 date");
   const { count } = await db.from("broadcasts").select("id", { count: "exact", head: true }).eq("team_id", c.teamId).not("stamp_no", "is", null);
   const { data } = await db.from("broadcasts").update({ status: "scheduled", scheduled_at: at.toISOString(), html, text, recipients: list.length, stamp_no: b.stamp_no || (count || 0) + 1 }).eq("id", id).select().single();
+  await emit(c.teamId, "broadcast.scheduled", broadcastPayload(data));
   if (at.getTime() <= Date.now() + 5000) waitUntil(startBroadcast(data));
   return data;
 }
@@ -493,6 +522,7 @@ async function startBroadcast(b: Any) {
   const { data: claimed } = await db.from("broadcasts").update({ status: "sending" }).eq("id", b.id).eq("status", "scheduled").select("*");
   if (!claimed?.length) return;
   const { list } = await recipientsFor(b.team_id, b);
+  await emit(b.team_id, "broadcast.sending", { ...broadcastPayload(claimed[0]), recipients: list.length });
   for (let i = 0; i < list.length; i += 500) {
     const rows = list.slice(i, i + 500).map((ct: Any) => ({ team_id: b.team_id, broadcast_id: b.id, contact_id: ct.id, from: b.from, to: [ct.email], reply_to: b.reply_to ? [b.reply_to] : null, subject: b.subject, status: "queued", tags: [{ name: "broadcast_id", value: b.id }] }));
     await db.from("emails").insert(rows);
@@ -526,10 +556,16 @@ async function runCron() {
   // 3. queue (retries + broadcast batches)
   await drainQueue(25_000);
   // 4. finish broadcasts with nothing left to send
-  const { data: sending } = await db.from("broadcasts").select("id").eq("status", "sending");
+  const { data: sending } = await db.from("broadcasts").select("id,team_id").eq("status", "sending");
   for (const b of sending || []) {
     const { count } = await db.from("emails").select("id", { count: "exact", head: true }).eq("broadcast_id", b.id).eq("status", "queued");
-    if (!count) await db.from("broadcasts").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", b.id);
+    if (!count) {
+      const { data: done } = await db.from("broadcasts").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", b.id).eq("status", "sending").select("*");
+      if (done?.length) {
+        const { data: stats } = await db.rpc("broadcast_stats", { p_broadcast: b.id });
+        await emit(done[0].team_id, "broadcast.sent", { ...broadcastPayload(done[0]), stats: stats ?? null });
+      }
+    }
   }
   // 5. webhook retries
   const { data: retries } = await db.from("webhook_deliveries").select("*").eq("delivered", false).not("next_attempt_at", "is", null).lte("next_attempt_at", now).limit(100);
@@ -568,6 +604,7 @@ async function runCron() {
   await supportCron().catch((e) => console.error("support email copies failed", e));
   // 10. welcome email, once a new account has confirmed its address
   await welcomeEmails().catch((e) => console.error("welcome emails failed", e));
+  if (new Date().getUTCMinutes() % 10 === 3) await purgeAttachments().catch((e) => console.error("attachment purge failed", e));
   if (new Date().getUTCMinutes() === 47) await ensureAccountSuppression().catch((e) => console.error("account suppression failed", e));
   // 8. custom MAIL FROM records on verified domains, once an hour (see mailFromWatch)
   if (new Date().getUTCMinutes() === 37) await mailFromWatch().catch((e) => console.error("mail-from watch failed", e));
@@ -727,6 +764,7 @@ function route(method: string, path: string, h: Handler) {
 }
 const list = (data: unknown[], extra: Any = {}) => ({ object: "list", data, ...extra });
 // inboxes and the Inbox, then automations, events, usage, received mail (registered first so /emails/received wins over /emails/:id)
+registerMore(route, { needFull, upsertContacts, recipientsFor });
 registerInbox(route, { needFull, sendEmails });
 registerDedicated(route, { needFull });
 registerExtra(route, { needFull, sendEmails });
@@ -778,8 +816,10 @@ route("POST", "/emails/:id/forward", async (_r, c, p, _u, b) => {
   const html = `${note ? `<p>${escH(note).replace(/\n/g, "<br>")}</p>` : ""}<div style="color:#6b6f76">---------- Forwarded message ----------<br>${head.map(escH).join("<br>")}</div><br>${original}`;
   const text = `${note ? note + "\n\n" : ""}---------- Forwarded message ----------\n${head.join("\n")}\n\n${e.text || ""}`;
   const subject = /^fwd?:/i.test(e.subject || "") ? e.subject : `Fwd: ${e.subject || ""}`;
-  const [out] = await sendEmails(c, [{ from: b.from, to, subject, html, text, tags: [{ name: "forwarded_from", value: e.id }] }], null);
-  return { object: "email", id: out.id, forwarded_from: e.id };
+  // Stored files go along (sent and received mail keeps them for 30 days); pass attachments: false to leave them out.
+  const attachments = b?.attachments === false ? [] : await loadAttachments(e);
+  const [out] = await sendEmails(c, [{ from: b.from, to, subject, html, text, tags: [{ name: "forwarded_from", value: e.id }], ...(attachments.length ? { attachments } : {}) }], null);
+  return { object: "email", id: out.id, forwarded_from: e.id, attachments: attachments.length };
 });
 
 // claim a domain another team added, by proving DNS control (TXT _delivrie-claim)
@@ -950,18 +990,14 @@ route("POST", "/broadcasts", async (_r, c, _p, _u, b) => {
   const content = b?.content || { blocks: b?.html ? [{ id: "h1", type: "html", html: b.html }] : (b?.text ? [{ id: "t1", type: "text", html: String(b.text).replace(/\n/g, "<br>") }] : []) };
   const { data, error } = await db.from("broadcasts").insert({ team_id: c.teamId, name: b?.name || b?.subject || "Untitled", from: b?.from, reply_to: b?.reply_to, segment_id: b?.segment_id, topic_id: b?.topic_id, subject: b?.subject, preview_text: b?.preview_text, content, created_by: c.userId }).select().single();
   if (error) throw bad(error.message);
+  await emit(c.teamId, "broadcast.created", broadcastPayload(data));
   return { object: "broadcast", id: data.id };
 });
 route("GET", "/broadcasts/:id", async (_r, c, p) => { needFull(c); const { data } = await db.from("broadcasts").select("*").eq("team_id", c.teamId).eq("id", p.id).maybeSingle(); if (!data) throw notFound("Broadcast"); const { data: stats } = await db.rpc("broadcast_stats", { p_broadcast: p.id }); return { object: "broadcast", ...data, stats }; });
 route("POST", "/broadcasts/:id/send", async (_r, c, p, _u, b) => { needFull(c); const d = await scheduleBroadcast(c, p.id, b?.scheduled_at); return { object: "broadcast", id: d.id, status: d.status, scheduled_at: d.scheduled_at, recipients: d.recipients, stamp_no: d.stamp_no }; });
-route("POST", "/broadcasts/:id/cancel", async (_r, c, p) => { needFull(c); const { data } = await db.from("broadcasts").update({ status: "draft", scheduled_at: null }).eq("team_id", c.teamId).eq("id", p.id).eq("status", "scheduled").select("id"); if (!data?.length) throw bad("Only scheduled broadcasts can be canceled"); return { object: "broadcast", id: p.id, status: "draft" }; });
-route("DELETE", "/broadcasts/:id", async (_r, c, p) => { needFull(c); await db.from("broadcasts").delete().eq("team_id", c.teamId).eq("id", p.id).neq("status", "sending"); return { object: "broadcast", id: p.id, deleted: true }; });
-route("GET", "/broadcasts/:id/recipients", async (_r, c, p) => {
-  const { data: b } = await db.from("broadcasts").select("*").eq("team_id", c.teamId).eq("id", p.id).maybeSingle();
-  if (!b) throw notFound("Broadcast");
-  const r = await recipientsFor(c.teamId, b);
-  return { total: r.total, topic_opt_out: r.topicOptOut, recipients: r.list.length };
-});
+route("POST", "/broadcasts/:id/cancel", async (_r, c, p) => { needFull(c); const { data } = await db.from("broadcasts").update({ status: "draft", scheduled_at: null }).eq("team_id", c.teamId).eq("id", p.id).eq("status", "scheduled").select("*"); if (!data?.length) throw bad("Only scheduled broadcasts can be canceled"); await emit(c.teamId, "broadcast.canceled", broadcastPayload(data[0])); return { object: "broadcast", id: p.id, status: "draft" }; });
+route("DELETE", "/broadcasts/:id", async (_r, c, p) => { needFull(c); const { data: gone } = await db.from("broadcasts").delete().eq("team_id", c.teamId).eq("id", p.id).neq("status", "sending").select("*"); if (gone?.length) await emit(c.teamId, "broadcast.deleted", { ...broadcastPayload(gone[0]), deleted: true }); return { object: "broadcast", id: p.id, deleted: true }; });
+// GET /broadcasts/:id/recipients is in more.ts
 
 // templates
 route("GET", "/templates", async (_r, c) => { needFull(c); const { data } = await db.from("templates").select("id,name,alias,status,published_version,created_at,updated_at").eq("team_id", c.teamId).order("created_at"); return list(data || []); });

@@ -47,6 +47,8 @@
 <p>Add <code>domain_id</code> to a sending key to limit it to one domain. Sending from any other domain then fails with <code>403 restricted_api_key</code>. Calling an endpoint a sending key can&#39;t use also returns <code>403 restricted_api_key</code>.</p>
 <h2 id="store-keys-safely">Store keys safely</h2>
 <ul><li>Keep keys in environment variables or your platform&#39;s secret store (Vercel, Netlify, Fly, Supabase, Cloudflare and GitHub Actions all have one). Name it <code>DELIVRIE_API_KEY</code>; the Node.js SDK reads it automatically.</li><li>Never put a key in browser or mobile app code, a public repo, or a URL.</li><li>Use a separate key per app and environment, so you can revoke one without breaking the others.</li></ul>
+<h2 id="rename-a-key">Rename a key</h2>
+<p>Rename a key in <a href="https://delivrie.io/api-keys" data-native>API keys</a>, or with <code>PATCH /api-keys/:id</code> and <code>{ &quot;name&quot;: &quot;Production (web)&quot; }</code>. The token and its access don&#39;t change.</p>
 <h2 id="rotate-or-revoke">Rotate or revoke</h2>
 <p>Create the new key, deploy it, then delete the old one in <a href="https://delivrie.io/api-keys" data-native>API keys</a> (or with <code>DELETE /api-keys/:id</code>). Deletion takes effect immediately; requests with the old key get <code>401 invalid_api_key</code>.</p>
 <blockquote class="warn"><b>Warning</b> If a key leaks, delete it straight away, then check <a href="https://delivrie.io/logs" data-native>Logs</a> for requests you don&#39;t recognise. Every API request is logged, along with the key that made it.</blockquote>

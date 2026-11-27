@@ -58,6 +58,12 @@ curl "https://delivrie.io/api/emails/received?to=support@in.acme.com&limit=20" \
 
 `GET /emails?direction=inbound` lists received mail too.
 
+Download attachments with `GET /emails/received/:id/attachments`. Each file comes with a `download_url` that works for an hour:
+
+```json
+{ "object": "list", "data": [{ "object": "attachment", "id": "att_1", "filename": "photo.jpg", "content_type": "image/jpeg", "size": 248213, "download_url": "https://…", "expires_at": "2026-11-28T11:22:30Z" }] }
+```
+
 ## Reply and forward
 
 - **Reply** from the [Inbox](/docs/inbox), or with `POST /inbox/threads/:id/reply`. Delivrie sets `In-Reply-To` and `References`, so the reply lands in the same conversation in the sender's mail app.

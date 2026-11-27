@@ -69,7 +69,7 @@ curl -X POST https://delivrie.io/api/automations \
 
 `template_id` takes a template id or alias, and a send step can override `from` and `subject`. Up to 30 steps. Use `{ "segment_id": "..." }` as the trigger to start when someone joins a segment.
 
-Manage automations with `GET /automations`, `GET /automations/:id` (with run counts), `GET /automations/:id/runs`, and `POST /automations/:id/publish`, `/pause` and `/resume`.
+Manage automations with `GET /automations`, `GET /automations/:id` (with run counts), `GET /automations/:id/runs`, and `POST /automations/:id/publish`, `/pause` and `/resume`. `POST /automations/:id/duplicate` copies one, with its trigger and steps, as a new draft. `PATCH /automations/:id` renames it (`name`, `reentry`) and `DELETE /automations/:id` deletes it.
 
 ## Runs
 

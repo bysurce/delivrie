@@ -1,10 +1,10 @@
-# Count recipients
+# List recipients
 
 `GET https://delivrie.io/api/broadcasts/:id/recipients`
 
-How many contacts a broadcast will reach: everyone in the segment, how many opted out of its topic, and how many remain after unsubscribes and suppressions.
+Who a broadcast went to, with each email's status and whether it was delivered, opened, clicked, bounced or unsubscribed. Before sending, the contacts it will reach. `recipients` is the count after unsubscribes, topic opt-outs and suppressions.
 
-Access: Needs a full access key..
+Access: Needs a full access key.. MCP tool: `list_broadcast_recipients`.
 
 ## Headers
 
@@ -17,6 +17,9 @@ Access: Needs a full access key..
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | Yes | The broadcast id. |
+| `limit` | number | No | Results per page, 1 to 100. Default: `50`. |
+| `offset` | number | No | How many results to skip. Default: `0`. |
+| `status` | string | No | Only emails with this status, e.g. bounced or delivered. |
 
 ## Example request
 
@@ -29,9 +32,22 @@ curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417/recipients' \
 
 ```json
 {
-  "total": 3400,
-  "topic_opt_out": 120,
-  "recipients": 3240
+  "object": "list",
+  "recipients": 1180,
+  "has_more": true,
+  "data": [
+    {
+      "object": "broadcast_recipient",
+      "email_id": "4ef9…",
+      "email": "ada@example.com",
+      "status": "delivered",
+      "delivered": true,
+      "opened": true,
+      "clicked": false,
+      "bounced": false,
+      "unsubscribed": false
+    }
+  ]
 }
 ```
 

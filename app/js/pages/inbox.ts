@@ -1,5 +1,6 @@
 // Inbox (Figma 12.3): inboxes for people and agents on top of receiving. Named inboxes with an agent each, threads,
 // labels, assignment, internal notes, shared drafts (the agent's included), spam and trash, and Gmail-style search.
+import { attAttr } from "../lib/attachments.js";
 import { sb, state, api } from "../lib/sb.js";
 import { esc, icon, ago, fmtDateTime, num, toast, errToast, menu, formModal, confirmModal, emptyState, initials, on, debounce, drawer, EMAIL_RE, type El } from "../lib/ui.js";
 
@@ -245,7 +246,7 @@ export default async function inbox(ctx) {
     const body = m.html ? `<iframe sandbox="allow-popups" data-body srcdoc="${esc(`<base target="_blank"><style>body{margin:0;font:14px/1.6 -apple-system,Segoe UI,sans-serif;color:#211f20;background:#fff;padding:14px;word-wrap:break-word}img{max-width:100%}</style>${m.html}`)}"></iframe>` : `<div class="ib-text">${esc(m.text || "(no content)")}</div>`;
     return `<article class="ib-m ${out ? "out" : ""}"><div class="row-flex"><span class="avatar" style="width:28px;height:28px;font-size:calc(11px + var(--fs-up, 0px))">${esc(initials(name))}</span><div class="grow" style="min-width:0"><b>${esc(name)}</b> <span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))">${esc(out ? `to ${(m.to || []).join(", ")}` : m.from.match(/<(.+)>/)?.[1] || "")}</span></div><span class="dim" style="font-size:calc(12px + var(--fs-up, 0px))" title="${esc(fmtDateTime(m.created_at))}">${ago(m.created_at)}</span>${out ? `<span class="badge ${m.status === "delivered" || m.status === "opened" || m.status === "clicked" ? "green" : m.status === "bounced" || m.status === "failed" ? "red" : "gray"}" style="margin-left:6px">${esc(m.status)}</span>` : ""}</div>
       <div class="ib-body">${m.html == null && m.text == null && !out ? `<div class="ib-text dim">Content removed after your plan’s retention window.</div>` : body}</div>
-      ${atts.length ? `<div class="ib-atts">${atts.map((a) => `<span class="ib-att" title="${esc(a.content_type || "")}">${icon("paperclip", 12)}<span class="ellipsis">${esc(a.filename)}</span><span class="dim">${a.size ? `${Math.max(1, Math.round(a.size / 1024))} KB` : ""}</span></span>`).join("")}</div>` : ""}</article>`;
+      ${atts.length ? `<div class="ib-atts">${atts.map((a, i) => `<span class="ib-att" ${attAttr(m.id, a, i, m.direction === "inbound")}>${icon("paperclip", 12)}<span class="ellipsis">${esc(a.filename)}</span><span class="dim">${a.size ? `${Math.max(1, Math.round(a.size / 1024))} KB` : ""}</span></span>`).join("")}</div>` : ""}</article>`;
   }
   function noteHtml(n) {
     const who = n.author_kind === "agent" ? "Agent" : memberName(n.author_id);

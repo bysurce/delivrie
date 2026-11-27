@@ -1,3 +1,4 @@
+import { attAttr } from "../lib/attachments.js";
 import { sb, state, api, must, API_BASE } from "../lib/sb.js";
 import { receivingIntro, setupModal, received } from "./receiving.js";
 import { initials, esc, icon, statusIcon, statusCell, ago, fmtDateTime, num, plural, toast, errToast, menu, modal, drawer, codeBlock, emptyState, skeletonRows, pager, debounce, download, csv, copyText, selectHtml, bindSelects, TZ, on } from "../lib/ui.js";
@@ -179,7 +180,7 @@ export async function detail(ctx) {
     <div class="card" style="margin-bottom:16px"><div class="row-flex card-pad" style="padding-bottom:6px"><h3>Email events</h3><span class="dim" style="margin-left:auto;font-size:calc(12px + var(--fs-up, 0px))">Times in ${esc(TZ)}</span></div>
       <div class="timeline" style="padding:6px 14px 14px">${tlEvents.length ? tlEvents.map((ev, i) => `<div class="tl-item" data-ev="${i}"><div class="tl-dot">${statusIcon(ev.type === "sent" ? "sent" : ev.type, 13)}</div><div class="n">${EVENT_INFO[ev.type][0]}</div><div class="t">${fmtDateTime(ev.created_at, ev.type === "sent" || ev.type === "delivered")}</div></div>`).join("") : `<div class="dim" style="padding:10px">${e.status === "queued" ? "Queued for sending…" : "No events yet."}</div>`}</div></div>
     <div class="card"><div class="row-flex" style="padding:10px 12px;gap:4px">${["Preview", "Plain text", "HTML", ...(inbound ? ["Headers"] : ["Insights"])].map((t) => `<button class="seg-tab" data-view="${t.toLowerCase()}">${t}</button>`).join("")}</div><div data-view-body></div></div>
-    ${e.attachments?.length ? `<h3 class="section-title">Attachments</h3><div class="chip-row">${e.attachments.map((a) => `<span class="pill">${icon("download", 12)} ${esc(a.filename)} <span class="dim">${a.size ? Math.ceil(a.size / 1024) + " KB" : ""}</span></span>`).join("")}</div>` : ""}
+    ${e.attachments?.length ? `<h3 class="section-title">Attachments</h3><div class="chip-row">${e.attachments.map((a, i) => `<span class="pill" ${attAttr(e.id, a, i, e.direction === "inbound")}>${icon("download", 12)} ${esc(a.filename)} <span class="dim">${a.size ? Math.ceil(a.size / 1024) + " KB" : ""}</span></span>`).join("")}</div>` : ""}
   </div>`;
   const vb = root.querySelector("[data-view-body]");
   const drawView = () => {

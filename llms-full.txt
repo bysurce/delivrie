@@ -469,6 +469,10 @@ Add `domain_id` to a sending key to limit it to one domain. Sending from any oth
 - Never put a key in browser or mobile app code, a public repo, or a URL.
 - Use a separate key per app and environment, so you can revoke one without breaking the others.
 
+## Rename a key
+
+Rename a key in [API keys](https://delivrie.io/api-keys), or with `PATCH /api-keys/:id` and `{ "name": "Production (web)" }`. The token and its access don't change.
+
 ## Rotate or revoke
 
 Create the new key, deploy it, then delete the old one in [API keys](https://delivrie.io/api-keys) (or with `DELETE /api-keys/:id`). Deletion takes effect immediately; requests with the old key get `401 invalid_api_key`.
@@ -1874,11 +1878,12 @@ Attach files as base64 `content`. The total size can be up to 40 MB per email.
 | Field | Notes |
 | --- | --- |
 | `filename` | Required. Shown to the recipient. |
-| `content` | Required. Base64-encoded file. (The Node.js SDK also accepts a `Buffer` or `Uint8Array`.) |
+| `content` | Base64-encoded file. (The Node.js SDK also accepts a `Buffer` or `Uint8Array`.) Provide `content` or `path`. |
+| `path` | A public `https://` URL to download the file from when the email is accepted. `filename` defaults to the URL's file name. |
 | `content_type` | Optional. Worked out from the filename when you leave it out. |
 | `content_id` | Optional. Set it to show the file inline (see below). |
 
-Attachments by URL (`path`) aren't supported yet. Download the file and send its contents instead.
+Up to 20 attachments and 40 MB per email. Sent files are kept for 30 days, like the email's content: `GET /emails/:id/attachments` returns them with download links that work for an hour.
 
 ### Inline images
 
@@ -1943,6 +1948,7 @@ Batch emails can't have attachments or `scheduled_at`. If any email in the batch
 
 - Check status in [Emails](https://delivrie.io/emails), or with `GET /emails/:id`, which returns the email and its events. See [Statuses and events](/docs/email-status).
 - Get pushed updates with [webhooks](/docs/webhooks).
+- Share an email with someone outside your team with `POST /emails/:id/share` (optionally `{ "expires_in_hours": 72 }`, up to 720). The link shows the email and its delivery timeline without signing in. `DELETE /emails/:id/share` revokes it.
 - If a send fails, the response says why. See [Errors](/docs/errors).
 
 
@@ -2119,6 +2125,8 @@ In [automations](/docs/automations), templates can also use the data sent with t
 
 - `GET /templates` lists templates with their alias and status.
 - `GET /templates/:id` (id or alias) returns one template.
+- `PATCH /templates/:id` changes its name, alias, sender, subject, variables or `html`. Changes are saved as a draft: emails keep using the published version until you call `POST /templates/:id/publish` again.
+- `POST /templates/:id/duplicate` copies it as a new draft, and `DELETE /templates/:id` deletes it.
 
 
 ---
@@ -2507,6 +2515,12 @@ curl "https://delivrie.io/api/emails/received?to=support@in.acme.com&limit=20" \
 
 `GET /emails?direction=inbound` lists received mail too.
 
+Download attachments with `GET /emails/received/:id/attachments`. Each file comes with a `download_url` that works for an hour:
+
+```json
+{ "object": "list", "data": [{ "object": "attachment", "id": "att_1", "filename": "photo.jpg", "content_type": "image/jpeg", "size": 248213, "download_url": "https://…", "expires_at": "2026-11-28T11:22:30Z" }] }
+```
+
 ## Reply and forward
 
 - **Reply** from the [Inbox](/docs/inbox), or with `POST /inbox/threads/:id/reply`. Delivrie sets `In-Reply-To` and `References`, so the reply lands in the same conversation in the sender's mail app.
@@ -2641,7 +2655,7 @@ curl -G "https://delivrie.io/api/inbox/threads" --data-urlencode "q=label:billin
 curl -X POST https://delivrie.io/api/inbox/drafts/DRAFT_ID/send -H "Authorization: Bearer $DELIVRIE_API_KEY"
 ```
 
-The Inbox has its own [webhook events](/docs/webhooks): `inbox.email.received`, `inbox.thread.updated`, `inbox.draft.created`, `inbox.agent.completed`, and `inbox.created`, `inbox.updated` and `inbox.deleted`.
+The Inbox has its own [webhook events](/docs/webhooks): `inbox.email.received`, `inbox.email.sent`, `inbox.thread.updated`, `inbox.draft.created`, `inbox.draft.sent`, `inbox.draft.discarded`, `inbox.note.created`, `inbox.agent.completed`, `inbox.agent.failed`, and `inbox.created`, `inbox.updated` and `inbox.deleted`.
 
 ## Work the Inbox from your own agent
 
@@ -3040,11 +3054,21 @@ The response includes `signing_secret` (starts with `whsec_`). It's shown once: 
 | `email.failed` | It couldn't be sent; `failed.reason` says why |
 | `email.received` | Mail arrived at one of your [receiving](/docs/receiving) addresses |
 | `contact.created`, `contact.updated`, `contact.deleted` | A contact changed |
+| `contact.import.completed` | A [contact import](/docs/contacts) finished; includes `created`, `updated`, `skipped` and up to 100 `errors` |
 | `domain.created`, `domain.updated` | A domain was added or its verification status changed |
+| `broadcast.created`, `broadcast.updated`, `broadcast.deleted` | A [broadcast](/docs/broadcasts) was created (including duplicates), edited or deleted through the API or dashboard |
+| `broadcast.scheduled` | A broadcast was scheduled or sent now; `scheduled_at` says when it goes out and `recipients` how many it will reach |
+| `broadcast.canceled` | A scheduled broadcast was canceled and moved back to drafts |
+| `broadcast.sending` | Sending started; `recipients` is the final count after unsubscribes, topic opt-outs and suppressions |
+| `broadcast.sent` | Every email was handed to the mail servers; `stats` has the counts so far (delivered, opened, clicked, bounced) |
 | `inbox.email.received` | Mail arrived in the [Inbox](/docs/inbox): includes `thread_id`, `inbox_id` and the thread's folder (`open` or `spam`) |
 | `inbox.thread.updated` | A conversation was moved, assigned, labelled or marked read; `changes` lists what changed and `by` says who (`member`, `api` or `agent`) |
+| `inbox.email.sent` | Your team replied in a conversation, from the dashboard, the API, MCP or by sending a draft |
 | `inbox.draft.created` | A draft was saved in a conversation; `source` is `agent` when the inbox agent wrote it |
+| `inbox.draft.sent`, `inbox.draft.discarded` | A draft was sent (with the new `email_id`) or discarded |
+| `inbox.note.created` | An internal note was added; `author` is `member` or `agent` |
 | `inbox.agent.completed` | The inbox agent finished a run; `actions` lists what it did |
+| `inbox.agent.failed` | An inbox agent run failed; `error` says why |
 | `inbox.created`, `inbox.updated`, `inbox.deleted` | An inbox was added, changed (including its agent settings) or removed |
 
 ## Payloads
@@ -3237,7 +3261,17 @@ curl -X POST https://delivrie.io/api/broadcasts/BROADCAST_ID/send \
   -d '{ "scheduled_at": "2026-11-20T08:00:00Z" }'
 ```
 
-The send response includes `recipients`, the number of contacts it will go to. Cancel a scheduled broadcast with `POST /broadcasts/:id/cancel` (it goes back to draft), and check how many contacts it will reach with `GET /broadcasts/:id/recipients`.
+The send response includes `recipients`, the number of contacts it will go to. Cancel a scheduled broadcast with `POST /broadcasts/:id/cancel` (it goes back to draft).
+
+| Request | What it does |
+| --- | --- |
+| `PATCH /broadcasts/:id` | Edit a draft: `name`, `from`, `reply_to`, `subject`, `preview_text`, `segment_id`, `topic_id`, or `html` to replace the content |
+| `POST /broadcasts/:id/duplicate` | Copy any broadcast as a new draft, optionally with a new `name` |
+| `GET /broadcasts/:id/recipients` | Before sending: who it will reach. After: who it went to, with `delivered`, `opened`, `clicked`, `bounced` and `unsubscribed` for each person. Filter with `status`, page with `limit` and `offset` |
+| `GET /broadcasts/:id/links` | Every clicked link with total and unique clicks, most clicked first (click tracking must be on for the domain) |
+| `DELETE /broadcasts/:id` | Delete a broadcast that isn't sending |
+
+Broadcasts send [webhook events](/docs/webhooks) as they move along: `broadcast.created`, `broadcast.updated`, `broadcast.scheduled`, `broadcast.canceled`, `broadcast.sending`, `broadcast.sent` (with its stats) and `broadcast.deleted`.
 
 ## Who receives it
 
@@ -3309,6 +3343,16 @@ curl -X PATCH https://delivrie.io/api/contacts/ada@example.com \
 
 Upload a CSV in [Contacts → Import](https://delivrie.io/contacts/import). Map columns to email, first name, last name and properties, and choose a segment to add everyone to. Only import people who agreed to hear from you.
 
+With the API, `POST /contacts/imports` takes CSV text (with an `email` column) or a list of contacts, up to 50,000 at a time. It runs in the background:
+
+```bash
+curl -X POST https://delivrie.io/api/contacts/imports \
+  -H "Authorization: Bearer $DELIVRIE_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "csv": "email,first_name,plan\nada@example.com,Ada,pro\nsam@example.com,Sam,free", "segment_ids": ["SEGMENT_ID"] }'
+```
+
+Columns other than `email`, `first_name`, `last_name` and `unsubscribed` become properties (`plan` above). Rename or skip columns with `columns`, like `{ "E-mail": "email", "Company": "property:company", "Notes": null }`. Set `update_existing: false` to leave contacts that already exist as they are. Check progress with `GET /contacts/imports/:id` (it reports `created`, `updated`, `skipped` and the first 100 errors), list recent imports with `GET /contacts/imports`, or listen for the `contact.import.completed` [webhook](/docs/webhooks).
+
 ## Properties
 
 Properties hold anything you want to personalise or filter by: plan, city, signup date. Define them, with a type and fallback value, in [Contacts → Properties](https://delivrie.io/contacts/properties). `GET /contact-properties` lists them. Use them in broadcasts as `{{plan}}`.
@@ -3321,7 +3365,11 @@ Segments are named groups of contacts. Broadcasts go to a segment, and automatio
 | --- | --- |
 | `POST /segments` with `{ "name": "Beta users" }` | Create a segment |
 | `GET /segments` | List segments |
+| `GET /segments/:id` | One segment with its contact count |
+| `PATCH /segments/:id` with `{ "name": "Customers" }` | Rename a segment |
+| `GET /segments/:id/contacts` | List the contacts in a segment (`limit`, `offset`) |
 | `POST /segments/:id/contacts` with `{ "contacts": ["ada@example.com", { "email": "sam@example.com", "first_name": "Sam" }] }` | Add contacts, creating any that don't exist |
+| `DELETE /segments/:id/contacts` with `{ "contacts": ["ada@example.com"] }` | Take contacts out of the segment (emails or ids). `DELETE /segments/:id/contacts/:email` removes one |
 | `DELETE /segments/:id` | Delete the segment (the contacts stay) |
 
 ## Topics
@@ -3406,7 +3454,7 @@ curl -X POST https://delivrie.io/api/automations \
 
 `template_id` takes a template id or alias, and a send step can override `from` and `subject`. Up to 30 steps. Use `{ "segment_id": "..." }` as the trigger to start when someone joins a segment.
 
-Manage automations with `GET /automations`, `GET /automations/:id` (with run counts), `GET /automations/:id/runs`, and `POST /automations/:id/publish`, `/pause` and `/resume`.
+Manage automations with `GET /automations`, `GET /automations/:id` (with run counts), `GET /automations/:id/runs`, and `POST /automations/:id/publish`, `/pause` and `/resume`. `POST /automations/:id/duplicate` copies one, with its trigger and steps, as a new draft. `PATCH /automations/:id` renames it (`name`, `reentry`) and `DELETE /automations/:id` deletes it.
 
 ## Runs
 
@@ -4008,6 +4056,176 @@ curl -X GET 'https://delivrie.io/api/emails/received' \
 
 ---
 
+# List attachments
+
+`GET https://delivrie.io/api/emails/:id/attachments`
+
+The files of a sent email with download links. For received mail use GET /emails/received/:id/attachments. Links last an hour; files are kept for 30 days, like email content. GET /emails/:id/attachments/:attachment_id returns one.
+
+Access: Needs a full access key.. MCP tool: `list_attachments`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The email id. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/emails/4ef9a417/attachments' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "attachment",
+      "id": "att_1",
+      "filename": "invoice.pdf",
+      "content_type": "application/pdf",
+      "size": 48213,
+      "download_url": "https://…/attachments/…?token=…",
+      "expires_at": "2026-11-28T10:12:04Z"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# List received attachments
+
+`GET https://delivrie.io/api/emails/received/:id/attachments`
+
+The files of a received email with download links that last an hour. Files are kept for 30 days.
+
+Access: Needs a full access key.. MCP tool: `list_attachments`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The received email id. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/emails/received/4ef9a417/attachments' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "attachment",
+      "id": "att_1",
+      "filename": "photo.jpg",
+      "content_type": "image/jpeg",
+      "size": 248213,
+      "download_url": "https://…",
+      "expires_at": "2026-11-28T10:12:04Z"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Share email
+
+`POST https://delivrie.io/api/emails/:id/share`
+
+Create a link anyone can open to see the email and its delivery timeline, without signing in. DELETE /emails/:id/share revokes every link for the email.
+
+Access: Needs a full access key.. MCP tool: `share_email`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The email id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `expires_in_hours` | number | No | How long the link works, 1 to 720. Default: `24`. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/emails/4ef9a417/share' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "expires_in_hours": 72
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "email_share",
+  "email_id": "4ef9a417-…",
+  "url": "https://delivrie.io/share/8c1f…",
+  "expires_at": "2026-12-01T09:12:04Z"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
 # Forward email
 
 `POST https://delivrie.io/api/emails/:id/forward`
@@ -4454,6 +4672,61 @@ curl -X POST 'https://delivrie.io/api/automations/4ef9a417/publish' \
   "object": "automation",
   "id": "au_3…",
   "status": "live"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Duplicate automation
+
+`POST https://delivrie.io/api/automations/:id/duplicate`
+
+Copy an automation, with its trigger and steps, as a new draft. PATCH /automations/:id renames it (name, reentry) and DELETE /automations/:id deletes one.
+
+Access: Needs a full access key.. MCP tool: `duplicate_automation`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The automation id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Name for the copy. Default: `Copy of …`. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/automations/4ef9a417/duplicate' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "automation",
+  "id": "a_9…",
+  "name": "Copy of Welcome series",
+  "status": "draft",
+  "url": "https://delivrie.io/automations/a_9…"
 }
 ```
 
@@ -5882,6 +6155,65 @@ curl -X DELETE 'https://delivrie.io/api/api-keys/4ef9a417' \
 
 ---
 
+# Rename API key
+
+`PATCH https://delivrie.io/api/api-keys/:id`
+
+Rename an API key. Its token, access and domain don't change.
+
+Access: Needs a full access key.. MCP tool: `update_api_key`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The API key id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | The new name, up to 100 characters. |
+
+## Example request
+
+```bash
+curl -X PATCH 'https://delivrie.io/api/api-keys/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Production (web)"
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "api_key",
+  "id": "k_3…",
+  "name": "Production (web)",
+  "prefix": "dlv_8xQ2",
+  "permission": "sending"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
 # Create webhook
 
 `POST https://delivrie.io/api/webhooks`
@@ -6400,6 +6732,128 @@ curl -X DELETE 'https://delivrie.io/api/contacts/4ef9a417' \
 
 ---
 
+# Import contacts
+
+`POST https://delivrie.io/api/contacts/imports`
+
+Import up to 50,000 contacts from CSV text or a list. The import runs in the background: check it with GET /contacts/imports/:id (or list them with GET /contacts/imports), or listen for contact.import.completed. Columns other than email, first_name, last_name and unsubscribed become contact properties.
+
+Access: Needs a full access key.. MCP tool: `import_contacts`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `csv` | string | No | CSV text with a header row and an email column. Provide csv or contacts. |
+| `contacts` | object[] | No | { email, first_name, last_name, unsubscribed, properties } objects, or plain emails. |
+| `columns` | object | No | Maps CSV headers to fields, e.g. { "E-mail": "email", "Company": "property:company", "Notes": null }. |
+| `segment_ids` | string[] | No | Add every imported contact to these segments. |
+| `update_existing` | boolean | No | Update names and properties of contacts that already exist. false leaves them as they are. Default: `true`. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/contacts/imports' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "csv": "email,first_name,company\nada@example.com,Ada,Analytical Engines",
+    "segment_ids": [
+      "s_1…"
+    ]
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "contact_import",
+  "id": "i_4…",
+  "status": "queued",
+  "total": 1,
+  "processed": 0,
+  "created": 0,
+  "updated": 0,
+  "skipped": 0
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Retrieve import
+
+`GET https://delivrie.io/api/contacts/imports/:id`
+
+An import's progress and result: created, updated and skipped counts, with the first 100 errors.
+
+Access: Needs a full access key.. MCP tool: `get_contact_import`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The import id. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/contacts/imports/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "contact_import",
+  "id": "i_4…",
+  "status": "completed",
+  "total": 1200,
+  "processed": 1200,
+  "created": 1150,
+  "updated": 45,
+  "skipped": 5,
+  "errors": [
+    {
+      "row": 18,
+      "email": "ada@",
+      "message": "Invalid email address"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
 # Add to segment
 
 `POST https://delivrie.io/api/segments/:id/contacts`
@@ -6589,6 +7043,175 @@ curl -X DELETE 'https://delivrie.io/api/segments/4ef9a417' \
   "object": "segment",
   "id": "s_4…",
   "deleted": true
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Update segment
+
+`PATCH https://delivrie.io/api/segments/:id`
+
+Rename a segment. GET /segments/:id returns one with its contact count.
+
+Access: Needs a full access key.. MCP tool: `update_segment`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The segment id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | The new name. |
+
+## Example request
+
+```bash
+curl -X PATCH 'https://delivrie.io/api/segments/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "segment",
+  "id": "s_1…",
+  "name": "Customers (EU)"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# List segment contacts
+
+`GET https://delivrie.io/api/segments/:id/contacts`
+
+The contacts in a segment.
+
+Access: Needs a full access key.. MCP tool: `list_segment_contacts`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The segment id. |
+| `limit` | number | No | Results per page, 1 to 100. Default: `50`. |
+| `offset` | number | No | How many results to skip. Default: `0`. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/segments/4ef9a417/contacts' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "total": 1200,
+  "has_more": true,
+  "data": [
+    {
+      "object": "contact",
+      "id": "c_1…",
+      "email": "ada@example.com",
+      "first_name": "Ada"
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Remove from segment
+
+`DELETE https://delivrie.io/api/segments/:id/contacts`
+
+Take contacts out of a segment. The contacts aren't deleted. DELETE /segments/:id/contacts/:email_or_id removes one.
+
+Access: Needs a full access key.. MCP tool: `remove_contacts_from_segment`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The segment id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `contacts` | string[] | Yes | Emails or contact ids. |
+
+## Example request
+
+```bash
+curl -X DELETE 'https://delivrie.io/api/segments/4ef9a417/contacts' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contacts": [
+      "ada@example.com"
+    ]
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "segment",
+  "id": "s_1…",
+  "removed": 1
 }
 ```
 
@@ -6952,13 +7575,76 @@ curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417' \
 
 ---
 
-# Count recipients
+# List recipients
 
 `GET https://delivrie.io/api/broadcasts/:id/recipients`
 
-How many contacts a broadcast will reach: everyone in the segment, how many opted out of its topic, and how many remain after unsubscribes and suppressions.
+Who a broadcast went to, with each email's status and whether it was delivered, opened, clicked, bounced or unsubscribed. Before sending, the contacts it will reach. `recipients` is the count after unsubscribes, topic opt-outs and suppressions.
 
-Access: Needs a full access key..
+Access: Needs a full access key.. MCP tool: `list_broadcast_recipients`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The broadcast id. |
+| `limit` | number | No | Results per page, 1 to 100. Default: `50`. |
+| `offset` | number | No | How many results to skip. Default: `0`. |
+| `status` | string | No | Only emails with this status, e.g. bounced or delivered. |
+
+## Example request
+
+```bash
+curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417/recipients' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "recipients": 1180,
+  "has_more": true,
+  "data": [
+    {
+      "object": "broadcast_recipient",
+      "email_id": "4ef9…",
+      "email": "ada@example.com",
+      "status": "delivered",
+      "delivered": true,
+      "opened": true,
+      "clicked": false,
+      "bounced": false,
+      "unsubscribed": false
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# List clicked links
+
+`GET https://delivrie.io/api/broadcasts/:id/links`
+
+Every link people clicked in a broadcast, with total and unique clicks, most clicked first. Click tracking must be on for the domain.
+
+Access: Needs a full access key.. MCP tool: `list_broadcast_links`.
 
 ## Headers
 
@@ -6975,7 +7661,7 @@ Access: Needs a full access key..
 ## Example request
 
 ```bash
-curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417/recipients' \
+curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417/links' \
   -H 'Authorization: Bearer dlv_live_••••'
 ```
 
@@ -6983,9 +7669,133 @@ curl -X GET 'https://delivrie.io/api/broadcasts/4ef9a417/recipients' \
 
 ```json
 {
-  "total": 3400,
-  "topic_opt_out": 120,
-  "recipients": 3240
+  "object": "list",
+  "total_clicks": 412,
+  "data": [
+    {
+      "object": "broadcast_link",
+      "link": "https://acme.com/pricing",
+      "clicks": 301,
+      "unique_clicks": 254
+    }
+  ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Update broadcast
+
+`PATCH https://delivrie.io/api/broadcasts/:id`
+
+Edit a draft broadcast: any of the fields from Create broadcast.
+
+Access: Needs a full access key.. MCP tool: `update_broadcast`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The broadcast id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Internal name. |
+| `from` | string | No | Sender on a verified domain. |
+| `subject` | string | No | Subject line. |
+| `preview_text` | string | No | Inbox preview text. |
+| `segment_id` | string | No | Who it goes to. |
+| `topic_id` | string | No | The topic contacts can opt out of. |
+| `html` | string | No | Replaces the content with this HTML. |
+
+## Example request
+
+```bash
+curl -X PATCH 'https://delivrie.io/api/broadcasts/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "subject": "Our biggest update yet",
+    "segment_id": "s_1…"
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "broadcast",
+  "id": "b_7…"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Duplicate broadcast
+
+`POST https://delivrie.io/api/broadcasts/:id/duplicate`
+
+Copy a broadcast (any status) as a new draft with the same sender, segment, subject and content.
+
+Access: Needs a full access key.. MCP tool: `duplicate_broadcast`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The broadcast id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Name for the copy. Default: `Copy of …`. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/broadcasts/4ef9a417/duplicate' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "broadcast",
+  "id": "b_8…",
+  "name": "Copy of November update",
+  "status": "draft"
 }
 ```
 
@@ -7235,6 +8045,168 @@ curl -X GET 'https://delivrie.io/api/templates' \
       "status": "published"
     }
   ]
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Update template
+
+`PATCH https://delivrie.io/api/templates/:id`
+
+Change a template's name, alias, from, reply_to, subject, variables, html or content. Changes are saved as a draft: emails keep using the published version until you publish again. :id can be the alias.
+
+Access: Needs a full access key.. MCP tool: `update_template`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The template id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Template name. |
+| `subject` | string | No | Subject, with {{variables}}. |
+| `html` | string | No | Replaces the content with this HTML. |
+| `variables` | object[] | No | { name, type, fallback } definitions. |
+
+## Example request
+
+```bash
+curl -X PATCH 'https://delivrie.io/api/templates/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "subject": "Welcome to Acme, {{first_name}}"
+  }'
+```
+
+## Response
+
+```json
+{
+  "object": "template",
+  "id": "t_2…",
+  "status": "published",
+  "note": "Saved. Publish the template to use these changes when sending."
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Duplicate template
+
+`POST https://delivrie.io/api/templates/:id/duplicate`
+
+Copy a template as a new draft.
+
+Access: Needs a full access key.. MCP tool: `duplicate_template`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The template id. |
+
+## Body
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | No | Name for the copy. |
+| `alias` | string | No | Alias for the copy. |
+
+## Example request
+
+```bash
+curl -X POST 'https://delivrie.io/api/templates/4ef9a417/duplicate' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "template",
+  "id": "t_3…",
+  "name": "Copy of Welcome"
+}
+```
+
+## Errors
+
+| Status | Name | When |
+| --- | --- | --- |
+| 401 | `missing_api_key` | No Authorization header was sent. |
+| 404 | `not_found` | Nothing with that id on this team. |
+
+
+---
+
+# Delete template
+
+`DELETE https://delivrie.io/api/templates/:id`
+
+Delete a template and its versions. Automations that send it will fail at that step.
+
+Access: Needs a full access key.. MCP tool: `delete_template`.
+
+## Headers
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `Authorization` | string | Yes | Bearer dlv_your_key |
+
+## Path parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | Yes | The template id. |
+
+## Example request
+
+```bash
+curl -X DELETE 'https://delivrie.io/api/templates/4ef9a417' \
+  -H 'Authorization: Bearer dlv_live_••••'
+```
+
+## Response
+
+```json
+{
+  "object": "template",
+  "id": "t_2…",
+  "deleted": true
 }
 ```
 

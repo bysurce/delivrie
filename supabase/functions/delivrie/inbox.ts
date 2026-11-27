@@ -253,6 +253,7 @@ export function registerInbox(route: Route, d: Deps) {
     const refs = [last?.headers?.references, mid].filter(Boolean).join(" ").trim();
     const [out] = await d.sendEmails(c, [{ from: b?.from || t.mailbox, to: [t.contact], cc: b?.cc || undefined, subject: reSubject(t.subject), text: text || undefined, html, headers: mid ? { "In-Reply-To": mid, References: refs } : {}, tags: [{ name: "source", value: "inbox" }] }], null);
     if (b?.draft_id && isUuid(String(b.draft_id))) await db.from("inbox_drafts").update({ status: "sent", sent_email_id: out.id }).eq("team_id", c.teamId).eq("id", b.draft_id);
+    await emit(c.teamId, "inbox.email.sent", { email_id: out.id, thread_id: t.id, inbox_id: t.inbox_id, to: [t.contact], subject: reSubject(t.subject), draft_id: b?.draft_id || null });
     return { object: "email", id: out.id, thread_id: t.id };
   });
   route("PATCH", "/inbox/threads/:id", async (_r, c, p, _u, b) => {
@@ -299,6 +300,7 @@ export function registerInbox(route: Route, d: Deps) {
     const body = String(b?.body || "").trim();
     if (!body || body.length > 5000) throw bad("A note needs a body of 1 to 5,000 characters");
     const { data: n } = await db.from("inbox_notes").insert({ team_id: c.teamId, thread_id: t.id, author_id: c.userId, author_kind: "member", body }).select().single();
+    await emit(c.teamId, "inbox.note.created", { note_id: n.id, thread_id: t.id, inbox_id: t.inbox_id, author: "member", body: n.body });
     return { object: "inbox_note", id: n.id, body: n.body, created_at: n.created_at };
   });
   route("DELETE", "/inbox/notes/:id", async (_r, c, p) => {
@@ -376,6 +378,7 @@ export function registerInbox(route: Route, d: Deps) {
     d.needFull(c);
     const dr = await getDraft(c.teamId, p.id);
     await db.from("inbox_drafts").update({ status: "discarded" }).eq("id", dr.id);
+    await emit(c.teamId, "inbox.draft.discarded", { draft_id: dr.id, thread_id: dr.thread_id, inbox_id: dr.inbox_id });
     return { object: "inbox_draft", id: dr.id, discarded: true };
   });
   route("POST", "/inbox/drafts/:id/send", async (_r, c, p) => {
@@ -392,6 +395,8 @@ export function registerInbox(route: Route, d: Deps) {
     }
     const [out] = await d.sendEmails(c, [{ from: dr.from, to: dr.to, cc: dr.cc?.length ? dr.cc : undefined, bcc: dr.bcc?.length ? dr.bcc : undefined, subject: dr.subject || "(no subject)", text: dr.text || undefined, html: dr.html || undefined, headers, tags: [{ name: "source", value: dr.source === "agent" ? "inbox_agent_draft" : "inbox" }] }], `draft-${dr.id}`);
     await db.from("inbox_drafts").update({ status: "sent", sent_email_id: out.id }).eq("id", dr.id);
+    await emit(c.teamId, "inbox.draft.sent", { draft_id: dr.id, email_id: out.id, thread_id: dr.thread_id, inbox_id: dr.inbox_id, to: dr.to, subject: dr.subject || "(no subject)" });
+    if (dr.thread_id) await emit(c.teamId, "inbox.email.sent", { email_id: out.id, thread_id: dr.thread_id, inbox_id: dr.inbox_id, to: dr.to, subject: dr.subject || "(no subject)", draft_id: dr.id });
     return { object: "email", id: out.id, draft_id: dr.id, thread_id: dr.thread_id };
   });
 }

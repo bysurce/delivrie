@@ -63,7 +63,7 @@ export async function list(ctx) {
       { sep: true },
       { label: "Delete", icon: "trash", danger: true, disabled: b.status === "sending", onClick: async () => {
         if (!(await confirmModal({ title: "Delete broadcast", desc: `This permanently deletes “${esc(b.name)}”. Sent emails stay in your logs.`, confirm: "Delete", typed: b.name || "Untitled" }))) return;
-        const { error } = await sb.from("broadcasts").delete().eq("id", b.id); if (error) return errToast(error);
+        try { await api("DELETE", `/broadcasts/${b.id}`); } catch (e) { return errToast(e); }
         toast("Broadcast deleted"); load();
       } },
     ].filter(Boolean), { align: "right" });
@@ -73,9 +73,9 @@ export async function list(ctx) {
 
 async function cancel(id) { try { await api("POST", `/broadcasts/${id}/cancel`); toast("Schedule canceled — moved back to drafts"); } catch (e) { errToast(e); } }
 async function duplicate(id, navigate) {
-  const { data: b } = await sb.from("broadcasts").select("*").eq("id", id).single();
-  const { data, error } = await sb.from("broadcasts").insert({ team_id: b.team_id, name: `${b.name} (copy)`, status: "draft", from: b.from, reply_to: b.reply_to, segment_id: b.segment_id, topic_id: b.topic_id, subject: b.subject, preview_text: b.preview_text, content: b.content, created_by: state.user.id }).select("id").single();
-  if (error) return errToast(error);
+  const { data: b } = await sb.from("broadcasts").select("name").eq("id", id).single();
+  let data;
+  try { data = await api("POST", `/broadcasts/${id}/duplicate`, { name: `${b?.name || "Untitled"} (copy)` }); } catch (e) { return errToast(e); }
   toast("Broadcast duplicated"); navigate(`/broadcasts/${data.id}/edit`);
 }
 async function toTemplate(id, navigate) {

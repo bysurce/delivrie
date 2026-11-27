@@ -38,6 +38,10 @@ Add `domain_id` to a sending key to limit it to one domain. Sending from any oth
 - Never put a key in browser or mobile app code, a public repo, or a URL.
 - Use a separate key per app and environment, so you can revoke one without breaking the others.
 
+## Rename a key
+
+Rename a key in [API keys](https://delivrie.io/api-keys), or with `PATCH /api-keys/:id` and `{ "name": "Production (web)" }`. The token and its access don't change.
+
 ## Rotate or revoke
 
 Create the new key, deploy it, then delete the old one in [API keys](https://delivrie.io/api-keys) (or with `DELETE /api-keys/:id`). Deletion takes effect immediately; requests with the old key get `401 invalid_api_key`.

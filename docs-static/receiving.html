@@ -65,6 +65,8 @@
 curl &quot;https://delivrie.io/api/emails/received?to=support@in.acme.com&amp;limit=20&quot; \
   -H &quot;Authorization: Bearer $DELIVRIE_API_KEY&quot;</code></pre>
 <p><code>GET /emails?direction=inbound</code> lists received mail too.</p>
+<p>Download attachments with <code>GET /emails/received/:id/attachments</code>. Each file comes with a <code>download_url</code> that works for an hour:</p>
+<pre><code class="language-json">{ &quot;object&quot;: &quot;list&quot;, &quot;data&quot;: [{ &quot;object&quot;: &quot;attachment&quot;, &quot;id&quot;: &quot;att_1&quot;, &quot;filename&quot;: &quot;photo.jpg&quot;, &quot;content_type&quot;: &quot;image/jpeg&quot;, &quot;size&quot;: 248213, &quot;download_url&quot;: &quot;https://…&quot;, &quot;expires_at&quot;: &quot;2026-11-28T11:22:30Z&quot; }] }</code></pre>
 <h2 id="reply-and-forward">Reply and forward</h2>
 <ul><li><b>Reply</b> from the <a href="/docs/inbox">Inbox</a>, or with <code>POST /inbox/threads/:id/reply</code>. Delivrie sets <code>In-Reply-To</code> and <code>References</code>, so the reply lands in the same conversation in the sender&#39;s mail app.</li><li><b>Forward</b> a received email with <code>POST /emails/:id/forward</code> and <code>{ &quot;to&quot;: &quot;ops@acme.com&quot;, &quot;from&quot;: &quot;Acme &lt;support@mail.acme.com&gt;&quot; }</code>.</li></ul>
 <h2 id="forward-received-mail-to-gmail-or-another-inbox">Forward received mail to Gmail or another inbox</h2>

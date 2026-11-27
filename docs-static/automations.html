@@ -64,7 +64,7 @@
     &quot;publish&quot;: true
   }&#39;</code></pre>
 <p><code>template_id</code> takes a template id or alias, and a send step can override <code>from</code> and <code>subject</code>. Up to 30 steps. Use <code>{ &quot;segment_id&quot;: &quot;...&quot; }</code> as the trigger to start when someone joins a segment.</p>
-<p>Manage automations with <code>GET /automations</code>, <code>GET /automations/:id</code> (with run counts), <code>GET /automations/:id/runs</code>, and <code>POST /automations/:id/publish</code>, <code>/pause</code> and <code>/resume</code>.</p>
+<p>Manage automations with <code>GET /automations</code>, <code>GET /automations/:id</code> (with run counts), <code>GET /automations/:id/runs</code>, and <code>POST /automations/:id/publish</code>, <code>/pause</code> and <code>/resume</code>. <code>POST /automations/:id/duplicate</code> copies one, with its trigger and steps, as a new draft. <code>PATCH /automations/:id</code> renames it (<code>name</code>, <code>reentry</code>) and <code>DELETE /automations/:id</code> deletes it.</p>
 <h2 id="runs">Runs</h2>
 <p>Each contact going through an automation is a run: <code>running</code>, <code>completed</code>, <code>failed</code> or <code>canceled</code>. Open an automation to see every run and each step&#39;s timing. If a step fails (for example, the template&#39;s sender domain isn&#39;t verified), fix the cause, then retry or skip the step from the run.</p>
 <h2 id="event-data-in-templates">Event data in templates</h2>

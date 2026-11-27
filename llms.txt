@@ -70,6 +70,9 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Cancel email](https://delivrie.io/docs/api/cancel-email.md): `POST /emails/:id/cancel`. Cancel a scheduled email before it sends.
 - [List emails](https://delivrie.io/docs/api/list-emails.md): `GET /emails`. List sent emails, newest first.
 - [List received emails](https://delivrie.io/docs/api/list-received-emails.md): `GET /emails/received`. Emails that arrived on your receiving domains, newest first. Fetch one with Retrieve email for its HTML and text.
+- [List attachments](https://delivrie.io/docs/api/list-attachments.md): `GET /emails/:id/attachments`. The files of a sent email with download links. For received mail use GET /emails/received/:id/attachments. Links last an hour; files are kept for 30 days, like email content. GET /emails/:id/attachments/:attachment_id returns one.
+- [List received attachments](https://delivrie.io/docs/api/list-received-attachments.md): `GET /emails/received/:id/attachments`. The files of a received email with download links that last an hour. Files are kept for 30 days.
+- [Share email](https://delivrie.io/docs/api/share-email.md): `POST /emails/:id/share`. Create a link anyone can open to see the email and its delivery timeline, without signing in. DELETE /emails/:id/share revokes every link for the email.
 - [Forward email](https://delivrie.io/docs/api/forward-email.md): `POST /emails/:id/forward`. Forward a sent or received email to other addresses, with an optional note above it.
 - [Send event](https://delivrie.io/docs/api/send-event.md): `POST /events`. Record a custom event for a contact. Live automations listening for the event start a run right away. The contact is created if it doesn’t exist.
 - [List events](https://delivrie.io/docs/api/list-events.md): `GET /events`. Without name: every event name your team has sent, with when it was first and last seen. With name: the most recent events with that name.
@@ -78,6 +81,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Create automation](https://delivrie.io/docs/api/create-automation.md): `POST /automations`. Create a straight-line automation: a trigger and up to 30 send and wait steps. Build branches and conditions in the dashboard.
 - [List runs](https://delivrie.io/docs/api/list-automation-runs.md): `GET /automations/:id/runs`. Runs, newest first, with their status, current step and log.
 - [Publish automation](https://delivrie.io/docs/api/publish-automation.md): `POST /automations/:id/publish`. Make the current version live. Pause with /pause and continue with /resume.
+- [Duplicate automation](https://delivrie.io/docs/api/duplicate-automation.md): `POST /automations/:id/duplicate`. Copy an automation, with its trigger and steps, as a new draft. PATCH /automations/:id renames it (name, reentry) and DELETE /automations/:id deletes one.
 - [List inboxes](https://delivrie.io/docs/api/list-inboxes.md): `GET /inboxes`. Inboxes on your receiving domains, with open, unread and needs-reply counts and each inbox's agent settings.
 - [Create inbox](https://delivrie.io/docs/api/create-inbox.md): `POST /inboxes`. Create an inbox for an address on a receiving domain. Mail to that address lands in it. On a domain that only accepts specific addresses, the address is added to the list.
 - [Update inbox](https://delivrie.io/docs/api/update-inbox.md): `PATCH /inboxes/:id`. Rename an inbox or set up its agent. The agent runs on new mail and acts only within the actions you allow. It drafts replies for people to send and never sends them itself, and it forwards only to the addresses in forward_to.
@@ -102,6 +106,7 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [List audit log entries](https://delivrie.io/docs/api/list-audit-logs.md): `GET /audit-logs`. Who changed what in the team, newest first. Enterprise plan; other plans get 403 plan_required.
 - [List API keys](https://delivrie.io/docs/api/list-api-keys.md): `GET /api-keys`. List keys. Tokens are never shown again.
 - [Delete API key](https://delivrie.io/docs/api/delete-api-key.md): `DELETE /api-keys/:id`. Revoke a key immediately.
+- [Rename API key](https://delivrie.io/docs/api/update-api-key.md): `PATCH /api-keys/:id`. Rename an API key. Its token, access and domain don't change.
 - [Create webhook](https://delivrie.io/docs/api/create-webhook.md): `POST /webhooks`. Send events to an HTTPS endpoint. Each payload is signed; failed deliveries are retried with backoff.
 - [List webhooks](https://delivrie.io/docs/api/list-webhooks.md): `GET /webhooks`. List webhook endpoints.
 - [List deliveries](https://delivrie.io/docs/api/webhook-events.md): `GET /webhooks/:id/events`. The last 100 delivery attempts for an endpoint, with status codes.
@@ -112,10 +117,15 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Retrieve contact](https://delivrie.io/docs/api/retrieve-contact.md): `GET /contacts/:id`. Get a contact by id or email.
 - [Update contact](https://delivrie.io/docs/api/update-contact.md): `PATCH /contacts/:id`. Update names, properties or the unsubscribed flag.
 - [Delete contact](https://delivrie.io/docs/api/delete-contact.md): `DELETE /contacts/:id`. Delete a contact.
+- [Import contacts](https://delivrie.io/docs/api/create-contact-import.md): `POST /contacts/imports`. Import up to 50,000 contacts from CSV text or a list. The import runs in the background: check it with GET /contacts/imports/:id (or list them with GET /contacts/imports), or listen for contact.import.completed. Columns other than email, first_name, last_name and unsubscribed become contact properties.
+- [Retrieve import](https://delivrie.io/docs/api/retrieve-contact-import.md): `GET /contacts/imports/:id`. An import's progress and result: created, updated and skipped counts, with the first 100 errors.
 - [Add to segment](https://delivrie.io/docs/api/add-to-segment.md): `POST /segments/:id/contacts`. Add contacts to a segment, creating any that don't exist.
 - [Create segment](https://delivrie.io/docs/api/create-segment.md): `POST /segments`. Create a segment to group contacts for broadcasts and automations.
 - [List segments](https://delivrie.io/docs/api/list-segments.md): `GET /segments`. List segments.
 - [Delete segment](https://delivrie.io/docs/api/delete-segment.md): `DELETE /segments/:id`. Delete a segment. Its contacts are kept.
+- [Update segment](https://delivrie.io/docs/api/update-segment.md): `PATCH /segments/:id`. Rename a segment. GET /segments/:id returns one with its contact count.
+- [List segment contacts](https://delivrie.io/docs/api/list-segment-contacts.md): `GET /segments/:id/contacts`. The contacts in a segment.
+- [Remove from segment](https://delivrie.io/docs/api/remove-from-segment.md): `DELETE /segments/:id/contacts`. Take contacts out of a segment. The contacts aren't deleted. DELETE /segments/:id/contacts/:email_or_id removes one.
 - [List topics](https://delivrie.io/docs/api/list-topics.md): `GET /topics`. Topics people can opt out of on the unsubscribe page.
 - [List contact properties](https://delivrie.io/docs/api/list-contact-properties.md): `GET /contact-properties`. Custom contact properties with their type and fallback.
 - [Create broadcast](https://delivrie.io/docs/api/create-broadcast.md): `POST /broadcasts`. Create a broadcast draft. Nothing sends until you call Send broadcast.
@@ -123,12 +133,18 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [Cancel broadcast](https://delivrie.io/docs/api/cancel-broadcast.md): `POST /broadcasts/:id/cancel`. Move a scheduled broadcast back to draft.
 - [List broadcasts](https://delivrie.io/docs/api/list-broadcasts.md): `GET /broadcasts`. List broadcasts.
 - [Retrieve broadcast](https://delivrie.io/docs/api/retrieve-broadcast.md): `GET /broadcasts/:id`. One broadcast with its status and delivery stats.
-- [Count recipients](https://delivrie.io/docs/api/broadcast-recipients.md): `GET /broadcasts/:id/recipients`. How many contacts a broadcast will reach: everyone in the segment, how many opted out of its topic, and how many remain after unsubscribes and suppressions.
+- [List recipients](https://delivrie.io/docs/api/broadcast-recipients.md): `GET /broadcasts/:id/recipients`. Who a broadcast went to, with each email's status and whether it was delivered, opened, clicked, bounced or unsubscribed. Before sending, the contacts it will reach. `recipients` is the count after unsubscribes, topic opt-outs and suppressions.
+- [List clicked links](https://delivrie.io/docs/api/broadcast-links.md): `GET /broadcasts/:id/links`. Every link people clicked in a broadcast, with total and unique clicks, most clicked first. Click tracking must be on for the domain.
+- [Update broadcast](https://delivrie.io/docs/api/update-broadcast.md): `PATCH /broadcasts/:id`. Edit a draft broadcast: any of the fields from Create broadcast.
+- [Duplicate broadcast](https://delivrie.io/docs/api/duplicate-broadcast.md): `POST /broadcasts/:id/duplicate`. Copy a broadcast (any status) as a new draft with the same sender, segment, subject and content.
 - [Delete broadcast](https://delivrie.io/docs/api/delete-broadcast.md): `DELETE /broadcasts/:id`. Delete a draft, scheduled or sent broadcast. A broadcast that's sending can't be deleted.
 - [Create template](https://delivrie.io/docs/api/create-template.md): `POST /templates`. Create a template. Publish it before sending it from the API.
 - [Publish template](https://delivrie.io/docs/api/publish-template.md): `POST /templates/:id/publish`. Make the current draft the live version. Every publish is kept in version history.
 - [Retrieve template](https://delivrie.io/docs/api/retrieve-template.md): `GET /templates/:id`. One template by id or alias, with its current draft and published version.
 - [List templates](https://delivrie.io/docs/api/list-templates.md): `GET /templates`. List templates.
+- [Update template](https://delivrie.io/docs/api/update-template.md): `PATCH /templates/:id`. Change a template's name, alias, from, reply_to, subject, variables, html or content. Changes are saved as a draft: emails keep using the published version until you publish again. :id can be the alias.
+- [Duplicate template](https://delivrie.io/docs/api/duplicate-template.md): `POST /templates/:id/duplicate`. Copy a template as a new draft.
+- [Delete template](https://delivrie.io/docs/api/delete-template.md): `DELETE /templates/:id`. Delete a template and its versions. Automations that send it will fail at that step.
 - [Add suppression](https://delivrie.io/docs/api/add-suppression.md): `POST /suppressions`. Stop sending to one or more addresses.
 - [List suppressions](https://delivrie.io/docs/api/list-suppressions.md): `GET /suppressions`. Up to 1,000 suppressed addresses with the reason.
 - [Remove suppression](https://delivrie.io/docs/api/delete-suppression.md): `DELETE /suppressions/:email`. Allow sending to an address again.

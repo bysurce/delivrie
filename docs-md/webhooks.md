@@ -30,11 +30,21 @@ The response includes `signing_secret` (starts with `whsec_`). It's shown once: 
 | `email.failed` | It couldn't be sent; `failed.reason` says why |
 | `email.received` | Mail arrived at one of your [receiving](/docs/receiving) addresses |
 | `contact.created`, `contact.updated`, `contact.deleted` | A contact changed |
+| `contact.import.completed` | A [contact import](/docs/contacts) finished; includes `created`, `updated`, `skipped` and up to 100 `errors` |
 | `domain.created`, `domain.updated` | A domain was added or its verification status changed |
+| `broadcast.created`, `broadcast.updated`, `broadcast.deleted` | A [broadcast](/docs/broadcasts) was created (including duplicates), edited or deleted through the API or dashboard |
+| `broadcast.scheduled` | A broadcast was scheduled or sent now; `scheduled_at` says when it goes out and `recipients` how many it will reach |
+| `broadcast.canceled` | A scheduled broadcast was canceled and moved back to drafts |
+| `broadcast.sending` | Sending started; `recipients` is the final count after unsubscribes, topic opt-outs and suppressions |
+| `broadcast.sent` | Every email was handed to the mail servers; `stats` has the counts so far (delivered, opened, clicked, bounced) |
 | `inbox.email.received` | Mail arrived in the [Inbox](/docs/inbox): includes `thread_id`, `inbox_id` and the thread's folder (`open` or `spam`) |
 | `inbox.thread.updated` | A conversation was moved, assigned, labelled or marked read; `changes` lists what changed and `by` says who (`member`, `api` or `agent`) |
+| `inbox.email.sent` | Your team replied in a conversation, from the dashboard, the API, MCP or by sending a draft |
 | `inbox.draft.created` | A draft was saved in a conversation; `source` is `agent` when the inbox agent wrote it |
+| `inbox.draft.sent`, `inbox.draft.discarded` | A draft was sent (with the new `email_id`) or discarded |
+| `inbox.note.created` | An internal note was added; `author` is `member` or `agent` |
 | `inbox.agent.completed` | The inbox agent finished a run; `actions` lists what it did |
+| `inbox.agent.failed` | An inbox agent run failed; `error` says why |
 | `inbox.created`, `inbox.updated`, `inbox.deleted` | An inbox was added, changed (including its agent settings) or removed |
 
 ## Payloads

@@ -164,7 +164,8 @@ export async function runAgent(teamId: string, threadId: string, opts: { emailId
         } else if (name === "add_note") {
           const b = String(input.body || "").trim().slice(0, 5000);
           if (!b) throw new Error("empty note");
-          await db.from("inbox_notes").insert({ team_id: teamId, thread_id: t.id, author_kind: "agent", body: b });
+          const { data: n } = await db.from("inbox_notes").insert({ team_id: teamId, thread_id: t.id, author_kind: "agent", body: b }).select("id").single();
+          await emit(teamId, "inbox.note.created", { note_id: n?.id, thread_id: t.id, inbox_id: inbox.id, author: "agent", body: b });
           done.push({ type: name, ok: true });
         } else if (name === "forward") {
           const to = String(input.to || "").toLowerCase();
@@ -187,6 +188,7 @@ export async function runAgent(teamId: string, threadId: string, opts: { emailId
     return fin;
   } catch (e) {
     const { data: fin } = await db.from("inbox_agent_runs").update({ status: "failed", error: (e as Error).message.slice(0, 1000), finished_at: new Date().toISOString() }).eq("id", run.id).select().single();
+    await emit(teamId, "inbox.agent.failed", { run_id: run.id, thread_id: t.id, inbox_id: inbox.id, error: (e as Error).message.slice(0, 300) }).catch(() => {});
     return fin;
   }
 }

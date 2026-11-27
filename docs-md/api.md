@@ -9,6 +9,9 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Cancel email](https://delivrie.io/docs/api/cancel-email.md): `POST /emails/:id/cancel`
 - [List emails](https://delivrie.io/docs/api/list-emails.md): `GET /emails`
 - [List received emails](https://delivrie.io/docs/api/list-received-emails.md): `GET /emails/received`
+- [List attachments](https://delivrie.io/docs/api/list-attachments.md): `GET /emails/:id/attachments`
+- [List received attachments](https://delivrie.io/docs/api/list-received-attachments.md): `GET /emails/received/:id/attachments`
+- [Share email](https://delivrie.io/docs/api/share-email.md): `POST /emails/:id/share`
 - [Forward email](https://delivrie.io/docs/api/forward-email.md): `POST /emails/:id/forward`
 - [Send event](https://delivrie.io/docs/api/send-event.md): `POST /events`
 - [List events](https://delivrie.io/docs/api/list-events.md): `GET /events`
@@ -17,6 +20,7 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Create automation](https://delivrie.io/docs/api/create-automation.md): `POST /automations`
 - [List runs](https://delivrie.io/docs/api/list-automation-runs.md): `GET /automations/:id/runs`
 - [Publish automation](https://delivrie.io/docs/api/publish-automation.md): `POST /automations/:id/publish`
+- [Duplicate automation](https://delivrie.io/docs/api/duplicate-automation.md): `POST /automations/:id/duplicate`
 - [List inboxes](https://delivrie.io/docs/api/list-inboxes.md): `GET /inboxes`
 - [Create inbox](https://delivrie.io/docs/api/create-inbox.md): `POST /inboxes`
 - [Update inbox](https://delivrie.io/docs/api/update-inbox.md): `PATCH /inboxes/:id`
@@ -41,6 +45,7 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [List audit log entries](https://delivrie.io/docs/api/list-audit-logs.md): `GET /audit-logs`
 - [List API keys](https://delivrie.io/docs/api/list-api-keys.md): `GET /api-keys`
 - [Delete API key](https://delivrie.io/docs/api/delete-api-key.md): `DELETE /api-keys/:id`
+- [Rename API key](https://delivrie.io/docs/api/update-api-key.md): `PATCH /api-keys/:id`
 - [Create webhook](https://delivrie.io/docs/api/create-webhook.md): `POST /webhooks`
 - [List webhooks](https://delivrie.io/docs/api/list-webhooks.md): `GET /webhooks`
 - [List deliveries](https://delivrie.io/docs/api/webhook-events.md): `GET /webhooks/:id/events`
@@ -51,10 +56,15 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Retrieve contact](https://delivrie.io/docs/api/retrieve-contact.md): `GET /contacts/:id`
 - [Update contact](https://delivrie.io/docs/api/update-contact.md): `PATCH /contacts/:id`
 - [Delete contact](https://delivrie.io/docs/api/delete-contact.md): `DELETE /contacts/:id`
+- [Import contacts](https://delivrie.io/docs/api/create-contact-import.md): `POST /contacts/imports`
+- [Retrieve import](https://delivrie.io/docs/api/retrieve-contact-import.md): `GET /contacts/imports/:id`
 - [Add to segment](https://delivrie.io/docs/api/add-to-segment.md): `POST /segments/:id/contacts`
 - [Create segment](https://delivrie.io/docs/api/create-segment.md): `POST /segments`
 - [List segments](https://delivrie.io/docs/api/list-segments.md): `GET /segments`
 - [Delete segment](https://delivrie.io/docs/api/delete-segment.md): `DELETE /segments/:id`
+- [Update segment](https://delivrie.io/docs/api/update-segment.md): `PATCH /segments/:id`
+- [List segment contacts](https://delivrie.io/docs/api/list-segment-contacts.md): `GET /segments/:id/contacts`
+- [Remove from segment](https://delivrie.io/docs/api/remove-from-segment.md): `DELETE /segments/:id/contacts`
 - [List topics](https://delivrie.io/docs/api/list-topics.md): `GET /topics`
 - [List contact properties](https://delivrie.io/docs/api/list-contact-properties.md): `GET /contact-properties`
 - [Create broadcast](https://delivrie.io/docs/api/create-broadcast.md): `POST /broadcasts`
@@ -62,12 +72,18 @@ Base URL `https://delivrie.io/api`. Authenticate with `Authorization: Bearer dlv
 - [Cancel broadcast](https://delivrie.io/docs/api/cancel-broadcast.md): `POST /broadcasts/:id/cancel`
 - [List broadcasts](https://delivrie.io/docs/api/list-broadcasts.md): `GET /broadcasts`
 - [Retrieve broadcast](https://delivrie.io/docs/api/retrieve-broadcast.md): `GET /broadcasts/:id`
-- [Count recipients](https://delivrie.io/docs/api/broadcast-recipients.md): `GET /broadcasts/:id/recipients`
+- [List recipients](https://delivrie.io/docs/api/broadcast-recipients.md): `GET /broadcasts/:id/recipients`
+- [List clicked links](https://delivrie.io/docs/api/broadcast-links.md): `GET /broadcasts/:id/links`
+- [Update broadcast](https://delivrie.io/docs/api/update-broadcast.md): `PATCH /broadcasts/:id`
+- [Duplicate broadcast](https://delivrie.io/docs/api/duplicate-broadcast.md): `POST /broadcasts/:id/duplicate`
 - [Delete broadcast](https://delivrie.io/docs/api/delete-broadcast.md): `DELETE /broadcasts/:id`
 - [Create template](https://delivrie.io/docs/api/create-template.md): `POST /templates`
 - [Publish template](https://delivrie.io/docs/api/publish-template.md): `POST /templates/:id/publish`
 - [Retrieve template](https://delivrie.io/docs/api/retrieve-template.md): `GET /templates/:id`
 - [List templates](https://delivrie.io/docs/api/list-templates.md): `GET /templates`
+- [Update template](https://delivrie.io/docs/api/update-template.md): `PATCH /templates/:id`
+- [Duplicate template](https://delivrie.io/docs/api/duplicate-template.md): `POST /templates/:id/duplicate`
+- [Delete template](https://delivrie.io/docs/api/delete-template.md): `DELETE /templates/:id`
 - [Add suppression](https://delivrie.io/docs/api/add-suppression.md): `POST /suppressions`
 - [List suppressions](https://delivrie.io/docs/api/list-suppressions.md): `GET /suppressions`
 - [Remove suppression](https://delivrie.io/docs/api/delete-suppression.md): `DELETE /suppressions/:email`

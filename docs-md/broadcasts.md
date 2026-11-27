@@ -33,7 +33,17 @@ curl -X POST https://delivrie.io/api/broadcasts/BROADCAST_ID/send \
   -d '{ "scheduled_at": "2026-11-20T08:00:00Z" }'
 ```
 
-The send response includes `recipients`, the number of contacts it will go to. Cancel a scheduled broadcast with `POST /broadcasts/:id/cancel` (it goes back to draft), and check how many contacts it will reach with `GET /broadcasts/:id/recipients`.
+The send response includes `recipients`, the number of contacts it will go to. Cancel a scheduled broadcast with `POST /broadcasts/:id/cancel` (it goes back to draft).
+
+| Request | What it does |
+| --- | --- |
+| `PATCH /broadcasts/:id` | Edit a draft: `name`, `from`, `reply_to`, `subject`, `preview_text`, `segment_id`, `topic_id`, or `html` to replace the content |
+| `POST /broadcasts/:id/duplicate` | Copy any broadcast as a new draft, optionally with a new `name` |
+| `GET /broadcasts/:id/recipients` | Before sending: who it will reach. After: who it went to, with `delivered`, `opened`, `clicked`, `bounced` and `unsubscribed` for each person. Filter with `status`, page with `limit` and `offset` |
+| `GET /broadcasts/:id/links` | Every clicked link with total and unique clicks, most clicked first (click tracking must be on for the domain) |
+| `DELETE /broadcasts/:id` | Delete a broadcast that isn't sending |
+
+Broadcasts send [webhook events](/docs/webhooks) as they move along: `broadcast.created`, `broadcast.updated`, `broadcast.scheduled`, `broadcast.canceled`, `broadcast.sending`, `broadcast.sent` (with its stats) and `broadcast.deleted`.
 
 ## Who receives it
 

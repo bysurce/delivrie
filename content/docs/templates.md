@@ -108,3 +108,5 @@ In [automations](/docs/automations), templates can also use the data sent with t
 
 - `GET /templates` lists templates with their alias and status.
 - `GET /templates/:id` (id or alias) returns one template.
+- `PATCH /templates/:id` changes its name, alias, sender, subject, variables or `html`. Changes are saved as a draft: emails keep using the published version until you call `POST /templates/:id/publish` again.
+- `POST /templates/:id/duplicate` copies it as a new draft, and `DELETE /templates/:id` deletes it.
