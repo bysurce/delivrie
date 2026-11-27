@@ -689,7 +689,7 @@ setOnWebhookFailing(async (hook, d, status, body, next) => {
 });
 
 async function welcomeEmails() {
-  const { data: rows } = await db.from("profiles").select("id,full_name,last_team_id,created_at").is("welcome_sent_at", null).lt("created_at", new Date(Date.now() - 2 * 60e3).toISOString()).gt("created_at", new Date(Date.now() - 3 * 86400e3).toISOString()).limit(10);
+  const { data: rows } = await db.from("profiles").select("id,full_name,last_team_id,created_at").is("welcome_sent_at", null).lt("created_at", new Date(Date.now() - 2 * 60e3).toISOString()).gt("created_at", new Date(Date.now() - 7 * 86400e3).toISOString()).limit(10);
   for (const pr of rows || []) {
     const { data: u } = await db.auth.admin.getUserById(pr.id);
     if (!u?.user?.email || !u.user.email_confirmed_at) continue;
