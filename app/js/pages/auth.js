@@ -58,7 +58,7 @@ export async function signup(ctx) {
 // One screen for every emailed code: sign-up confirmation, sign-in code and password reset.
 // Emailed codes are 8 digits (Supabase Auth → Email → "Email OTP length"). Keep this in step with that setting:
 // the form submits by itself when this many digits are in. Shorter codes still work with the Continue button.
-const CODE_LENGTH = 8;
+const CODE_LENGTH = 6; // Supabase → Auth → Email OTP length
 const CODE_FLOWS = {
   signup: { title: "Check your email", sub: "Enter the code we sent to confirm your account.", resend: (email) => sb.auth.resend({ type: "signup", email }) },
   email: { title: "Check your email", sub: "Enter the sign-in code we sent you.", resend: (email) => sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } }) },
@@ -222,6 +222,7 @@ export async function mfa(ctx) {
 }
 
 export async function reset(ctx) {
+  document.title = "Reset your password · Delivrie";
   const card = layout(ctx.root, `${mark}<h1>Reset your password</h1><p class="sub">Enter the email on your account and we’ll send you a code.</p>
     <form novalidate><div class="field"><label for="email">Email</label><input class="input" id="email" type="email" placeholder="you@company.com" autocomplete="email"></div>
     <button class="btn btn-primary btn-lg btn-block" type="submit">Send code</button></form><p class="sub"><a href="/login">Back to log in</a></p>`);
@@ -237,6 +238,7 @@ export async function reset(ctx) {
 }
 
 export async function resetNew(ctx) {
+  document.title = "Set a new password · Delivrie";
   if (ctx.query.token_hash && ctx.query.type === "recovery") {
     const { error } = await sb.auth.verifyOtp({ token_hash: ctx.query.token_hash, type: "recovery" });
     history.replaceState(null, "", "/reset/new");
