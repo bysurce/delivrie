@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { run } from "../src/cli.js";
+import { run } from "../dist/cli.js";
 
 const major = Number(process.versions.node.split(".")[0]);
 if (major < 18) { process.stderr.write("The Delivrie CLI needs Node.js 18 or later.\n"); process.exit(1); }

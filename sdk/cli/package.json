@@ -27,7 +27,7 @@
   },
   "files": [
     "bin",
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -35,6 +35,13 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/cli.test.js"
+    "build": "node scripts/build.mjs",
+    "pretest": "npm run build",
+    "test": "node --test test/cli.test.js",
+    "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "typescript": "6.0.3"
   }
 }

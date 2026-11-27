@@ -1,0 +1,23 @@
+# Type-checks and builds the website and dashboard (TypeScript → out/) on every change, the same way Vercel does on deploy.
+# A type error fails this check and Vercel's build, so the live site keeps its last good deployment.
+name: Site build
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "*.ts", "types/**", "scripts/**", "tsconfig.json", "package.json", "vercel.json", ".github/workflows/site-build.yml"]
+  pull_request:
+    paths: ["app/**", "*.ts", "types/**", "scripts/**", "tsconfig.json", "package.json", "vercel.json"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Every page script was compiled
+        run: for f in out/app/js/main.js out/site.js out/site-config.js out/pricing.js out/script.js out/app/js/lib/chat.js; do test -s "$f" || { echo "::error::missing $f"; exit 1; }; done

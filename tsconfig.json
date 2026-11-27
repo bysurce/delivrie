@@ -1,0 +1,28 @@
+{
+  // The website and dashboard. `npm run build` type-checks and compiles these into out/ (see scripts/build.mjs).
+  // middleware.ts is checked here but compiled by Vercel itself.
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "rootDir": ".",
+    "outDir": "out",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "removeComments": false,
+    "newLine": "lf",
+    // Keep every import as written: an import can matter for its side effects, so none is dropped as unused.
+    // (The compiler also marks the classic site scripts "use strict"; scripts/build.mjs takes that back out.)
+    "verbatimModuleSyntax": true,
+    // site-config.ts loads the chat by its public URL; this lets the type-checker find the source.
+    "paths": { "/app/js/*": ["./app/js/*"] },
+    "types": []
+  },
+  "include": ["app/js/**/*.ts", "app/js/lib/blocks.js", "app/vendor/*.d.ts", "*.ts", "types/*.d.ts"],
+  "exclude": ["node_modules", "out", "sdk", "supabase", "tools", "smtp"]
+}

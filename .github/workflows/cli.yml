@@ -1,4 +1,4 @@
-# Tests the CLI (sdk/cli) on every change. Publishing to npm (package "delivrie-cli") is a manual run with
+# Builds (TypeScript → dist/) and tests the CLI (sdk/cli) on every change. Publishing to npm (package "delivrie-cli") is a manual run with
 # "publish" ticked; it needs the NPM_TOKEN repository secret, the same one the Node SDK uses.
 name: CLI
 
@@ -31,6 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - run: npm install --no-audit --no-fund
       - run: npm test
       - run: node bin/delivrie.js --version
 
@@ -50,6 +51,7 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - run: npm install --no-audit --no-fund
       - name: Publish (skipped if this version is already on npm)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

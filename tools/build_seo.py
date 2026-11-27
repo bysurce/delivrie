@@ -30,7 +30,7 @@ ORG = {"@type": "Organization", "@id": f"{SITE}/#org", "name": "Delivrie", "lega
        "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}
 
 def pricing_data():
-    js = rd("pricing.js")
+    js = rd("pricing.ts")
     def prices(cur):
         line = re.search(r"%s: \{ sym: [^\n]*" % cur, js)[0]
         return tuple(int(re.search(r"\b%s: (\d+)" % k, line)[1]) for k in ("starter", "pro", "scale"))
@@ -97,11 +97,13 @@ def marketing():
 
 # ---------------------------------------------------------------- docs
 def docs_data():
-    """Guides (rendered with the same Markdown renderer as the docs site), API reference and MCP data."""
+    """Guides (rendered with the same Markdown renderer as the docs site), API reference and MCP data.
+    Imports the compiled dashboard modules, so it builds the site first (needs `npm install` once)."""
+    subprocess.run(["node", "scripts/build.mjs"], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     js = r"""
     const [{ DOCS, GROUPS }, { ALL_ENDPOINTS, samples }, { renderMarkdown }] = await Promise.all([
-      import('./app/js/lib/docs.js'), import('./app/js/lib/apiref.js'), import('./app/js/lib/md.js')]);
-    const src = (await import('fs')).readFileSync('./app/js/pages/docs.js', 'utf8');
+      import('./out/app/js/lib/docs.js'), import('./out/app/js/lib/apiref.js'), import('./out/app/js/lib/md.js')]);
+    const src = (await import('fs')).readFileSync('./app/js/pages/docs.ts', 'utf8');
     const grab = (name) => { const a = src.indexOf(`const ${name} = [`); return src.slice(a + `const ${name} = `.length, src.indexOf('\n];', a) + 2); };
     const MCP_URL = "https://delivrie.io/api/mcp";
     const TOOLS = eval(grab('TOOLS')), CLIENTS = eval(grab('CLIENTS'));

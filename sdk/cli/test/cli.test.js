@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Readable, Writable } from "node:stream";
-import { run } from "../src/cli.js";
+import { run } from "../dist/cli.js";
 
 const KEY = "dlv_test_1234567890";
 let server, base, calls = [];

@@ -325,7 +325,7 @@ def not_found():
     page("/404", "Page not found", "This page doesn’t exist.", body, noindex=True)
 
 # ---------------------------------------------------------------- alternative pages (search: "Resend alternative", "cheaper than Resend", "Brevo alternative")
-# Competitor figures: their published US-dollar prices, checked 13 Nov 2026 (Brevo via its Starter plan). Keep in step with pricing.js.
+# Competitor figures: their published US-dollar prices, checked 13 Nov 2026 (Brevo via its Starter plan). Keep in step with pricing.ts.
 ALTS = {
   "resend": {
     "name": "Resend", "slug": "resend-alternative",

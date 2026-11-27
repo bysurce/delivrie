@@ -10,8 +10,10 @@ Live at https://delivrie.io
 
 | Path | What it is |
 |---|---|
-| `index.html`, `styles.css`, `script.js` | Marketing landing page |
-| `app.html`, `app/` | Dashboard SPA (vanilla JS ES modules, no build step) |
+| `index.html`, `styles.css`, `script.ts` | Marketing landing page |
+| `app.html`, `app/` | Dashboard SPA (TypeScript ES modules, no framework; compiled to the same paths as `.js`) |
+| `site.ts`, `site-config.ts`, `pricing.ts`, `middleware.ts` | Shared site behaviour, admin website settings, the pricing page, and Vercel Routing Middleware |
+| `scripts/build.mjs`, `tsconfig.json`, `types/` | The site build: type-checks the TypeScript and writes the deployable site to `out/` |
 | `assets/` | Logos, favicon and icons (from the Figma brand page) |
 | `supabase/functions/delivrie/` | Edge function: REST API, SES/SNS integration, webhooks, cron, MCP server |
 | `supabase/functions/billing/` | Edge function: subscriptions, credits and overage. Everyone pays in USD through Stripe (with Stripe Tax). Served at `/api/billing/*` |
@@ -20,7 +22,7 @@ Live at https://delivrie.io
 
 ## Deploy
 
-- **Frontend:** static files on Vercel. No build command; output directory is the repo root.
+- **Frontend:** static files on Vercel. Vercel runs `npm run build`, which type-checks the TypeScript and writes the site to `out/` (the output directory). A type error fails the build, so the live site stays on its last good deployment. Locally: `npm install`, then `npm run build` (or `npm run typecheck`). `app/js/lib/blocks.js` and `docs.js` stay JavaScript because the edge function uses identical copies.
 - **Backend functions:** pushed changes under `supabase/functions/` deploy automatically through `.github/workflows/deploy-functions.yml` (needs the `SUPABASE_ACCESS_TOKEN` repository secret).
 - **Backend:** Supabase (Postgres + Auth + Storage) with the `delivrie` edge function.
   To recreate the database on a new project, run the files in `supabase/migrations/` in order (or `supabase db push`). The cron migration contains the project's function URL; change it if you deploy to a different project.

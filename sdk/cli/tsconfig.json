@@ -1,0 +1,17 @@
+{
+  // The CLI's sources (src/*.ts) compile to dist/, which bin/delivrie.js runs. Build: npm run build (tests build first).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "newLine": "lf",
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

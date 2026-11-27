@@ -4,7 +4,7 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 const root = path.resolve(__dirname, "../..");
 const ill = JSON.parse(fs.readFileSync(path.join(__dirname, "illustrations.json"), "utf8"));
-const icons = fs.readFileSync(path.join(root, "app/js/lib/icons.js"), "utf8");
+const icons = fs.readFileSync(path.join(root, "app/js/lib/icons.ts"), "utf8");
 const iconPath = (n) => icons.match(new RegExp(`\\n  ${n}: '([^']+)'`))[1];
 (async () => {
   const b = await chromium.launch();
