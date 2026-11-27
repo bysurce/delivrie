@@ -11,7 +11,7 @@ const RANK = { viewer: 1, admin: 2, owner: 3 };
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Usage viewer" };
 let ROLE = null;
 const can = (min) => (RANK[ROLE] || 0) >= RANK[min];
-const money = (amount, currency) => new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format((amount || 0) / 100);
+const money = (amount, currency) => new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: (amount || 0) % 100 ? 2 : 0, maximumFractionDigits: 2 }).format((amount || 0) / 100);
 const pct = (a, b, d = 1) => b ? `${((a / b) * 100).toFixed(d)}%` : "0%";
 const planBadge = (p) => badge(p === "free" ? "Free" : p.replace(/^\w/, (c) => c.toUpperCase()), p === "free" ? "gray" : p === "scale" || p === "enterprise" ? "blue" : "yellow");
 
@@ -59,7 +59,7 @@ async function overview(body) {
         ${stat("Users", num(o.users), `+${num(o.users_7d)} this week · +${num(o.users_30d)} in 30 days`)}
         ${stat("Active (7 days)", num(o.active_7d), `${pct(o.users_confirmed, o.users)} confirmed email`)}
         ${stat("Teams", num(o.teams), `${num(paid)} paying`)}
-        ${stat("Revenue (30 days)", esc(money(o.revenue_30d?.USD || 0, "USD")), `All time ${esc(money(o.revenue_all?.USD || 0, "USD"))}`)}
+        ${stat("Revenue (30 days)", esc(money(o.revenue_30d?.USD || 0, "USD")), `All time ${esc(money(o.revenue_all?.USD || 0, "USD"))}${o.revenue_ngn_all ? ` · incl. ${esc(money(o.revenue_ngn_all, "NGN"))} converted` : ""}`)}
       </div>
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
         ${stat("Emails (30 days)", num(sent), `${num(o.emails_today)} today`)}
@@ -250,21 +250,22 @@ async function admins(body) {
 async function revenue(body) {
   const [o, inv] = await Promise.all([rpc("admin_overview"), rpc("admin_invoices", { p_limit: 200 })]);
   const paying = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
-  // Payments in US dollars through Stripe.
-  const section = (cur, title, provider) => {
-    const rows = inv.filter((i) => (i.currency || "").toUpperCase() === cur);
-    const paidRows = rows.filter((i) => i.status === "success");
-    return `<h3 class="section-title">${title} <span class="dim" style="font-weight:400">${provider}</span></h3>
-      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-        <div class="stat"><div class="k">Last 30 days</div><div class="v">${esc(money(o.revenue_30d?.[cur] || 0, cur))}</div></div>
-        <div class="stat"><div class="k">All time</div><div class="v">${esc(money(o.revenue_all?.[cur] || 0, cur))}</div></div>
-        <div class="stat"><div class="k">Payments</div><div class="v">${num(paidRows.length)}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${num(rows.length - paidRows.length)} failed</div></div>
-      </div>
-      ${rows.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${rows.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${money(i.amount, cur)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>`
-        : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: `${provider} payments show up here as they land.` })}</div>`}`;
-  };
-  body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><div class="k">Paying teams</div><div class="v">${num(paying)}</div></div></div>
-    ${section("USD", "Payments", "Stripe")}`;
+  // Every payment in US dollars. Naira payments (the retired Paystack plans) are converted at the official rate when they were paid
+  // (about ₦1,347 to the dollar), with the naira amount shown alongside.
+  const paidRows = inv.filter((i) => i.status === "success");
+  const usd = (i) => i.amount_usd ?? (String(i.currency).toUpperCase() === "USD" ? i.amount : 0);
+  const amountCell = (i) => String(i.currency).toUpperCase() === "USD" ? money(i.amount, "USD")
+    : `${money(usd(i), "USD")}<div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(money(i.amount, String(i.currency).toUpperCase()))} · Paystack</div>`;
+  const ngnNote = (k) => o[k] ? `incl. ${esc(money(o[k], "NGN"))} converted` : "";
+  body.innerHTML = `<div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="k">Paying teams</div><div class="v">${num(paying)}</div></div>
+      <div class="stat"><div class="k">Last 30 days</div><div class="v">${esc(money(o.revenue_30d?.USD || 0, "USD"))}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${ngnNote("revenue_ngn_30d")}</div></div>
+      <div class="stat"><div class="k">All time</div><div class="v">${esc(money(o.revenue_all?.USD || 0, "USD"))}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${ngnNote("revenue_ngn_all")}</div></div>
+      <div class="stat"><div class="k">Payments</div><div class="v">${num(paidRows.length)}</div><div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${num(inv.length - paidRows.length)} failed</div></div>
+    </div>
+    <h3 class="section-title">Payments <span class="dim" style="font-weight:400">in US dollars</span></h3>
+    ${inv.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Team</th><th>Item</th><th class="r">Amount</th><th>Status</th><th>Reference</th></tr></thead><tbody>${inv.map((i) => `<tr><td class="muted">${fmtDateTime(i.created_at)}</td><td>${esc(i.team || "—")}</td><td>${esc(i.kind)}${i.plan ? ` · ${esc(i.plan)}` : ""}</td><td class="r" style="font-variant-numeric:tabular-nums">${amountCell(i)}</td><td>${i.status === "success" ? badge("Paid", "green") : badge("Failed", "red")}</td><td class="mono dim" style="font-size:calc(11.5px + var(--fs-up, 0px))">${esc(i.reference)}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="card">${emptyState({ icon: "card", title: "No payments yet", desc: "Payments show up here as they land." })}</div>`}`;
 }
 
 // ---------------------------------------------------------------- inbox

@@ -77,7 +77,7 @@ def crumbs(*pairs):
 def marketing():
     pd = pricing_data()
     home = rd("index.html")
-    home = set_head(home, title="Delivrie · Email API for developers",
+    home = set_head(home, title="Delivrie | Email API & MCP for Modern Developers",
                     desc="A cheaper Resend alternative: email API, SMTP relay and MCP server for transactional email, broadcasts and an inbox. 4,000 free emails a month, paid plans from $10 a month.",
                     extra_ld=ld(ORG, {"@type": "WebSite", "@id": f"{SITE}/#site", "url": SITE, "name": "Delivrie", "publisher": {"@id": f"{SITE}/#org"}}, app_ld(pd)))
     wr("index.html", home)
