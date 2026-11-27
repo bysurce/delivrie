@@ -32,7 +32,7 @@ async function systemTeam(): Promise<string | null> {
   const { data } = await db.from("domains").select("team_id").eq("name", domainOf(SYSTEM_FROM)).eq("status", "verified").limit(1);
   return data?.[0]?.team_id || null;
 }
-async function notify(to: string[], subject: string, html: string, text: string) {
+export async function notify(to: string[], subject: string, html: string, text: string) {
   if (!to.length || !SYSTEM_FROM || !hasAws()) return false;
   const team = await systemTeam();
   if (!team) return false;

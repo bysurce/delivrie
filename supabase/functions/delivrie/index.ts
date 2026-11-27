@@ -1,15 +1,15 @@
 import { cloudflareSetup, CloudflareError } from "./cloudflare.ts";
 import { AUDITED, auditAction } from "./audit.ts";
 import { type Any, APP_URL, asArray, bad, CORS, db, domainOf, emailOnly, ENFORCE_LIMITS, errorJson, forbidden, HttpError, json, LIMITS, notFound, pageParams, randomToken, setting, sha256, SYSTEM_FROM, waitUntil } from "./util.ts";
-import { accountStatus, createDomain, deleteDomain, doh, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
-import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
+import { accountStatus, createDomain, deleteDomain, doh, ensureAccountSuppression, hasAws, mailFromWatch, parkDomain, PARK_AFTER_MS, regionLabel, regionStatus, REGION_CANDIDATES, sendingRegions, updateDomainConfig, verifyDomain } from "./ses.ts";
+import { attemptDelivery, deliver, emit, handleSesEvent, payloadFor, setOnBadSignal, setQuotaCheck, systemDomain, validateRecipients, verifyUnsubscribeToken } from "./send.ts";
 import { EMAIL_RE, parseAddress } from "./mime.ts";
 import { blocksToText, renderBlocks, renderVars, usedVars } from "./blocks.js";
 import { DOCS, searchDocs } from "./docs.js";
 import { oauthAuthorize, oauthGrantFromToken, oauthPublic, scopeAllows } from "./oauth.ts";
 import { handleMcp } from "./mcp.ts";
 import { registerExtra } from "./extra.ts";
-import { registerSupport } from "./support.ts";
+import { notify, registerSupport } from "./support.ts";
 import { publicStatus, runStatusChecks } from "./status.ts";
 
 interface Ctx { teamId: string; userId: string | null; apiKey: Any | null; permission: "full" | "sending"; via: "api" | "dashboard"; userAgent: string; email?: string; scopes?: string[]; app?: string; ip?: string }
@@ -203,6 +203,7 @@ async function overDailyLimit(teamId: string): Promise<string | null> {
 
 // Automatic forwards of received mail are sends too, so they count against the same allowance.
 setQuotaCheck((teamId, n) => checkQuota({ teamId } as Ctx, n));
+setOnBadSignal((teamId) => bounceBreaker(teamId));
 
 async function checkLimit(c: Ctx, table: "domains" | "webhooks", key: "domains" | "webhooks", label: string) {
   if (!ENFORCE_LIMITS) return;
@@ -303,6 +304,7 @@ async function sendEmails(c: Ctx, bodies: Any[], idem: string | null, batch = fa
     if (prev) return prev;
   }
   await assertNotPaused(c);
+  await holdNewListBlast(c, bodies);
   await checkQuota(c, bodies.length);
   const rows = [];
   for (let i = 0; i < bodies.length; i++) rows.push(await prepareEmail(c, bodies[i], keys ? keys[i] : null));
@@ -495,7 +497,11 @@ async function runCron() {
     }
   }
   // 7. reputation check, once an hour
-  if (new Date().getUTCMinutes() === 23) await reputationWatch().catch((e) => console.error("reputation watch failed", e));
+  if (new Date().getUTCMinutes() === 23) {
+    await reputationWatch().catch((e) => console.error("reputation watch failed", e));
+    await platformBounceAlert().catch((e) => console.error("bounce alert failed", e));
+  }
+  if (new Date().getUTCMinutes() === 47) await ensureAccountSuppression().catch((e) => console.error("account suppression failed", e));
   // 8. custom MAIL FROM records on verified domains, once an hour (see mailFromWatch)
   if (new Date().getUTCMinutes() === 37) await mailFromWatch().catch((e) => console.error("mail-from watch failed", e));
   return { scheduled_released: due?.length || 0, broadcasts_started: bc?.length || 0 };
@@ -506,6 +512,75 @@ async function runCron() {
 // 100 emails) or a complaint rate above 0.08% (at least 1,000 emails). Test addresses and system emails don't count.
 // Team admins get an email saying why; a platform admin resumes the team from Admin → Teams.
 const REPUTATION = { bounce: 0.04, bounceMin: 100, complaint: 0.0008, complaintMin: 1000, days: 7 };
+
+// Bounce breaker: runs as each hard bounce or complaint arrives (send.ts), so a bad list is stopped within minutes.
+// A team under 14 days old is paused at 5+ hard bounces making over 5% of its last 50 emails; an older team at
+// 10+ over 8% of its last 100. A complaint pauses a new team at 2+ in its last 50. (The hourly 7-day check in
+// reputationWatch still applies on top.)
+async function bounceBreaker(teamId: string) {
+  const { data: t } = await db.from("teams").select("id,name,created_at,sending_paused_at").eq("id", teamId).maybeSingle();
+  if (!t || t.sending_paused_at) return;
+  const young = Date.now() - new Date(t.created_at).getTime() < 14 * 864e5;
+  const n = young ? 50 : 100;
+  const { data } = await db.rpc("team_recent_bounces", { p_team: teamId, p_n: n });
+  const sent = Number(data?.[0]?.sent || 0), bounced = Number(data?.[0]?.bounced || 0);
+  let reason = "";
+  if (young ? bounced >= 5 && bounced / sent > 0.05 : bounced >= 10 && bounced / sent > 0.08) {
+    reason = `${bounced} of your last ${sent} emails bounced because the addresses don't exist (${(bounced / sent * 100).toFixed(0)}%). Sending a list with this many bad addresses hurts delivery for everyone, so we paused it straight away.`;
+  } else if (young) {
+    const { count } = await db.from("emails").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("status", "complained").gte("created_at", new Date(Date.now() - 7 * 864e5).toISOString());
+    if ((count || 0) >= 2) reason = `${count} recipients marked your emails as spam in your first days on Delivrie. We paused sending so we can check the list was collected with permission.`;
+  }
+  if (!reason) return;
+  const { data: p } = await db.from("teams").update({ sending_paused_at: new Date().toISOString(), sending_paused_reason: reason }).eq("id", teamId).is("sending_paused_at", null).select("id,name").maybeSingle();
+  if (!p) return;
+  console.log("bounce breaker paused", teamId, sent, bounced);
+  await notifyPaused(p, reason).catch((e) => console.error("pause notice failed", e));
+  await alertAdmins(`Paused ${p.name}: bounces`, `Delivrie paused ${p.name} automatically.\n\n${reason}\n\nReview it in Admin -> Teams.`).catch(() => {});
+}
+
+// A free account under 3 days old that suddenly mails lots of different domains looks like a bought or scraped list
+// (the pattern of the phishing accounts in November). Its sending is held until someone reviews it.
+const NEW_ACCOUNT_DOMAINS = 30;
+async function holdNewListBlast(c: Ctx, bodies: Any[]) {
+  const { data: t } = await db.from("teams").select("id,name,created_at,plan_transactional").eq("id", c.teamId).maybeSingle();
+  if (!t || (t.plan_transactional || "free") !== "free" || Date.now() - new Date(t.created_at).getTime() > 3 * 864e5) return;
+  const fresh = new Set<string>();
+  for (const b of bodies) for (const a of asArray(b?.to)) { const d = domainOf(a); if (d && !/test\.delivrie\.io$/.test(d)) fresh.add(d); }
+  const { data: seen } = await db.rpc("team_recent_domains", { p_team: c.teamId, p_hours: 24 });
+  if (Number(seen || 0) + fresh.size <= NEW_ACCOUNT_DOMAINS) return;
+  const reason = "New accounts sending to many different email domains in their first days are held for a quick review, to keep bought or scraped lists off Delivrie. Reply to this email with what you're sending and how the addresses were collected.";
+  const { data: p } = await db.from("teams").update({ sending_paused_at: new Date().toISOString(), sending_paused_reason: reason }).eq("id", c.teamId).is("sending_paused_at", null).select("id,name").maybeSingle();
+  if (p) {
+    await notifyPaused(p, reason).catch((e) => console.error("hold notice failed", e));
+    await alertAdmins(`Held ${p.name} for review`, `${p.name} (created ${new Date(t.created_at).toUTCString()}) tried to email more than ${NEW_ACCOUNT_DOMAINS} different domains within its first 3 days. Sending is held.\n\nReview it in Admin -> Teams and resume it if it's legitimate.`).catch(() => {});
+  }
+  throw new HttpError(403, "sending_paused", "Sending is held for a quick review: new accounts emailing many different domains are checked first. Contact support@delivrie.io.");
+}
+
+// Emails Delivrie's own admins (owners and admins in Admin -> Admins).
+async function alertAdmins(subject: string, text: string) {
+  const { data: rows } = await db.from("platform_admins").select("user_id,role");
+  const to: string[] = [];
+  for (const r of (rows || []) as Any[]) {
+    if (r.role === "viewer") continue;
+    const { data } = await db.auth.admin.getUserById(r.user_id);
+    if (data?.user?.email) to.push(data.user.email);
+  }
+  const html = text.split("\n\n").map((x) => `<p>${x.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>`).join("");
+  await notify(to, subject, html, text);
+}
+
+// Platform bounce rate across all teams, last 7 days. Amazon reviews accounts at 5%; this warns at 3%, once a day.
+async function platformBounceAlert() {
+  const { data } = await db.rpc("platform_bounce_stats", { p_days: 7 });
+  const sent = Number(data?.[0]?.sent || 0), bounced = Number(data?.[0]?.bounced || 0);
+  if (sent < 200 || bounced / sent <= 0.03) return;
+  const { data: last } = await db.from("system_settings").select("value").eq("key", "bounce_alert_at").maybeSingle();
+  if (last?.value && Date.now() - new Date(String(last.value)).getTime() < 864e5) return;
+  await db.from("system_settings").upsert({ key: "bounce_alert_at", value: new Date().toISOString() });
+  await alertAdmins(`Bounce rate is ${(bounced / sent * 100).toFixed(1)}%`, `Delivrie's hard-bounce rate over the last 7 days is ${(bounced / sent * 100).toFixed(1)}% (${bounced} of ${sent} emails). Amazon SES starts reviewing accounts at 5% and pauses them at 10%.\n\nCheck which teams the bounces come from in Admin -> Teams, and pause any that are sending to a bad list.`);
+}
 async function reputationWatch() {
   const { data: stats } = await db.rpc("reputation_stats", { p_days: REPUTATION.days });
   const paused: string[] = [];

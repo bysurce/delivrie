@@ -3,6 +3,7 @@ import { buildMime, EMAIL_RE, parseAddress, parseMime, b64ToBytes } from "./mime
 import { creds } from "./ses.ts";
 import { type Any, APP_URL, db, domainOf, emailOnly, FUNCTION_URL, hmacB64, hmacUrl, HttpError, randomToken, setting, SYSTEM_FROM, SYSTEM_REGION } from "./util.ts";
 import { renderVars } from "./blocks.js";
+import { addGlobalSuppression, screenRecipients } from "./hygiene.ts";
 
 export const TEST_ADDRESSES: Record<string, string> = {
   "delivered@test.delivrie.io": "success@simulator.amazonses.com",
@@ -104,14 +105,19 @@ export async function deliver(emailId: string) {
   const all = [...(e.to || []), ...(e.cc || []), ...(e.bcc || [])].map(emailOnly);
   const { data: sup } = await db.from("suppressions").select("email").eq("team_id", e.team_id).in("email", all);
   const suppressed = new Set((sup || []).map((s: Any) => s.email.toLowerCase()));
-  const keep = (list: string[] | null) => (list || []).filter((a) => !suppressed.has(emailOnly(a)));
+  // Then addresses that can't receive mail (bounced for any team, fake or mail-less domains): see hygiene.ts.
+  // Our test addresses go to the SES simulator below, so they're never screened.
+  const blocked = await screenRecipients(all.filter((a) => !suppressed.has(a) && !TEST_ADDRESSES[a]));
+  const keep = (list: string[] | null) => (list || []).filter((a) => !suppressed.has(emailOnly(a)) && !blocked.has(emailOnly(a)));
+  if (blocked.size) await db.from("email_events").insert({ email_id: e.id, team_id: e.team_id, type: "suppressed", data: { recipients: [...blocked.keys()], reasons: Object.fromEntries(blocked) } });
   // Test addresses (delivered@ / bounced@ / complained@ test.delivrie.io) go to the SES mailbox simulator,
   // so they exercise the full event pipeline without touching sending reputation.
   const sim = (list: string[]) => list.map((a) => TEST_ADDRESSES[emailOnly(a)] || a);
   const to = sim(keep(e.to)), cc = sim(keep(e.cc)), bcc = sim(keep(e.bcc));
   if (!to.length && !cc.length && !bcc.length) {
-    await db.from("emails").update({ status: "suppressed", error: "All recipients are on the suppression list" }).eq("id", e.id);
-    await db.from("email_events").insert({ email_id: e.id, team_id: e.team_id, type: "suppressed", data: { recipients: all } });
+    const why = blocked.size ? [...blocked].slice(0, 3).map(([a, r]) => `${a}: ${r}`).join("; ") : "";
+    await db.from("emails").update({ status: "suppressed", error: why ? `Not sent, so it can't bounce. ${why}` : "All recipients are on the suppression list" }).eq("id", e.id);
+    if (!blocked.size) await db.from("email_events").insert({ email_id: e.id, team_id: e.team_id, type: "suppressed", data: { recipients: all } });
     return;
   }
 
@@ -225,20 +231,36 @@ export async function handleSesEvent(msg: Any) {
   await db.from("emails").update({ status: nextStatus(e.status, type) }).eq("id", e.id);
 
   // suppression & contact hygiene
+  // A real hard bounce: not the simulator, and not SES skipping an address already on a suppression list (those
+  // aren't delivery attempts and don't count against reputation).
+  const realHard = type === "bounced" && msg.bounce?.bounceType === "Permanent" && !["OnAccountSuppressionList", "OnSuppressionList"].includes(msg.bounce?.bounceSubType);
   if (type === "bounced" && msg.bounce?.bounceType === "Permanent") {
-    for (const r of msg.bounce.bouncedRecipients || []) if (!isSimulator(r.emailAddress)) await db.from("suppressions").upsert({ team_id: e.team_id, email: String(r.emailAddress).toLowerCase(), reason: "bounce" }, { onConflict: "team_id,email", ignoreDuplicates: true });
+    for (const r of msg.bounce.bouncedRecipients || []) {
+      if (isSimulator(r.emailAddress)) continue;
+      await db.from("suppressions").upsert({ team_id: e.team_id, email: String(r.emailAddress).toLowerCase(), reason: "bounce" }, { onConflict: "team_id,email", ignoreDuplicates: true });
+      await addGlobalSuppression(String(r.emailAddress), "bounce", e.team_id);
+    }
   }
   if (type === "complained") {
     for (const r of msg.complaint?.complainedRecipients || []) {
       const addr = String(r.emailAddress).toLowerCase();
       if (isSimulator(addr)) continue;
       await db.from("suppressions").upsert({ team_id: e.team_id, email: addr, reason: "complaint" }, { onConflict: "team_id,email", ignoreDuplicates: true });
+      await addGlobalSuppression(addr, "complaint", e.team_id);
       await db.from("contacts").update({ unsubscribed: true }).eq("team_id", e.team_id).eq("email", addr);
     }
+  }
+  // A bad sender is stopped as its bounces arrive, not hours later (see the bounce breaker in index.ts).
+  if ((realHard && !isSimulator(msg.bounce?.bouncedRecipients?.[0]?.emailAddress)) || (type === "complained" && !isSimulator(msg.complaint?.complainedRecipients?.[0]?.emailAddress))) {
+    if (onBadSignal) await onBadSignal(e.team_id).catch((err) => console.error("bounce breaker", err));
   }
   const hookType = { delivered: "email.delivered", bounced: "email.bounced", complained: "email.complained", opened: "email.opened", clicked: "email.clicked", delivery_delayed: "email.delivery_delayed", failed: "email.failed" }[type]!;
   await emit(e.team_id, hookType, { ...payloadFor(e), ...(type === "bounced" ? { bounce: data } : {}), ...(type === "clicked" ? { click: data } : {}) });
 }
+
+// Set by index.ts: checks a team right after one of its emails hard-bounces or draws a complaint.
+let onBadSignal: ((teamId: string) => Promise<void>) | null = null;
+export function setOnBadSignal(fn: (teamId: string) => Promise<void>) { onBadSignal = fn; }
 
 // Set by index.ts: throws when the team is over its plan's sending allowance. Forwards are sends, so they obey it.
 let quotaCheck: ((teamId: string, n: number) => Promise<void>) | null = null;

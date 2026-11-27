@@ -48,6 +48,9 @@ async function overview(body) {
   const st = o.status_30d || {};
   const sent = o.emails_30d || 0;
   const delivered = (st.delivered || 0) + (st.opened || 0) + (st.clicked || 0);
+  // Sends that reached Amazon SES (leaves out test addresses, our own notices, and mail screened out before sending)
+  const attempted = ["sent", "delivered", "delivery_delayed", "opened", "clicked", "bounced", "complained"].reduce((n, k) => n + (st[k] || 0), 0);
+  const hard = o.hard_bounced_30d ?? st.bounced ?? 0;
   const paid = Object.entries(o.plans || {}).filter(([p]) => p !== "free").reduce((s, [, n]) => s + n, 0);
   const stat = (k, v, sub) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="dim" style="font-size:calc(11.5px + var(--fs-up, 0px));margin-top:4px">${sub}</div>` : ""}</div>`;
   const draw = (rows) => {
@@ -60,9 +63,9 @@ async function overview(body) {
       </div>
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
         ${stat("Emails (30 days)", num(sent), `${num(o.emails_today)} today`)}
-        ${stat("Delivered", pct(delivered, sent), `${num(delivered)} emails`)}
-        ${stat("Bounce rate", pct(st.bounced || 0, sent), `${num(st.bounced || 0)} bounced · keep under 4%`)}
-        ${stat("Complaint rate", pct(st.complained || 0, sent, 2), `${num(st.complained || 0)} complaints · keep under 0.08%`)}
+        ${stat("Delivered", pct(delivered, attempted), `${num(delivered)} emails`)}
+        ${stat("Bounce rate", pct(hard, attempted), `${num(hard)} hard bounces · keep under 4% · ${num(o.blocked_30d || 0)} bad addresses stopped before sending`)}
+        ${stat("Complaint rate", pct(st.complained || 0, attempted, 2), `${num(st.complained || 0)} complaints · keep under 0.08%`)}
       </div>
       <div class="admin-grid">
         <div class="card card-pad"><div class="row-flex"><h3 class="h3">Sign-ups</h3><span class="grow"></span><div class="seg">${[7, 30, 90].map((d) => `<button class="${d === days ? "on" : ""}" data-days="${d}">${d}d</button>`).join("")}</div></div><div data-chart="signups" style="margin-top:12px"></div></div>

@@ -190,6 +190,16 @@ export async function mailFromWatch(limit = 50) {
   return { checked: (doms || []).length, changed };
 }
 
+// Amazon's account-level suppression list: SES itself skips addresses that hard-bounced or complained, and those
+// skipped sends don't count against reputation. Turned on in every sending region (idempotent, checked hourly).
+export async function ensureAccountSuppression() {
+  if (!hasAws()) return;
+  for (const region of await sendingRegions()) {
+    await sesv2(creds(), region, "PUT", "/v2/email/account/suppression", { SuppressedReasons: ["BOUNCE", "COMPLAINT"] })
+      .catch((e) => console.error("account suppression", region, (e as Error).message));
+  }
+}
+
 async function cleanupSes(c: AwsCreds, d: Any) {
   await sesv2(c, d.region, "DELETE", `/v2/email/identities/${encodeURIComponent(d.name)}`).catch(() => {});
   await sesv2(c, d.region, "DELETE", `/v2/email/configuration-sets/dlv-${d.id}`).catch(() => {});
