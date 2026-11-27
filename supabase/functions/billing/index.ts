@@ -24,7 +24,8 @@
 //   POST /cron/health     can we reach Stripe and Paystack? (status page, x-cron-secret)
 //   GET  /geo             the country seen for this request and the provider it would get (no login)
 //
-// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYSTACK_SECRET_KEY, APP_URL, SYSTEM_FROM, VAT_RATE (optional
+// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, PAYSTACK_SECRET_KEY, APP_URL, SYSTEM_FROM, DLV_PROXY_SECRET (same value as
+// on Vercel; see countryOf), VAT_RATE (optional
 // percent added to Naira top-ups and overage; Stripe Tax handles tax on dollar payments).
 import { createClient } from "npm:@supabase/supabase-js@2.49.1";
 import { cardLabel, formEncode, periodEnd, priceKey, subState, trialEndFor, verifyStripeSignature } from "./stripe.ts";
@@ -155,6 +156,23 @@ async function setting(key: string) {
 }
 async function setSetting(key: string, value: string) {
   await db.from("system_settings").upsert({ key, value });
+}
+
+// The visitor's country, as Vercel saw it. middleware.js sends it with a shared secret (x-dlv-proxy: the
+// DLV_PROXY_SECRET secret, set to the same value on Vercel and in this function's secrets), so a request sent straight
+// to this function can't claim to be from Nigeria to get Naira prices. Until the secret is set, the header is trusted.
+const PROXY_SECRET = env("DLV_PROXY_SECRET");
+async function countryOf(req: Request): Promise<string | null> {
+  const want = PROXY_SECRET;
+  if (want) {
+    const got = req.headers.get("x-dlv-proxy") || "";
+    if (got.length !== want.length) return null;
+    let diff = 0;
+    for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ want.charCodeAt(i);
+    if (diff) return null;
+  }
+  const cc = (req.headers.get("x-dlv-country") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
+  return cc || null;
 }
 
 // Stripe Tax is used once it's turned on in the Stripe dashboard (Settings → Tax); until then prices are charged
@@ -961,13 +979,13 @@ async function handle(req: Request, path: string): Promise<Response> {
   }
   if (path === "/geo" && req.method === "GET") {
     // Which provider a new team here would get. Country only, from Vercel's geolocation via middleware.js.
-    const cc = (req.headers.get("x-dlv-country") || "").toUpperCase().slice(0, 2) || null;
+    const cc = await countryOf(req);
     return json({ country: cc, provider: providerOf(null, cc), currency: CUR[providerOf(null, cc)], enabled: { stripe: FLAGS.stripe, paystack: FLAGS.paystack } });
   }
   const a = await auth(req);
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   // Set by middleware.js from Vercel's geolocation; only used before a team has paid with either provider.
-  const country = (req.headers.get("x-dlv-country") || "").toUpperCase().slice(0, 2) || null;
+  const country = await countryOf(req);
   const view = () => summary(a.teamId, a.admin, country);
 
   if (path === "/summary" && req.method === "GET") return json(await view());

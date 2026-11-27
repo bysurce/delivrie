@@ -146,6 +146,20 @@ async function checkQuota(c: Ctx, n: number) {
   throw new HttpError(429, L.day && which.startsWith("daily") ? "daily_quota_exceeded" : "monthly_quota_exceeded", `You've reached the ${name} plan's ${which} emails. Upgrade or buy credits in Billing.`);
 }
 
+// After saving a send: is a paid plan with a daily limit (Starter) now over it? Returns the error message if so.
+async function overDailyLimit(teamId: string): Promise<string | null> {
+  if (!ENFORCE_LIMITS) return null;
+  const { data: t } = await db.from("teams").select("plan_transactional").eq("id", teamId).single();
+  const plan = t?.plan_transactional || "free";
+  const L = LIMITS[plan];
+  if (!L?.overage || !L.day) return null;
+  const now = new Date();
+  const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  const { count } = await db.from("emails").select("id", { count: "exact", head: true }).eq("team_id", teamId).is("broadcast_id", null).eq("direction", "outbound").not("tags", "cs", JSON.stringify([{ name: "system" }])).gte("created_at", day);
+  if ((count || 0) <= L.day) return null;
+  return `You've reached the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan's daily limit of ${L.day.toLocaleString("en-US")} emails. It resets at midnight UTC, or upgrade to Pro for no daily limit.`;
+}
+
 // Automatic forwards of received mail are sends too, so they count against the same allowance.
 setQuotaCheck((teamId, n) => checkQuota({ teamId } as Ctx, n));
 
@@ -258,6 +272,13 @@ async function sendEmails(c: Ctx, bodies: Any[], idem: string | null, batch = fa
     if (prev) return prev;
   }
   if (error) throw new HttpError(422, "validation_error", error.message);
+  // Two sends at the same moment can both pass the daily check above. Count again now the emails are saved, and
+  // take these back if together they went over (nothing has been delivered yet).
+  const over = await overDailyLimit(c.teamId);
+  if (over) {
+    await db.from("emails").delete().in("id", (data || []).map((e: Any) => e.id));
+    throw new HttpError(429, "daily_quota_exceeded", over);
+  }
   await db.from("email_events").insert((data || []).filter((e: Any) => e.status === "scheduled").map((e: Any) => ({ email_id: e.id, team_id: c.teamId, type: "scheduled", data: {} })));
   const queued = (data || []).filter((e: Any) => e.status === "queued");
   if (queued.length) waitUntil((async () => { for (const e of queued) await deliver(e.id); })());

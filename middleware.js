@@ -58,14 +58,18 @@ async function sitemap(url) {
 }
 
 // Billing API: tell the billing function which country the request comes from, so Nigeria is offered Naira through
-// Paystack and everywhere else US dollars through Stripe. The value always comes from Vercel, never the client.
+// Paystack and everywhere else US dollars through Stripe. The value always comes from Vercel, never the client,
+// and is sent with a shared secret (DLV_PROXY_SECRET) so requests that skip this middleware can't fake it.
 // Vercel forwards only the request headers named in x-middleware-override-headers, so every header is listed:
 // naming just the new one would drop Authorization and the rest.
 function billing(request) {
   const cc = (request.headers.get('x-vercel-ip-country') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
   const fwd = new Headers(request.headers);
   fwd.delete('x-dlv-country');
+  fwd.delete('x-dlv-proxy');
   if (cc) fwd.set('x-dlv-country', cc);
+  // Proves to the billing function that the country came from here, not from the caller.
+  if (cc && process.env.DLV_PROXY_SECRET) fwd.set('x-dlv-proxy', process.env.DLV_PROXY_SECRET);
   const out = new Headers({ 'x-middleware-next': '1' });
   const names = [];
   fwd.forEach((value, name) => { names.push(name); out.set('x-middleware-request-' + name, value); });

@@ -39,5 +39,6 @@ Live at https://delivrie.io
 | `STRIPE_WEBHOOK_SECRET` | For billing | Signing secret of the Stripe webhook endpoint `https://delivrie.io/api/billing/stripe/webhook` (`whsec_…`) |
 | `PAYSTACK_SECRET_KEY` | For billing | Paystack secret key for Naira payments (webhook `https://delivrie.io/api/billing/webhook` is signed with it) |
 | `VAT_RATE` | Optional | Percent VAT added to Naira top-ups and overage, e.g. `7.5` |
+| `DLV_PROXY_SECRET` | Recommended | A long random value, set to the same value here and on Vercel (Project → Settings → Environment Variables). Stops requests that skip delivrie.io from faking their country to get Naira prices |
 
 The Supabase anon key in `app/js/lib/sb.js` is public by design; data access is protected by row-level security.
