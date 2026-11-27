@@ -34,7 +34,7 @@ async function afterLogin(ctx) {
 }
 
 export async function signup(ctx) {
-  document.title = "Create account · Delivrie";
+  document.title = "Create a Delivrie account";
   const card = layout(ctx.root, `${mark}<h1>Create a Delivrie account</h1><p class="sub">Already have an account? <a href="/login${location.search}">Log in</a></p>${sso()}
     <form novalidate><div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" placeholder="you@company.com" autocomplete="email" required></div>
     ${pwField("password_new", "Password", "••••••••", '<div class="hint">At least 10 characters.</div>')}

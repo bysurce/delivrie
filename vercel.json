@@ -79,7 +79,11 @@
       "destination": "https://hnjejflinvaoxbduxeiu.supabase.co/storage/v1/object/public/email-assets/:path*"
     },
     {
-      "source": "/(inbox|automations|events|login|signup|reset|confirm|verify|mfa|new-team|unsubscribe|docs|onboarding|emails|broadcasts|templates|contacts|segments|metrics|logs|domains|api-keys|webhooks|suppressions|billing|settings|profile|help|admin)",
+      "source": "/(login|signup)",
+      "destination": "/$1.html"
+    },
+    {
+      "source": "/(inbox|automations|events|reset|confirm|verify|mfa|new-team|unsubscribe|docs|onboarding|emails|broadcasts|templates|contacts|segments|metrics|logs|domains|api-keys|webhooks|suppressions|billing|settings|profile|help|admin)",
       "destination": "/app.html"
     },
     {
@@ -175,7 +179,7 @@
       ]
     },
     {
-      "source": "/app.html",
+      "source": "/(app|login|signup).html",
       "headers": [
         {
           "key": "Cache-Control",
