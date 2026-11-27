@@ -1,8 +1,8 @@
 {
   "name": "delivrie",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official Node.js and TypeScript SDK for the Delivrie email API: send transactional email, manage domains, contacts, broadcasts and templates, and verify webhooks.",
-  "keywords": ["delivrie", "email", "email-api", "transactional-email", "smtp", "resend-alternative", "webhooks", "nigeria", "naira"],
+  "keywords": ["delivrie", "email", "email-api", "transactional-email", "smtp", "resend-alternative", "webhooks"],
   "homepage": "https://delivrie.io/docs/sdks",
   "repository": { "type": "git", "url": "git+https://github.com/codeddesigner/delivrie.git", "directory": "sdk/node" },
   "bugs": { "url": "https://delivrie.io/support" },
