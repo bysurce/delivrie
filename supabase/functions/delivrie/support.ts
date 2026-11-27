@@ -2,7 +2,7 @@
 // person" turns the conversation into a numbered ticket (#DLV-2041) with a topic and context attached (the email in
 // question with its headers, the domain's DNS checks). The team replies from Admin → Support, resolves it, and the
 // customer rates it. Replies left unread for 5 minutes go out by email (see supportCron).
-import { type Any, APP_URL, bad, db, domainOf, forbidden, hmacUrl, json, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
+import { type Any, APP_URL, bad, db, domainOf, forbidden, hmacUrl, json, LIMITS, notFound, setting, sha256, SYSTEM_FROM } from "./util.ts";
 import { hasAws } from "./ses.ts";
 import { deliver } from "./send.ts";
 import { searchDocs } from "./docs.js";
@@ -123,6 +123,22 @@ async function accountContext(teamId: string | null) {
   return { plan: team?.plan_transactional || "free", domains: domains || [], findings, problem: problem?.[0] ? { ...problem[0], broadcast } : null, stats: { sent, bounced, complained: complained || 0 }, paused: team?.sending_paused_reason || null };
 }
 
+// ------------------------------------------------------------ what the assistant knows besides the docs
+// Plan prices, as on the pricing page (pricing.js, USD). Allowances and overage come from LIMITS, which enforces them.
+const PLAN_PRICES: Record<string, { month: number; year: number }> = { starter: { month: 10, year: 100 }, pro: { month: 20, year: 200 }, scale: { month: 45, year: 450 } };
+const n = (x: number) => x.toLocaleString("en-US");
+const PRICING_KB = {
+  id: "pricing", title: "Pricing", href: "/pricing",
+  body: [
+    `Free: $0, ${n(LIMITS.free.month)} emails a month (${n(LIMITS.free.day)} a day), ${LIMITS.free.domains} custom domain. No card needed.`,
+    ...Object.entries(PLAN_PRICES).map(([id, p]) => `${id[0].toUpperCase() + id.slice(1)}: $${p.month} a month (or $${p.year} a year), ${n(LIMITS[id].month)} emails a month${LIMITS[id].day ? ` (${n(LIMITS[id].day)} a day)` : ", no daily limit"}, then $${(LIMITS[id].overage!.USD / 100).toFixed(2)} per extra 1,000 emails.`),
+    "Every plan includes the API, SMTP relay and MCP server. Paid plans are billed in US dollars through Stripe, and you can change or cancel any time from Billing. Bigger volumes or special terms: Talk to a person.",
+  ].join("\n"),
+};
+const PRICING_Q = /\b(price|pricing|cost|costs|cheap|plans?|tiers?|free|overage|how much|discount|nonprofit|upgrade|downgrade|invoice|billing|pay|paid|subscription|starter|scale|yearly|annual|monthly)\b/i;
+// Words that appear everywhere in the docs and say nothing about what's being asked.
+const NOISE = /\b(delivrie|please|hello|hi|hey|thanks?|thank you)\b/gi;
+
 // ------------------------------------------------------------ the assistant
 const TOPIC_WORDS: Record<string, RegExp> = {
   deliverability: /spam|junk|inbox|bounc|complain|deliver|gmail|outlook|yahoo|dmarc|reputation|block|reject|promotions/i,
@@ -135,7 +151,8 @@ const guessTopic = (q: string) => (Object.entries(TOPIC_WORDS).find(([, re]) => 
 async function answer(question: string, teamId: string | null, history: Any[], guest = false) {
   const ctx = await accountContext(teamId);
   const topic = guessTopic(question);
-  const hits = searchDocs(question, 3);
+  const hits = searchDocs(question.replace(NOISE, " "), 3);
+  const pricing = PRICING_Q.test(question);
   const relevant = ctx.findings.filter((f: Any) => f.topic === topic || (topic === "deliverability" && f.topic === "domains") || (topic === "domains" && f.domain));
   // Chips: the account objects the answer is about, then the docs it drew on.
   const sources: Any[] = [];
@@ -147,7 +164,8 @@ async function answer(question: string, teamId: string | null, history: Any[], g
     if (ctx.problem.broadcast) sources.push({ kind: "broadcast", label: `Broadcast · ${ctx.problem.broadcast.name}`.slice(0, 40), href: `/broadcasts/${ctx.problem.broadcast.id}` });
     else sources.push({ kind: "email", label: `Email · ${STATUS_LABEL[ctx.problem.status] || ctx.problem.status}`, href: `/emails/${ctx.problem.id}` });
   }
-  for (const d of hits.slice(0, 2)) sources.push({ kind: "doc", label: `Docs · ${d.title}`.slice(0, 40), href: `/docs#${d.id}` });
+  if (pricing) sources.push({ kind: "doc", label: "Pricing", href: PRICING_KB.href });
+  for (const d of hits.slice(0, pricing ? 1 : 2)) sources.push({ kind: "doc", label: `Docs · ${d.title}`.slice(0, 40), href: `/docs#${d.id}` });
 
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (key) {
@@ -173,7 +191,7 @@ async function answer(question: string, teamId: string | null, history: Any[], g
         method: "POST", headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({
           model: Deno.env.get("ASK_MODEL") || "claude-haiku-5-5", max_tokens: 600,
-          system: `You are the Delivrie assistant inside the Delivrie dashboard (an email API). Answer the customer's question in plain text, 2 to 6 short lines. Use numbered lines for separate points. Use facts from their account below when they're relevant, and say exactly what to do next. Only use the documentation and account facts provided; if they don't cover it, say so and suggest "Talk to a person". Never invent numbers, settings or features. No markdown headings, no bold.\n\nTheir account:\n${account}\n\nDocumentation:\n${hits.map((d: Any) => `## ${d.title}\n${String(d.body).slice(0, 3500)}`).join("\n\n")}`,
+          system: `You are the Delivrie assistant inside the Delivrie dashboard (an email API). Answer the customer's question in plain text, 2 to 6 short lines. Use numbered lines for separate points. Use facts from their account below when they're relevant, and say exactly what to do next. Only use the documentation and account facts provided; if they don't cover it, say so and suggest "Talk to a person". Never invent numbers, settings or features. No markdown headings, no bold.\n\nTheir account:\n${account}\n\nDocumentation:\n${pricing ? `## ${PRICING_KB.title}\n${PRICING_KB.body}\n\n` : ""}${hits.map((d: Any) => `## ${d.title}\n${String(d.body).slice(0, 3500)}`).join("\n\n")}`,
           messages,
         }),
       });
@@ -189,13 +207,15 @@ async function answer(question: string, teamId: string | null, history: Any[], g
     lines.push(relevant.length === 1 ? "One thing on your account stands out:" : `${relevant.length} things on your account stand out:`);
     relevant.slice(0, 3).forEach((f: Any, i: number) => lines.push(relevant.length === 1 ? f.text : `${i + 1}. ${f.text}`));
   }
-  if (hits.length) {
-    const terms = question.toLowerCase().match(/[a-z0-9]{4,}/g) || [];
+  if (pricing) lines.push(PRICING_KB.body);
+  else if (hits.length) {
+    const terms = question.replace(NOISE, " ").toLowerCase().match(/[a-z0-9]{4,}/g) || [];
     const paras = String(hits[0].body).split(/\n+/).filter((p: string) => p && !p.startsWith("#") && !p.startsWith("```") && p.length > 40);
     const best = paras.map((p: string) => ({ p, s: terms.reduce((n: number, t: string) => n + (p.toLowerCase().includes(t) ? 1 : 0), 0) })).sort((a: Any, b: Any) => b.s - a.s)[0];
-    if (best) lines.push(`From the docs (${hits[0].title}): ${best.p.replace(/`/g, "")}`);
+    // Only quote the docs when the paragraph is actually about the question.
+    if (best && best.s > 0) lines.push(`From the docs (${hits[0].title}): ${best.p.replace(/`/g, "")}`);
   }
-  if (!lines.length) lines.push("I couldn’t find that in the docs or your account. A person on the team can take a look.");
+  if (!lines.length) lines.push(guest ? "I couldn’t find that in the docs. A person on the team can answer it: choose Talk to a person." : "I couldn’t find that in the docs or your account. A person on the team can take a look.");
   return { body: lines.join("\n\n"), meta: { sources, feedback: true, mode: "search", topic } };
 }
 
