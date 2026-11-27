@@ -107,34 +107,61 @@ export async function verify(ctx) {
   });
 }
 
+// Two ways in:
+// - A link from one of Delivrie's emails (today, the team invite): /confirm?token_hash=…&type=…. Nothing happens until the
+//   person clicks, because email security scanners open links before people do and would use up the one-time link.
+// - Back from Google, GitHub or SSO with ?code= (PKCE) or #access_token. They've just signed in, so there's nothing to
+//   confirm: detectSessionInUrl finishes the exchange and we carry on. (The router still asks for a two-factor code if needed.)
 export async function confirm(ctx) {
-  // Sign-in links land here with ?code= (PKCE) or #access_token; detectSessionInUrl handles the exchange.
-  const card = layout(ctx.root, `${mark}<h1>Confirm your account</h1><p class="sub" data-msg>Finishing sign-in…</p><button class="btn btn-primary btn-lg btn-block" data-go disabled>Confirm account</button><p class="legal">Trouble confirming? Email <a class="y" href="mailto:support@delivrie.io">support@delivrie.io</a></p>`);
-  let err = ctx.query.error_description || new URLSearchParams(location.hash.slice(1)).get("error_description");
-  // Links in Delivrie's auth emails point at delivrie.io/confirm?token_hash=…&type=… (our own domain in the URL).
-  if (ctx.query.token_hash && ctx.query.type) {
-    const { error } = await sb.auth.verifyOtp({ token_hash: ctx.query.token_hash, type: ctx.query.type });
-    history.replaceState(null, "", "/confirm");
-    if (error) err = /expired|invalid/i.test(error.message) ? "This link is invalid or has expired. Log in or request a new link." : error.message;
-    else if (ctx.query.type === "email_change") { toast("Email address updated"); return ctx.navigate("/profile", { replace: true }); }
-  }
-  let session = null;
-  for (let i = 0; i < 20 && !session && !err; i++) { session = (await sb.auth.getSession()).data.session; if (!session) await new Promise((r) => setTimeout(r, 250)); }
-  const msg = card.querySelector("[data-msg]"), btn = card.querySelector("[data-go]");
-  if (!session) { msg.textContent = err || "This link is invalid or has expired. Log in or request a new link."; btn.textContent = "Back to log in"; btn.disabled = false; btn.onclick = () => ctx.navigate("/login"); return; }
-  msg.innerHTML = `Click below to confirm <b style="color:var(--fg);font-weight:500">${esc(session.user.email)}</b> and finish setting up your workspace.`;
-  btn.disabled = false;
-  btn.onclick = async () => {
-    setBusy(btn, true);
+  const tokenHash = ctx.query.token_hash, type = ctx.query.type;
+  const fromEmail = !!(tokenHash && type);
+  const invite = type === "invite";
+  document.title = invite ? "Join your team on Delivrie" : fromEmail ? "Confirm your account" : "Signing in";
+  const card = layout(ctx.root, `${mark}<h1>${invite ? "Join your team" : fromEmail ? "Confirm your account" : "Signing you in"}</h1>
+    <p class="sub" data-msg>${invite ? "You’ve been invited to a Delivrie workspace. Accept to join it and finish setting up your account." : fromEmail ? "Click below to confirm your email address and finish setting up your workspace." : "One moment…"}</p>
+    <button class="btn btn-primary btn-lg btn-block" data-go ${fromEmail ? "" : "hidden"}>${invite ? "Accept invite" : "Confirm account"}</button>
+    <p class="legal">Trouble ${invite ? "joining" : "signing in"}? Email <a class="y" href="mailto:support@delivrie.io">support@delivrie.io</a></p>`);
+  const msg = card.querySelector("[data-msg]"), btn = card.querySelector("[data-go]") as HTMLButtonElement;
+  const expired = "This link is invalid or has expired. Log in or request a new link.";
+  const failed = (text: string) => {
+    card.querySelector("h1").textContent = text === expired ? "This link has expired" : invite ? "Couldn’t accept the invite" : "Couldn’t sign you in";
+    msg.textContent = text;
+    btn.hidden = false; btn.disabled = false; btn.textContent = "Back to log in";
+    btn.onclick = () => ctx.navigate("/login");
+  };
+  const finish = async (session) => {
     state.session = session; state.user = session.user;
     // accept a pending invite carried through sign-up
     const inv = localStorage.getItem("dlv_invite");
     if (inv) { localStorage.removeItem("dlv_invite"); await sb.rpc("accept_invite", { invite_token: inv }); }
     await loadTeams();
     const go = nextAfterAuth("/onboarding");
-    if (state.team) toast("Account confirmed. Welcome to Delivrie");
-    ctx.navigate(go === "/new-team" ? "/new-team?welcome=1" : go);
+    if (state.team && fromEmail) toast(invite ? `You’ve joined ${state.team.name || "the team"}` : "Account confirmed. Welcome to Delivrie");
+    ctx.navigate(go === "/new-team" ? "/new-team?welcome=1" : go, { replace: true });
   };
+
+  const linkError = ctx.query.error_description || new URLSearchParams(location.hash.slice(1)).get("error_description");
+  if (linkError) return failed(linkError);
+
+  if (fromEmail) {
+    btn.onclick = async () => {
+      setBusy(btn, true);
+      const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (error) return failed(/expired|invalid/i.test(error.message) ? expired : error.message);
+      history.replaceState(null, "", "/confirm"); // the link is used up now
+      if (type === "email_change") { toast("Email address updated"); return ctx.navigate("/profile", { replace: true }); }
+      const session = data.session || (await sb.auth.getSession()).data.session;
+      if (!session) return failed(expired);
+      await finish(session);
+    };
+    return;
+  }
+
+  // Back from a sign-in provider: wait briefly for the session exchange, then carry on.
+  let session = null;
+  for (let i = 0; i < 20 && !session; i++) { session = (await sb.auth.getSession()).data.session; if (!session) await new Promise((r) => setTimeout(r, 250)); }
+  if (!session) return failed("We couldn’t finish signing you in. Try again from the log-in page.");
+  await finish(session);
 }
 
 export async function login(ctx) {
