@@ -165,7 +165,7 @@ async function answer(question: string, teamId: string | null, history: Any[], g
     else sources.push({ kind: "email", label: `Email · ${STATUS_LABEL[ctx.problem.status] || ctx.problem.status}`, href: `/emails/${ctx.problem.id}` });
   }
   if (pricing) sources.push({ kind: "doc", label: "Pricing", href: PRICING_KB.href });
-  for (const d of hits.slice(0, pricing ? 1 : 2)) sources.push({ kind: "doc", label: `Docs · ${d.title}`.slice(0, 40), href: `/docs#${d.id}` });
+  for (const d of hits.slice(0, pricing ? 0 : 2)) sources.push({ kind: "doc", label: `Docs · ${d.title}`.slice(0, 40), href: `/docs#${d.id}` });
 
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (key) {
@@ -201,8 +201,9 @@ async function answer(question: string, teamId: string | null, history: Any[], g
       if (j?.error) console.error("assistant", j.error);
     } catch (e) { console.error("assistant", e); }
   }
-  // No AI available: account findings first, then the best matching paragraph of the docs.
+  // No AI available: account findings first, then the best matching paragraph of the docs (and only that doc as a source).
   const lines: string[] = [];
+  let quoted: Any = null;
   if (relevant.length) {
     lines.push(relevant.length === 1 ? "One thing on your account stands out:" : `${relevant.length} things on your account stand out:`);
     relevant.slice(0, 3).forEach((f: Any, i: number) => lines.push(relevant.length === 1 ? f.text : `${i + 1}. ${f.text}`));
@@ -213,10 +214,11 @@ async function answer(question: string, teamId: string | null, history: Any[], g
     const paras = String(hits[0].body).split(/\n+/).filter((p: string) => p && !p.startsWith("#") && !p.startsWith("```") && p.length > 40);
     const best = paras.map((p: string) => ({ p, s: terms.reduce((n: number, t: string) => n + (p.toLowerCase().includes(t) ? 1 : 0), 0) })).sort((a: Any, b: Any) => b.s - a.s)[0];
     // Only quote the docs when the paragraph is actually about the question.
-    if (best && best.s > 0) lines.push(`From the docs (${hits[0].title}): ${best.p.replace(/`/g, "")}`);
+    if (best && best.s > 0) { lines.push(`From the docs (${hits[0].title}): ${best.p.replace(/`/g, "")}`); quoted = hits[0]; }
   }
   if (!lines.length) lines.push(guest ? "I couldn’t find that in the docs. A person on the team can answer it: choose Talk to a person." : "I couldn’t find that in the docs or your account. A person on the team can take a look.");
-  return { body: lines.join("\n\n"), meta: { sources, feedback: true, mode: "search", topic } };
+  const used = sources.filter((x: Any) => x.kind !== "doc" || x.href === PRICING_KB.href || (quoted && x.href === `/docs#${quoted.id}`));
+  return { body: lines.join("\n\n"), meta: { sources: used, feedback: true, mode: "search", topic } };
 }
 
 // ------------------------------------------------------------ attachments for a handoff
