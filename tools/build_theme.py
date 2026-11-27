@@ -25,9 +25,11 @@ BOOT = ('<script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"l
         'var f=function(){document.querySelectorAll(\'a[href^="/signup"]\').forEach(function(a){var h=a.getAttribute("href"),m=/[?&]plan=([a-z]+)/.exec(h);'
         'if(m){a.href="/billing?upgrade="+m[1]+(/interval=yearly/.test(h)?"&interval=yearly":"");return}var t=a.textContent.trim();'
         'a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";'
-        'if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t))a.textContent="Go to dashboard"})};'
+        'if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t)){a.textContent="Go to dashboard";a.classList.add("go-dash")}})};'
         'document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}'
-        '</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}</style>')
+        '</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}'
+        # "Go to dashboard" is the main action for a signed-in visitor: Delivrie yellow wherever it appears.
+        'a.go-dash{background:#fad600!important;color:#1f1d1e!important;border-color:#fad600!important;box-shadow:none!important}a.go-dash:hover{background:#ffe033!important;border-color:#ffe033!important}</style>')
 ICONS = {
     "system": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>',
     "light": '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
