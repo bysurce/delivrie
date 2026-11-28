@@ -21,7 +21,7 @@ You can reach Delivrie in several ways. They all share the same account, limits,
 
 | Way in | Use it when | Start here |
 | --- | --- | --- |
-| An official SDK | You write Node.js, Python, Go or PHP | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php) |
+| An official SDK | You write Node.js, Python, Go, PHP, Ruby, Java, .NET or Rust | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php), [Ruby](/docs/ruby), [Java](/docs/java), [.NET](/docs/dotnet), [Rust](/docs/rust) |
 | REST API | You write any other language, or prefer plain HTTP | [Quickstart](/docs/quickstart) |
 | CLI | You want to send or check email from a terminal, script or CI job | [CLI](/docs/cli) |
 | SMTP relay | A framework, CMS or plugin already sends email over SMTP | [SMTP](/docs/smtp) |
@@ -1322,7 +1322,58 @@ It throws `Delivrie\Exception\WebhookVerificationException` for a bad signature,
 
 # Ruby and Rails
 
-Send email from Ruby on Rails with Action Mailer over SMTP, or from any Ruby app with Net::HTTP, and verify Delivrie webhooks.
+Send email from Ruby and Rails with the official delivrie gem, or with Action Mailer over SMTP, and verify Delivrie webhooks.
+
+The `delivrie` gem is the official Ruby SDK. It has no dependencies and works on Ruby 3.1 and later. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/ruby).
+
+```bash
+gem install delivrie
+```
+
+Or add `gem "delivrie"` to your Gemfile.
+
+## Send an email
+
+```ruby send.rb
+require "delivrie"
+
+delivrie = Delivrie::Client.new(ENV["DELIVRIE_API_KEY"])
+
+email = delivrie.emails.send_email(
+  from: "Acme <hello@mail.acme.com>",
+  to: "ada@example.com",
+  subject: "Welcome",
+  html: "<p>Welcome to Acme</p>",
+)
+puts email["id"]
+```
+
+Methods take keyword arguments or a Hash, with the API's field names (`reply_to`, `scheduled_at`), and return the API's JSON as a Hash with string keys. Without a key argument, the client reads `DELIVRIE_API_KEY`.
+
+## Errors, retries and idempotency
+
+A failed request raises `Delivrie::Error` with `status`, `name` (like `validation_error`, see [Errors](/docs/errors)) and `message`. Problems that never reach the API have `status` 0 and the name `network_error` or `timeout`.
+
+```ruby
+begin
+  delivrie.emails.send_email({ from: "Acme <hi@acme.com>", to: user.email, template: { id: "welcome" } }, idempotency_key: "welcome-#{user.id}")
+rescue Delivrie::Error => e
+  Rails.logger.warn("Delivrie #{e.status} #{e.name}: #{e.message}")
+end
+```
+
+`GET` and `DELETE` requests are retried twice on rate limits, `5xx` responses and network failures. Sends are retried only with `idempotency_key`, which makes a retry return the original email instead of sending another. Options: `Delivrie::Client.new(key, timeout: 30, max_retries: 2, base_url: "https://delivrie.io/api")`.
+
+## Attachments
+
+`path` can be a local file (the gem reads it and sends it as base64) or a public `https://` URL (Delivrie downloads it):
+
+```ruby
+delivrie.emails.send_email(
+  from: "Billing <billing@mail.acme.com>", to: "ada@example.com", subject: "Your invoice", text: "Attached.",
+  attachments: [{ path: "tmp/invoice-1042.pdf" }, { path: "https://acme.com/terms.pdf" }],
+)
+```
 
 ## Rails (Action Mailer)
 
@@ -1341,56 +1392,43 @@ config.action_mailer.smtp_settings = {
 config.action_mailer.default_options = { from: "Acme <hello@mail.acme.com>" }
 ```
 
-## Any Ruby app (HTTP API)
+## Methods
 
-```ruby send.rb
-require "net/http"
-require "json"
+| Resource | Methods |
+| --- | --- |
+| `emails` | `send_email`, `send_batch`, `get`, `list`, `list_received`, `update`, `cancel`, `forward`, `attachments`, `received_attachments`, `share` |
+| `domains` | `create`, `get`, `list`, `verify`, `update`, `delete` |
+| `api_keys` | `create`, `list`, `update`, `delete` |
+| `webhooks` | `create`, `list`, `deliveries`, `test`, `replay` |
+| `contacts` | `create`, `get`, `list`, `update`, `delete`, `import_contacts`, `get_import`, `list_imports` |
+| `segments` | `create`, `get`, `list`, `update`, `delete`, `contacts`, `add_contacts`, `remove_contacts` |
+| `broadcasts` | `create`, `get`, `list`, `update`, `send_broadcast`, `cancel`, `duplicate`, `recipients`, `links`, `delete`, `get_content`, `edit_content` |
+| `templates` | `create`, `get`, `list`, `update`, `publish`, `duplicate`, `delete`, `get_content`, `edit_content` |
+| `suppressions` | `list`, `add`, `delete` |
+| `events` | `send_event`, `list` |
+| `automations` | `create`, `get`, `list`, `update`, `delete`, `runs`, `publish`, `pause`, `resume`, `duplicate` |
+| `inboxes` | `list`, `create`, `get`, `update`, `delete`, `agent_runs` |
+| `inbox` | `threads`, `thread`, `update_thread`, `reply`, `run_agent`, `notes`, `add_note`, `delete_note`, `drafts`, `create_draft`, `update_draft`, `send_draft`, `discard_draft`, `labels` |
+| `ai` | `draft`, `rewrite`, `subjects` |
+| `logs` | `list`, `get` |
 
-uri = URI("https://delivrie.io/api/emails")
-req = Net::HTTP::Post.new(uri)
-req["Authorization"] = "Bearer #{ENV.fetch('DELIVRIE_API_KEY')}"
-req["Content-Type"] = "application/json"
-req["Idempotency-Key"] = "welcome-42"
-req.body = {
-  from: "Acme <hello@mail.acme.com>",
-  to: "ada@example.com",
-  subject: "Welcome",
-  html: "<p>Welcome to Acme</p>",
-}.to_json
-
-res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(req) }
-body = JSON.parse(res.body)
-raise "#{body['name']}: #{body['message']}" unless res.is_a?(Net::HTTPSuccess)
-puts body["id"]
-```
+For anything else, `delivrie.request(:get, "/emails", query: { limit: 10 })` calls the API with the same auth, retries and errors. Every endpoint is in the [API reference](/docs/api).
 
 ## Verify webhooks
 
 ```ruby app/controllers/delivrie_webhooks_controller.rb
-require "openssl"
-require "base64"
-
 class DelivrieWebhooksController < ActionController::API
   def create
-    payload = request.raw_post
-    id, ts, sigs = request.headers["webhook-id"], request.headers["webhook-timestamp"], request.headers["webhook-signature"].to_s
-    return head(:bad_request) if (Time.now.to_i - ts.to_i).abs > 300
-
-    key = Base64.decode64(ENV.fetch("DELIVRIE_WEBHOOK_SECRET").delete_prefix("whsec_"))
-    expected = Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", key, "#{id}.#{ts}.#{payload}"))
-    valid = sigs.split(" ").any? do |s|
-      version, value = s.split(",", 2)
-      version == "v1" && ActiveSupport::SecurityUtils.secure_compare(value.to_s, expected)
-    end
-    return head(:bad_request) unless valid
-
-    event = JSON.parse(payload)
+    event = Delivrie::Webhook.verify(request.raw_post, request.headers.to_h, ENV.fetch("DELIVRIE_WEBHOOK_SECRET"))
     # event["type"], event["data"]
     head :ok
+  rescue Delivrie::WebhookVerificationError
+    head :bad_request
   end
 end
 ```
+
+It checks the signature against the raw body, rejects requests older than five minutes, and accepts Rack-style header names (`HTTP_WEBHOOK_ID`). More in [Webhooks](/docs/webhooks).
 
 
 ---
@@ -1504,138 +1542,237 @@ Already using `resend-go`? Set `RESEND_BASE_URL=https://delivrie.io/api/` and it
 
 # Rust
 
-Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.
+Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook verification.
 
-There's no Rust crate yet. The API is plain JSON over HTTPS, so `reqwest` and `serde` cover it.
+The `delivrie` crate is the official Rust SDK. It's async, built on `reqwest` with rustls, and takes anything that implements `serde::Serialize`. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/rust).
 
-```toml Cargo.toml
-[dependencies]
-reqwest = { version = "0.12", features = ["json"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```bash
+cargo add delivrie serde_json
+cargo add tokio --features macros,rt-multi-thread
 ```
 
 ## Send an email
 
 ```rust src/main.rs
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize)]
-struct Email<'a> {
-    from: &'a str,
-    to: Vec<&'a str>,
-    subject: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    html: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<&'a str>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ApiError {
-    status_code: u16,
-    name: String,
-    message: String,
-}
-
-#[derive(Deserialize)]
-struct Sent {
-    id: String,
-}
-
-async fn send(client: &reqwest::Client, email: &Email<'_>, idempotency_key: &str) -> Result<String, ApiError> {
-    let key = std::env::var("DELIVRIE_API_KEY").expect("set DELIVRIE_API_KEY");
-    let res = client
-        .post("https://delivrie.io/api/emails")
-        .bearer_auth(key)
-        .header("Idempotency-Key", idempotency_key)
-        .json(email)
-        .send()
-        .await
-        .map_err(|e| ApiError { status_code: 0, name: "network_error".into(), message: e.to_string() })?;
-
-    if res.status().is_success() {
-        let sent: Sent = res.json().await.map_err(|e| ApiError { status_code: 0, name: "decode_error".into(), message: e.to_string() })?;
-        Ok(sent.id)
-    } else {
-        Err(res.json::<ApiError>().await.unwrap_or(ApiError {
-            status_code: 0,
-            name: "application_error".into(),
-            message: "unreadable error body".into(),
-        }))
-    }
-}
+use serde_json::json;
 
 #[tokio::main]
-async fn main() {
-    let client = reqwest::Client::new();
-    let email = Email {
-        from: "Acme <hello@mail.acme.com>",
-        to: vec!["ada@example.com"],
-        subject: "Welcome",
-        html: Some("<p>Welcome to Acme</p>"),
-        text: None,
-    };
-    match send(&client, &email, "welcome-42").await {
-        Ok(id) => println!("sent {id}"),
-        Err(e) => eprintln!("{} {}: {}", e.status_code, e.name, e.message),
-    }
+async fn main() -> delivrie::Result<()> {
+    let delivrie = delivrie::Client::new(std::env::var("DELIVRIE_API_KEY").expect("DELIVRIE_API_KEY"));
+
+    let email = delivrie
+        .emails()
+        .send(&json!({
+            "from": "Acme <hello@mail.acme.com>",
+            "to": "ada@example.com",
+            "subject": "Welcome",
+            "html": "<p>Welcome to Acme</p>",
+        }))
+        .await?;
+    println!("{}", email["id"]);
+    Ok(())
 }
 ```
 
-Reuse one `reqwest::Client` for the whole app; it keeps connections open between requests.
+Methods return the API's JSON as a `serde_json::Value`. Pass your own structs instead of `json!` when you prefer types: any `#[derive(Serialize)]` value works. `Client` is cheap to clone and safe to share between tasks.
+
+## Errors, retries and idempotency
+
+```rust
+match delivrie.emails().send_idempotent(&email, &format!("welcome-{user_id}")).await {
+    Ok(sent) => println!("sent {}", sent["id"]),
+    Err(e) => eprintln!("{} {}: {e}", e.status(), e.name()),
+}
+```
+
+`delivrie::Error` is `Api { status, name, message }`, `Network`, `Timeout` or `Invalid`; `status()` and `name()` work on all of them (see [Errors](/docs/errors)). `GET` and `DELETE` requests are retried twice on rate limits, `5xx` responses and network failures. Sends are retried only through the `_idempotent` methods, so a retry never sends twice.
+
+```rust
+let delivrie = delivrie::Client::builder()
+    .api_key(key)
+    .timeout(std::time::Duration::from_secs(10))
+    .max_retries(3)
+    .build()?;
+```
 
 ## Attachments
 
-Add the `base64` crate and send the file as base64 `content`:
+Send base64 `content`, or a public `https://` URL as `path` for Delivrie to download:
 
 ```rust
 use base64::{engine::general_purpose::STANDARD, Engine};
 
-let pdf = std::fs::read("invoice.pdf")?;
-let body = serde_json::json!({
+let pdf = std::fs::read("invoice-1042.pdf")?;
+delivrie.emails().send(&json!({
     "from": "Billing <billing@mail.acme.com>",
-    "to": ["ada@example.com"],
+    "to": "ada@example.com",
     "subject": "Your invoice",
     "text": "Attached.",
-    "attachments": [{ "filename": "invoice.pdf", "content": STANDARD.encode(pdf) }]
-});
+    "attachments": [{ "filename": "invoice-1042.pdf", "content": STANDARD.encode(pdf) }],
+})).await?;
 ```
+
+## Methods
+
+| Resource | Methods |
+| --- | --- |
+| `emails()` | `send`, `send_batch`, `get`, `list`, `list_received`, `update`, `cancel`, `forward`, `attachments`, `received_attachments`, `share` |
+| `domains()` | `create`, `get`, `list`, `verify`, `update`, `delete` |
+| `api_keys()` | `create`, `list`, `update`, `delete` |
+| `webhooks()` | `create`, `list`, `deliveries`, `test`, `replay` |
+| `contacts()` | `create`, `get`, `list`, `update`, `delete`, `import_contacts`, `get_import`, `list_imports` |
+| `segments()` | `create`, `get`, `list`, `update`, `delete`, `contacts`, `add_contacts`, `remove_contacts` |
+| `broadcasts()` | `create`, `get`, `list`, `update`, `send`, `cancel`, `duplicate`, `recipients`, `links`, `delete`, `get_content`, `edit_content` |
+| `templates()` | `create`, `get`, `list`, `update`, `publish`, `duplicate`, `delete`, `get_content`, `edit_content` |
+| `suppressions()` | `list`, `add`, `delete` |
+| `events()` | `send`, `list` |
+| `automations()` | `create`, `get`, `list`, `update`, `delete`, `runs`, `publish`, `pause`, `resume`, `duplicate` |
+| `inboxes()` | `list`, `create`, `get`, `update`, `delete`, `agent_runs` |
+| `inbox()` | `threads`, `thread`, `update_thread`, `reply`, `run_agent`, `notes`, `add_note`, `delete_note`, `drafts`, `create_draft`, `update_draft`, `send_draft`, `discard_draft`, `labels` |
+| `ai()` | `draft`, `rewrite`, `subjects` |
+| `logs()` | `list`, `get` |
+
+Methods with a body take `&impl Serialize`; list methods take query pairs like `&[("limit", "10")]`. For anything else, `delivrie.request("GET", "/emails", None::<&serde_json::Value>, &[("limit", "10")], None)` calls the API with the same auth, retries and errors. Every endpoint is in the [API reference](/docs/api).
 
 ## Verify webhooks
 
-```toml Cargo.toml
-hmac = "0.12"
-sha2 = "0.10"
-base64 = "0.22"
-```
-
-```rust src/webhook.rs
-use base64::{engine::general_purpose::STANDARD, Engine};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-
-pub fn verify(payload: &[u8], id: &str, timestamp: &str, signatures: &str, secret: &str) -> bool {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-    match timestamp.parse::<i64>() {
-        Ok(ts) if (now - ts).abs() <= 300 => {}
-        _ => return false,
+```rust
+// axum
+async fn webhook(headers: axum::http::HeaderMap, body: String) -> axum::http::StatusCode {
+    let pairs = headers.iter().map(|(k, v)| (k.as_str(), v.to_str().unwrap_or("")));
+    match delivrie::webhook::verify(&body, pairs, &std::env::var("DELIVRIE_WEBHOOK_SECRET").unwrap()) {
+        Ok(event) => {
+            // event["type"], event["data"]
+            axum::http::StatusCode::OK
+        }
+        Err(_) => axum::http::StatusCode::BAD_REQUEST,
     }
-    let Ok(key) = STANDARD.decode(secret.trim_start_matches("whsec_")) else { return false };
-    signatures.split(' ').any(|sig| {
-        let Some(("v1", value)) = sig.split_once(',') else { return false };
-        let Ok(given) = STANDARD.decode(value) else { return false };
-        let mut mac = Hmac::<Sha256>::new_from_slice(&key).unwrap();
-        mac.update(format!("{id}.{timestamp}.").as_bytes());
-        mac.update(payload);
-        mac.verify_slice(&given).is_ok() // constant-time comparison
-    })
 }
 ```
 
-Pass the raw body bytes and the `webhook-id`, `webhook-timestamp` and `webhook-signature` headers. In Axum, take the body as `Bytes` and read headers from `HeaderMap`.
+It checks the signature against the raw body and rejects requests older than five minutes. More in [Webhooks](/docs/webhooks).
+
+
+---
+
+# Java and Spring
+
+Send email from Java, Spring Boot and Kotlin with the official Delivrie Java SDK: no dependencies, idempotent retries, errors you can inspect, and webhook verification.
+
+The Delivrie Java SDK has no dependencies and runs on Java 17 and later, including Spring Boot, Quarkus, Micronaut and Kotlin. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/java).
+
+```xml pom.xml
+<dependency>
+  <groupId>io.delivrie</groupId>
+  <artifactId>delivrie-java</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
+
+```kotlin build.gradle.kts
+implementation("io.delivrie:delivrie-java:0.1.0")
+```
+
+## Send an email
+
+```java
+import io.delivrie.Delivrie;
+import java.util.Map;
+
+Delivrie delivrie = new Delivrie(System.getenv("DELIVRIE_API_KEY"));
+
+Map<String, Object> email = delivrie.emails().send(Map.of(
+    "from", "Acme <hello@mail.acme.com>",
+    "to", "ada@example.com",
+    "subject", "Welcome",
+    "html", "<p>Welcome to Acme</p>"));
+System.out.println(email.get("id"));
+```
+
+Methods take a `Map` with the API's field names and return the API's JSON as a `Map<String, Object>` (objects as maps, arrays as lists, numbers as `Long` or `Double`). The client is thread-safe: in Spring, declare it once as a `@Bean`.
+
+## Errors, retries and idempotency
+
+```java
+try {
+  delivrie.emails().send(Map.of("from", "Acme <hi@acme.com>", "to", user.email(),
+      "template", Map.of("id", "welcome")), "welcome-" + user.id());
+} catch (DelivrieException e) {
+  log.warn("Delivrie {} {}: {}", e.status(), e.name(), e.getMessage());
+}
+```
+
+`DelivrieException` has the HTTP `status()` (0 for network errors and timeouts), Delivrie's error `name()` (see [Errors](/docs/errors)) and the message. `GET` and `DELETE` requests are retried twice on rate limits, `5xx` responses and network failures. Sends are retried only when you pass an idempotency key (the second argument of `send`), so a retry never sends twice.
+
+```java
+Delivrie delivrie = Delivrie.builder()
+    .apiKey(key)
+    .timeout(Duration.ofSeconds(10))
+    .maxRetries(3)
+    .build();
+```
+
+## Attachments
+
+```java
+delivrie.emails().send(Map.of(
+    "from", "Billing <billing@mail.acme.com>", "to", "ada@example.com", "subject", "Your invoice", "text", "Attached.",
+    "attachments", List.of(Delivrie.attachment(Path.of("invoice-1042.pdf")), Map.of("path", "https://acme.com/terms.pdf"))));
+```
+
+`Delivrie.attachment(path)` reads a local file; a `path` with an `https://` URL is downloaded by Delivrie.
+
+## Spring Boot over SMTP
+
+If you'd rather keep `JavaMailSender`, point it at the [SMTP relay](/docs/smtp):
+
+```properties application.properties
+spring.mail.host=smtp.delivrie.io
+spring.mail.port=587
+spring.mail.username=delivrie
+spring.mail.password=${DELIVRIE_API_KEY}
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+```
+
+## Methods
+
+| Resource | Methods |
+| --- | --- |
+| `emails()` | `send`, `sendBatch`, `get`, `list`, `listReceived`, `update`, `cancel`, `forward`, `attachments`, `receivedAttachments`, `share` |
+| `domains()` | `create`, `get`, `list`, `verify`, `update`, `delete` |
+| `apiKeys()` | `create`, `list`, `update`, `delete` |
+| `webhooks()` | `create`, `list`, `deliveries`, `test`, `replay` |
+| `contacts()` | `create`, `get`, `list`, `update`, `delete`, `importContacts`, `getImport`, `listImports` |
+| `segments()` | `create`, `get`, `list`, `update`, `delete`, `contacts`, `addContacts`, `removeContacts` |
+| `broadcasts()` | `create`, `get`, `list`, `update`, `send`, `cancel`, `duplicate`, `recipients`, `links`, `delete`, `getContent`, `editContent` |
+| `templates()` | `create`, `get`, `list`, `update`, `publish`, `duplicate`, `delete`, `getContent`, `editContent` |
+| `suppressions()` | `list`, `add`, `delete` |
+| `events()` | `send`, `list` |
+| `automations()` | `create`, `get`, `list`, `update`, `delete`, `runs`, `publish`, `pause`, `resume`, `duplicate` |
+| `inboxes()` | `list`, `create`, `get`, `update`, `delete`, `agentRuns` |
+| `inbox()` | `threads`, `thread`, `updateThread`, `reply`, `runAgent`, `notes`, `addNote`, `deleteNote`, `drafts`, `createDraft`, `updateDraft`, `sendDraft`, `discardDraft`, `labels` |
+| `ai()` | `draft`, `rewrite`, `subjects` |
+| `logs()` | `list`, `get` |
+
+List methods also take a `Map` of query parameters, like `delivrie.emails().list(Map.of("limit", 10))`. For anything else, `delivrie.request("GET", "/emails", null, Map.of("limit", 10), null)` calls the API with the same auth, retries and errors. Every endpoint is in the [API reference](/docs/api).
+
+## Verify webhooks
+
+```java
+@PostMapping("/webhooks/delivrie")
+ResponseEntity<Void> webhook(@RequestBody String body, @RequestHeader Map<String, String> headers) {
+  try {
+    Map<String, Object> event = Webhook.verify(body, headers, System.getenv("DELIVRIE_WEBHOOK_SECRET"));
+    // event.get("type"), event.get("data")
+    return ResponseEntity.ok().build();
+  } catch (WebhookVerificationException e) {
+    return ResponseEntity.badRequest().build();
+  }
+}
+```
+
+It checks the signature against the raw body and rejects requests older than five minutes. More in [Webhooks](/docs/webhooks).
 
 
 ---
@@ -1703,6 +1840,110 @@ Receive Delivrie events in an Edge Function with `verifyWebhook` from `npm:deliv
 ```bash
 supabase functions deploy delivrie-webhooks --no-verify-jwt
 ```
+
+
+---
+
+# .NET and C#
+
+Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect, and webhook verification.
+
+The `Delivrie` NuGet package is the official .NET SDK. It's async, needs nothing beyond the .NET 8 runtime, and works in ASP.NET Core, worker services, Azure Functions and console apps. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/dotnet).
+
+```bash
+dotnet add package Delivrie
+```
+
+## Send an email
+
+```csharp
+using Delivrie;
+
+var delivrie = new DelivrieClient(Environment.GetEnvironmentVariable("DELIVRIE_API_KEY"));
+
+var email = await delivrie.Emails.SendAsync(new
+{
+    from = "Acme <hello@mail.acme.com>",
+    to = "ada@example.com",
+    subject = "Welcome",
+    html = "<p>Welcome to Acme</p>",
+});
+Console.WriteLine(email["id"]);
+```
+
+Methods take any object that serialises to the API's JSON (anonymous objects, dictionaries, your own classes, or a `JsonNode`) and return the response as a `JsonObject`. In ASP.NET Core, register one client: `builder.Services.AddSingleton(new DelivrieClient(builder.Configuration["Delivrie:ApiKey"]));`.
+
+## Errors, retries and idempotency
+
+```csharp
+try
+{
+    await delivrie.Emails.SendAsync(new { from = "Acme <hi@acme.com>", to = user.Email, template = new { id = "welcome" } }, idempotencyKey: $"welcome-{user.Id}");
+}
+catch (DelivrieException e)
+{
+    logger.LogWarning("Delivrie {Status} {Name}: {Message}", e.Status, e.Name, e.Message);
+}
+```
+
+`DelivrieException` has the HTTP `Status` (0 for network errors and timeouts), Delivrie's error `Name` (see [Errors](/docs/errors)) and the message. `GET` and `DELETE` requests are retried twice on rate limits, `5xx` responses and network failures. Sends are retried only with an `idempotencyKey`, so a retry never sends twice. Every method takes a `CancellationToken`.
+
+```csharp
+var delivrie = new DelivrieClient(key, new DelivrieClientOptions { Timeout = TimeSpan.FromSeconds(10), MaxRetries = 3 });
+```
+
+## Attachments
+
+```csharp
+await delivrie.Emails.SendAsync(new
+{
+    from = "Billing <billing@mail.acme.com>", to = "ada@example.com", subject = "Your invoice", text = "Attached.",
+    attachments = new object[] { DelivrieClient.Attachment("invoice-1042.pdf"), new { path = "https://acme.com/terms.pdf" } },
+});
+```
+
+## Methods
+
+| Resource | Methods |
+| --- | --- |
+| `Emails` | `SendAsync`, `SendBatchAsync`, `GetAsync`, `ListAsync`, `ListReceivedAsync`, `UpdateAsync`, `CancelAsync`, `ForwardAsync`, `AttachmentsAsync`, `ReceivedAttachmentsAsync`, `ShareAsync` |
+| `Domains` | `CreateAsync`, `GetAsync`, `ListAsync`, `VerifyAsync`, `UpdateAsync`, `DeleteAsync` |
+| `ApiKeys` | `CreateAsync`, `ListAsync`, `UpdateAsync`, `DeleteAsync` |
+| `Webhooks` | `CreateAsync`, `ListAsync`, `DeliveriesAsync`, `TestAsync`, `ReplayAsync` |
+| `Contacts` | `CreateAsync`, `GetAsync`, `ListAsync`, `UpdateAsync`, `DeleteAsync`, `ImportContactsAsync`, `GetImportAsync`, `ListImportsAsync` |
+| `Segments` | `CreateAsync`, `GetAsync`, `ListAsync`, `UpdateAsync`, `DeleteAsync`, `ContactsAsync`, `AddContactsAsync`, `RemoveContactsAsync` |
+| `Broadcasts` | `CreateAsync`, `GetAsync`, `ListAsync`, `UpdateAsync`, `SendAsync`, `CancelAsync`, `DuplicateAsync`, `RecipientsAsync`, `LinksAsync`, `DeleteAsync`, `GetContentAsync`, `EditContentAsync` |
+| `Templates` | `CreateAsync`, `GetAsync`, `ListAsync`, `UpdateAsync`, `PublishAsync`, `DuplicateAsync`, `DeleteAsync`, `GetContentAsync`, `EditContentAsync` |
+| `Suppressions` | `ListAsync`, `AddAsync`, `DeleteAsync` |
+| `Events` | `SendAsync`, `ListAsync` |
+| `Automations` | `CreateAsync`, `GetAsync`, `ListAsync`, `UpdateAsync`, `DeleteAsync`, `RunsAsync`, `PublishAsync`, `PauseAsync`, `ResumeAsync`, `DuplicateAsync` |
+| `Inboxes` | `ListAsync`, `CreateAsync`, `GetAsync`, `UpdateAsync`, `DeleteAsync`, `AgentRunsAsync` |
+| `Inbox` | `ThreadsAsync`, `ThreadAsync`, `UpdateThreadAsync`, `ReplyAsync`, `RunAgentAsync`, `NotesAsync`, `AddNoteAsync`, `DeleteNoteAsync`, `DraftsAsync`, `CreateDraftAsync`, `UpdateDraftAsync`, `SendDraftAsync`, `DiscardDraftAsync`, `LabelsAsync` |
+| `Ai` | `DraftAsync`, `RewriteAsync`, `SubjectsAsync` |
+| `Logs` | `ListAsync`, `GetAsync` |
+
+List methods take an optional `IDictionary<string, object?>` of query parameters. For anything else, `delivrie.RequestAsync("GET", "/emails", query: new Dictionary<string, object?> { ["limit"] = 10 })` calls the API with the same auth, retries and errors. Every endpoint is in the [API reference](/docs/api).
+
+## Verify webhooks
+
+```csharp
+app.MapPost("/webhooks/delivrie", async (HttpRequest req) =>
+{
+    var body = await new StreamReader(req.Body).ReadToEndAsync();
+    try
+    {
+        var evt = Webhook.Verify(body, name => req.Headers[name].FirstOrDefault(), builder.Configuration["DELIVRIE_WEBHOOK_SECRET"]!);
+        // evt["type"], evt["data"]
+        return Results.Ok();
+    }
+    catch (WebhookVerificationException)
+    {
+        return Results.BadRequest();
+    }
+});
+```
+
+It checks the signature against the raw body and rejects requests older than five minutes. More in [Webhooks](/docs/webhooks).
 
 
 ---

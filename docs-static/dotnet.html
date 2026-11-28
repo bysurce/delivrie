@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}document.documentElement.dataset.cur="USD";try{var a=JSON.parse(localStorage.getItem("sb-hnjejflinvaoxbduxeiu-auth-token")||"null");if(a&&(a.refresh_token||a.currentSession)){document.documentElement.dataset.auth="in";var f=function(){document.querySelectorAll('a[href^="/signup"]').forEach(function(a){var h=a.getAttribute("href"),m=/[?&]plan=([a-z]+)/.exec(h);if(m){a.href="/billing?upgrade="+m[1]+(/interval=yearly/.test(h)?"&interval=yearly":"");return}var t=a.textContent.trim();a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t)){a.textContent="Go to dashboard";a.classList.add("go-dash")}})};document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}a.go-dash{background:#fad600!important;color:#1f1d1e!important;border-color:#fad600!important;box-shadow:none!important}a.go-dash:hover{background:#ffe033!important;border-color:#ffe033!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>.NET and C# · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect…">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/dotnet">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/dotnet.md">
+  <meta property="og:url" content="https://delivrie.io/docs/dotnet">
+  <meta property="og:title" content=".NET and C# · Delivrie Docs">
+  <meta property="og:description" content="Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect…">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <meta property="og:image:width" content="2400">
+  <meta property="og:image:height" content="1260">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="stylesheet" href="/app/css/chat.css">
+  <link rel="modulepreload" href="/app/vendor/supabase-js.js">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": ".NET and C#", "description": "Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect…", "url": "https://delivrie.io/docs/dotnet", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-28"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": ".NET and C#", "item": "https://delivrie.io/docs/dotnet"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>.NET and C#</h1><p>Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect, and webhook verification.</p><p>The <code>Delivrie</code> NuGet package is the official .NET SDK. It&#39;s async, needs nothing beyond the .NET 8 runtime, and works in ASP.NET Core, worker services, Azure Functions and console apps. Source: <a href="https://github.com/bysurce/delivrie/tree/main/sdk/dotnet" target="_blank" rel="noopener" data-native>github.com/bysurce/delivrie</a>.</p>
+<pre><code class="language-bash">dotnet add package Delivrie</code></pre>
+<h2 id="send-an-email">Send an email</h2>
+<pre><code class="language-csharp">using Delivrie;
+
+var delivrie = new DelivrieClient(Environment.GetEnvironmentVariable(&quot;DELIVRIE_API_KEY&quot;));
+
+var email = await delivrie.Emails.SendAsync(new
+{
+    from = &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+    to = &quot;ada@example.com&quot;,
+    subject = &quot;Welcome&quot;,
+    html = &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
+});
+Console.WriteLine(email[&quot;id&quot;]);</code></pre>
+<p>Methods take any object that serialises to the API&#39;s JSON (anonymous objects, dictionaries, your own classes, or a <code>JsonNode</code>) and return the response as a <code>JsonObject</code>. In ASP.NET Core, register one client: <code>builder.Services.AddSingleton(new DelivrieClient(builder.Configuration[&quot;Delivrie:ApiKey&quot;]));</code>.</p>
+<h2 id="errors-retries-and-idempotency">Errors, retries and idempotency</h2>
+<pre><code class="language-csharp">try
+{
+    await delivrie.Emails.SendAsync(new { from = &quot;Acme &lt;hi@acme.com&gt;&quot;, to = user.Email, template = new { id = &quot;welcome&quot; } }, idempotencyKey: $&quot;welcome-{user.Id}&quot;);
+}
+catch (DelivrieException e)
+{
+    logger.LogWarning(&quot;Delivrie {Status} {Name}: {Message}&quot;, e.Status, e.Name, e.Message);
+}</code></pre>
+<p><code>DelivrieException</code> has the HTTP <code>Status</code> (0 for network errors and timeouts), Delivrie&#39;s error <code>Name</code> (see <a href="/docs/errors">Errors</a>) and the message. <code>GET</code> and <code>DELETE</code> requests are retried twice on rate limits, <code>5xx</code> responses and network failures. Sends are retried only with an <code>idempotencyKey</code>, so a retry never sends twice. Every method takes a <code>CancellationToken</code>.</p>
+<pre><code class="language-csharp">var delivrie = new DelivrieClient(key, new DelivrieClientOptions { Timeout = TimeSpan.FromSeconds(10), MaxRetries = 3 });</code></pre>
+<h2 id="attachments">Attachments</h2>
+<pre><code class="language-csharp">await delivrie.Emails.SendAsync(new
+{
+    from = &quot;Billing &lt;billing@mail.acme.com&gt;&quot;, to = &quot;ada@example.com&quot;, subject = &quot;Your invoice&quot;, text = &quot;Attached.&quot;,
+    attachments = new object[] { DelivrieClient.Attachment(&quot;invoice-1042.pdf&quot;), new { path = &quot;https://acme.com/terms.pdf&quot; } },
+});</code></pre>
+<h2 id="methods">Methods</h2>
+<div class="d-table"><table><thead><tr><th>Resource</th><th>Methods</th></tr></thead><tbody><tr><td><code>Emails</code></td><td><code>SendAsync</code>, <code>SendBatchAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>ListReceivedAsync</code>, <code>UpdateAsync</code>, <code>CancelAsync</code>, <code>ForwardAsync</code>, <code>AttachmentsAsync</code>, <code>ReceivedAttachmentsAsync</code>, <code>ShareAsync</code></td></tr><tr><td><code>Domains</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>VerifyAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code></td></tr><tr><td><code>ApiKeys</code></td><td><code>CreateAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code></td></tr><tr><td><code>Webhooks</code></td><td><code>CreateAsync</code>, <code>ListAsync</code>, <code>DeliveriesAsync</code>, <code>TestAsync</code>, <code>ReplayAsync</code></td></tr><tr><td><code>Contacts</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code>, <code>ImportContactsAsync</code>, <code>GetImportAsync</code>, <code>ListImportsAsync</code></td></tr><tr><td><code>Segments</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code>, <code>ContactsAsync</code>, <code>AddContactsAsync</code>, <code>RemoveContactsAsync</code></td></tr><tr><td><code>Broadcasts</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>SendAsync</code>, <code>CancelAsync</code>, <code>DuplicateAsync</code>, <code>RecipientsAsync</code>, <code>LinksAsync</code>, <code>DeleteAsync</code>, <code>GetContentAsync</code>, <code>EditContentAsync</code></td></tr><tr><td><code>Templates</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>PublishAsync</code>, <code>DuplicateAsync</code>, <code>DeleteAsync</code>, <code>GetContentAsync</code>, <code>EditContentAsync</code></td></tr><tr><td><code>Suppressions</code></td><td><code>ListAsync</code>, <code>AddAsync</code>, <code>DeleteAsync</code></td></tr><tr><td><code>Events</code></td><td><code>SendAsync</code>, <code>ListAsync</code></td></tr><tr><td><code>Automations</code></td><td><code>CreateAsync</code>, <code>GetAsync</code>, <code>ListAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code>, <code>RunsAsync</code>, <code>PublishAsync</code>, <code>PauseAsync</code>, <code>ResumeAsync</code>, <code>DuplicateAsync</code></td></tr><tr><td><code>Inboxes</code></td><td><code>ListAsync</code>, <code>CreateAsync</code>, <code>GetAsync</code>, <code>UpdateAsync</code>, <code>DeleteAsync</code>, <code>AgentRunsAsync</code></td></tr><tr><td><code>Inbox</code></td><td><code>ThreadsAsync</code>, <code>ThreadAsync</code>, <code>UpdateThreadAsync</code>, <code>ReplyAsync</code>, <code>RunAgentAsync</code>, <code>NotesAsync</code>, <code>AddNoteAsync</code>, <code>DeleteNoteAsync</code>, <code>DraftsAsync</code>, <code>CreateDraftAsync</code>, <code>UpdateDraftAsync</code>, <code>SendDraftAsync</code>, <code>DiscardDraftAsync</code>, <code>LabelsAsync</code></td></tr><tr><td><code>Ai</code></td><td><code>DraftAsync</code>, <code>RewriteAsync</code>, <code>SubjectsAsync</code></td></tr><tr><td><code>Logs</code></td><td><code>ListAsync</code>, <code>GetAsync</code></td></tr></tbody></table></div>
+<p>List methods take an optional <code>IDictionary&lt;string, object?&gt;</code> of query parameters. For anything else, <code>delivrie.RequestAsync(&quot;GET&quot;, &quot;/emails&quot;, query: new Dictionary&lt;string, object?&gt; { [&quot;limit&quot;] = 10 })</code> calls the API with the same auth, retries and errors. Every endpoint is in the <a href="/docs/api">API reference</a>.</p>
+<h2 id="verify-webhooks">Verify webhooks</h2>
+<pre><code class="language-csharp">app.MapPost(&quot;/webhooks/delivrie&quot;, async (HttpRequest req) =&gt;
+{
+    var body = await new StreamReader(req.Body).ReadToEndAsync();
+    try
+    {
+        var evt = Webhook.Verify(body, name =&gt; req.Headers[name].FirstOrDefault(), builder.Configuration[&quot;DELIVRIE_WEBHOOK_SECRET&quot;]!);
+        // evt[&quot;type&quot;], evt[&quot;data&quot;]
+        return Results.Ok();
+    }
+    catch (WebhookVerificationException)
+    {
+        return Results.BadRequest();
+    }
+});</code></pre>
+<p>It checks the signature against the raw body and rejects requests older than five minutes. More in <a href="/docs/webhooks">Webhooks</a>.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/java">Java and Spring</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/dotnet">.NET and C#</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/ai-writing">AI writing</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/dedicated-ips">Dedicated IPs</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

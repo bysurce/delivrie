@@ -1,0 +1,25 @@
+[package]
+name = "delivrie"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Rust client for the Delivrie email API: transactional email, broadcasts, templates, contacts, automations, the Inbox and webhooks."
+license = "MIT"
+homepage = "https://delivrie.io/docs/rust"
+documentation = "https://docs.rs/delivrie"
+repository = "https://github.com/bysurce/delivrie"
+readme = "README.md"
+keywords = ["email", "transactional-email", "delivrie", "api", "smtp"]
+categories = ["email", "api-bindings", "web-programming::http-client"]
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "http2"] }
+serde = "1"
+serde_json = "1"
+tokio = { version = "1", features = ["time"] }
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

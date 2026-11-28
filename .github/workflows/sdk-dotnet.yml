@@ -1,0 +1,51 @@
+# Builds and tests the .NET SDK (sdk/dotnet) on every change, and publishes the Delivrie package to NuGet when run
+# by hand from main with "publish" ticked. Publishing needs the NUGET_API_KEY repository secret.
+name: .NET SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/dotnet/**", "tools/sdk_spec.py", "tools/gen_sdks.py", ".github/workflows/sdk-dotnet.yml"]
+  pull_request:
+    paths: ["sdk/dotnet/**"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the version in sdk/dotnet/src/Delivrie/Delivrie.csproj to NuGet
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: sdk/dotnet
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resource methods match tools/sdk_spec.py
+        working-directory: .
+        run: python3 tools/gen_sdks.py --check
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet build src/Delivrie/Delivrie.csproj -c Release
+      - run: dotnet test tests/Delivrie.Tests/Delivrie.Tests.csproj -c Release
+      - run: dotnet pack src/Delivrie/Delivrie.csproj -c Release -o out
+
+  publish:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: |
+          if [ -z "$NUGET_API_KEY" ]; then echo "::error::Add the NUGET_API_KEY secret to publish."; exit 1; fi
+          dotnet pack src/Delivrie/Delivrie.csproj -c Release -o out
+          dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json

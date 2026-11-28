@@ -8,7 +8,7 @@ You can reach Delivrie in several ways. They all share the same account, limits,
 
 | Way in | Use it when | Start here |
 | --- | --- | --- |
-| An official SDK | You write Node.js, Python, Go or PHP | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php) |
+| An official SDK | You write Node.js, Python, Go, PHP, Ruby, Java, .NET or Rust | [Node.js](/docs/sdks), [Python](/docs/python), [Go](/docs/go), [PHP](/docs/php), [Ruby](/docs/ruby), [Java](/docs/java), [.NET](/docs/dotnet), [Rust](/docs/rust) |
 | REST API | You write any other language, or prefer plain HTTP | [Quickstart](/docs/quickstart) |
 | CLI | You want to send or check email from a terminal, script or CI job | [CLI](/docs/cli) |
 | SMTP relay | A framework, CMS or plugin already sends email over SMTP | [SMTP](/docs/smtp) |

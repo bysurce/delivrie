@@ -103,7 +103,7 @@ DD_DOCS = ('<div class="dd-body dd-docs-body">'
                            ("refresh", "Migrate from Resend", "Keep your SDK; change two lines", "/docs/migrate-from-resend"),
                            ("globe", "Verify a domain", "SPF, DKIM and DMARC, step by step", "/docs/domains")])
   + dd_col("REFERENCE", [("code", "API reference", "Every endpoint, with examples", "/docs/api"),
-                         ("terminal", "SDKs", "Node.js and Python", "/docs/sdks"),
+                         ("terminal", "SDKs", "Node, Python, Go, PHP, Ruby, Java, .NET, Rust", "/docs/sdks"),
                          ("webhook", "Webhooks", "Events, payloads and signatures", "/docs/webhooks")])
   + dd_col("BUILD WITH AI", [("sparkle", "MCP server", "92 tools for Claude, Cursor and more", "/docs/mcp"),
                              ("mail", "SMTP relay", "Ports 587 and 465", "/docs/smtp"),

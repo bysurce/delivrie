@@ -1,5 +1,5 @@
 # Sends real emails to Delivrie's test addresses after every API deploy (and once a day) to prove sending,
-# idempotent retries, Resend SDK compatibility, the CLI and the Go and PHP SDKs work end to end. See tools/live-test.mjs.
+# idempotent retries, Resend SDK compatibility, the CLI and the Go, PHP, Ruby and Java SDKs work end to end. See tools/live-test.mjs.
 # Needs one repository secret: DELIVRIE_TEST_KEY (a sending access key). About 12 emails per run.
 name: Live API test
 
@@ -45,3 +45,15 @@ jobs:
         if: always()
         working-directory: sdk/php
         run: php tests/live.php
+      - name: Ruby SDK against the live API
+        if: always()
+        working-directory: sdk/ruby
+        run: ruby -Ilib test/live.rb
+      - name: Java SDK against the live API
+        if: always()
+        working-directory: sdk/java
+        run: |
+          mkdir -p target/classes target/test-classes
+          javac -d target/classes $(find src/main -name '*.java')
+          javac -d target/test-classes -cp target/classes src/test/java/io/delivrie/LiveTest.java
+          java -cp target/classes:target/test-classes io.delivrie.LiveTest

@@ -1,0 +1,70 @@
+# Tests the Java SDK (sdk/java) on every change. It has no dependencies, so the tests compile and run with plain
+# javac. Publishing to Maven Central (run by hand with "publish") needs a Central Portal token and a GPG key:
+# MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD, MAVEN_GPG_PRIVATE_KEY and MAVEN_GPG_PASSPHRASE, and the
+# io.delivrie namespace verified on central.sonatype.com.
+name: Java SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/java/**", "tools/sdk_spec.py", "tools/gen_sdks.py", ".github/workflows/sdk-java.yml"]
+  pull_request:
+    paths: ["sdk/java/**"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the version in sdk/java/pom.xml to Maven Central
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["17", "21", "25"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resource methods match tools/sdk_spec.py
+        run: python3 tools/gen_sdks.py --check
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - working-directory: sdk/java
+        run: |
+          mkdir -p target/classes target/test-classes
+          javac -Xlint:all -Werror -d target/classes $(find src/main -name '*.java')
+          javac -d target/test-classes -cp target/classes $(find src/test -name '*.java')
+          java -cp target/classes:target/test-classes io.delivrie.DelivrieTest
+      - name: Maven package
+        if: matrix.java == '21'
+        working-directory: sdk/java
+        run: mvn -B -q package
+
+  publish:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then echo "::error::Add the Maven Central secrets to publish."; exit 1; fi
+          mvn -B -Prelease deploy

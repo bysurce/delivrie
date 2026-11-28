@@ -1,134 +1,111 @@
 # Rust
 
-Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.
+Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook verification.
 
-There's no Rust crate yet. The API is plain JSON over HTTPS, so `reqwest` and `serde` cover it.
+The `delivrie` crate is the official Rust SDK. It's async, built on `reqwest` with rustls, and takes anything that implements `serde::Serialize`. Source: [github.com/bysurce/delivrie](https://github.com/bysurce/delivrie/tree/main/sdk/rust).
 
-```toml Cargo.toml
-[dependencies]
-reqwest = { version = "0.12", features = ["json"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```bash
+cargo add delivrie serde_json
+cargo add tokio --features macros,rt-multi-thread
 ```
 
 ## Send an email
 
 ```rust src/main.rs
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize)]
-struct Email<'a> {
-    from: &'a str,
-    to: Vec<&'a str>,
-    subject: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    html: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<&'a str>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct ApiError {
-    status_code: u16,
-    name: String,
-    message: String,
-}
-
-#[derive(Deserialize)]
-struct Sent {
-    id: String,
-}
-
-async fn send(client: &reqwest::Client, email: &Email<'_>, idempotency_key: &str) -> Result<String, ApiError> {
-    let key = std::env::var("DELIVRIE_API_KEY").expect("set DELIVRIE_API_KEY");
-    let res = client
-        .post("https://delivrie.io/api/emails")
-        .bearer_auth(key)
-        .header("Idempotency-Key", idempotency_key)
-        .json(email)
-        .send()
-        .await
-        .map_err(|e| ApiError { status_code: 0, name: "network_error".into(), message: e.to_string() })?;
-
-    if res.status().is_success() {
-        let sent: Sent = res.json().await.map_err(|e| ApiError { status_code: 0, name: "decode_error".into(), message: e.to_string() })?;
-        Ok(sent.id)
-    } else {
-        Err(res.json::<ApiError>().await.unwrap_or(ApiError {
-            status_code: 0,
-            name: "application_error".into(),
-            message: "unreadable error body".into(),
-        }))
-    }
-}
+use serde_json::json;
 
 #[tokio::main]
-async fn main() {
-    let client = reqwest::Client::new();
-    let email = Email {
-        from: "Acme <hello@mail.acme.com>",
-        to: vec!["ada@example.com"],
-        subject: "Welcome",
-        html: Some("<p>Welcome to Acme</p>"),
-        text: None,
-    };
-    match send(&client, &email, "welcome-42").await {
-        Ok(id) => println!("sent {id}"),
-        Err(e) => eprintln!("{} {}: {}", e.status_code, e.name, e.message),
-    }
+async fn main() -> delivrie::Result<()> {
+    let delivrie = delivrie::Client::new(std::env::var("DELIVRIE_API_KEY").expect("DELIVRIE_API_KEY"));
+
+    let email = delivrie
+        .emails()
+        .send(&json!({
+            "from": "Acme <hello@mail.acme.com>",
+            "to": "ada@example.com",
+            "subject": "Welcome",
+            "html": "<p>Welcome to Acme</p>",
+        }))
+        .await?;
+    println!("{}", email["id"]);
+    Ok(())
 }
 ```
 
-Reuse one `reqwest::Client` for the whole app; it keeps connections open between requests.
+Methods return the API's JSON as a `serde_json::Value`. Pass your own structs instead of `json!` when you prefer types: any `#[derive(Serialize)]` value works. `Client` is cheap to clone and safe to share between tasks.
+
+## Errors, retries and idempotency
+
+```rust
+match delivrie.emails().send_idempotent(&email, &format!("welcome-{user_id}")).await {
+    Ok(sent) => println!("sent {}", sent["id"]),
+    Err(e) => eprintln!("{} {}: {e}", e.status(), e.name()),
+}
+```
+
+`delivrie::Error` is `Api { status, name, message }`, `Network`, `Timeout` or `Invalid`; `status()` and `name()` work on all of them (see [Errors](/docs/errors)). `GET` and `DELETE` requests are retried twice on rate limits, `5xx` responses and network failures. Sends are retried only through the `_idempotent` methods, so a retry never sends twice.
+
+```rust
+let delivrie = delivrie::Client::builder()
+    .api_key(key)
+    .timeout(std::time::Duration::from_secs(10))
+    .max_retries(3)
+    .build()?;
+```
 
 ## Attachments
 
-Add the `base64` crate and send the file as base64 `content`:
+Send base64 `content`, or a public `https://` URL as `path` for Delivrie to download:
 
 ```rust
 use base64::{engine::general_purpose::STANDARD, Engine};
 
-let pdf = std::fs::read("invoice.pdf")?;
-let body = serde_json::json!({
+let pdf = std::fs::read("invoice-1042.pdf")?;
+delivrie.emails().send(&json!({
     "from": "Billing <billing@mail.acme.com>",
-    "to": ["ada@example.com"],
+    "to": "ada@example.com",
     "subject": "Your invoice",
     "text": "Attached.",
-    "attachments": [{ "filename": "invoice.pdf", "content": STANDARD.encode(pdf) }]
-});
+    "attachments": [{ "filename": "invoice-1042.pdf", "content": STANDARD.encode(pdf) }],
+})).await?;
 ```
+
+## Methods
+
+| Resource | Methods |
+| --- | --- |
+| `emails()` | `send`, `send_batch`, `get`, `list`, `list_received`, `update`, `cancel`, `forward`, `attachments`, `received_attachments`, `share` |
+| `domains()` | `create`, `get`, `list`, `verify`, `update`, `delete` |
+| `api_keys()` | `create`, `list`, `update`, `delete` |
+| `webhooks()` | `create`, `list`, `deliveries`, `test`, `replay` |
+| `contacts()` | `create`, `get`, `list`, `update`, `delete`, `import_contacts`, `get_import`, `list_imports` |
+| `segments()` | `create`, `get`, `list`, `update`, `delete`, `contacts`, `add_contacts`, `remove_contacts` |
+| `broadcasts()` | `create`, `get`, `list`, `update`, `send`, `cancel`, `duplicate`, `recipients`, `links`, `delete`, `get_content`, `edit_content` |
+| `templates()` | `create`, `get`, `list`, `update`, `publish`, `duplicate`, `delete`, `get_content`, `edit_content` |
+| `suppressions()` | `list`, `add`, `delete` |
+| `events()` | `send`, `list` |
+| `automations()` | `create`, `get`, `list`, `update`, `delete`, `runs`, `publish`, `pause`, `resume`, `duplicate` |
+| `inboxes()` | `list`, `create`, `get`, `update`, `delete`, `agent_runs` |
+| `inbox()` | `threads`, `thread`, `update_thread`, `reply`, `run_agent`, `notes`, `add_note`, `delete_note`, `drafts`, `create_draft`, `update_draft`, `send_draft`, `discard_draft`, `labels` |
+| `ai()` | `draft`, `rewrite`, `subjects` |
+| `logs()` | `list`, `get` |
+
+Methods with a body take `&impl Serialize`; list methods take query pairs like `&[("limit", "10")]`. For anything else, `delivrie.request("GET", "/emails", None::<&serde_json::Value>, &[("limit", "10")], None)` calls the API with the same auth, retries and errors. Every endpoint is in the [API reference](/docs/api).
 
 ## Verify webhooks
 
-```toml Cargo.toml
-hmac = "0.12"
-sha2 = "0.10"
-base64 = "0.22"
-```
-
-```rust src/webhook.rs
-use base64::{engine::general_purpose::STANDARD, Engine};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-
-pub fn verify(payload: &[u8], id: &str, timestamp: &str, signatures: &str, secret: &str) -> bool {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-    match timestamp.parse::<i64>() {
-        Ok(ts) if (now - ts).abs() <= 300 => {}
-        _ => return false,
+```rust
+// axum
+async fn webhook(headers: axum::http::HeaderMap, body: String) -> axum::http::StatusCode {
+    let pairs = headers.iter().map(|(k, v)| (k.as_str(), v.to_str().unwrap_or("")));
+    match delivrie::webhook::verify(&body, pairs, &std::env::var("DELIVRIE_WEBHOOK_SECRET").unwrap()) {
+        Ok(event) => {
+            // event["type"], event["data"]
+            axum::http::StatusCode::OK
+        }
+        Err(_) => axum::http::StatusCode::BAD_REQUEST,
     }
-    let Ok(key) = STANDARD.decode(secret.trim_start_matches("whsec_")) else { return false };
-    signatures.split(' ').any(|sig| {
-        let Some(("v1", value)) = sig.split_once(',') else { return false };
-        let Ok(given) = STANDARD.decode(value) else { return false };
-        let mut mac = Hmac::<Sha256>::new_from_slice(&key).unwrap();
-        mac.update(format!("{id}.{timestamp}.").as_bytes());
-        mac.update(payload);
-        mac.verify_slice(&given).is_ok() // constant-time comparison
-    })
 }
 ```
 
-Pass the raw body bytes and the `webhook-id`, `webhook-timestamp` and `webhook-signature` headers. In Axum, take the body as `Bytes` and read headers from `HeaderMap`.
+It checks the signature against the raw body and rejects requests older than five minutes. More in [Webhooks](/docs/webhooks).

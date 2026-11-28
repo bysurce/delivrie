@@ -1,0 +1,49 @@
+# Builds and tests the Rust SDK (sdk/rust) on every change, and publishes the delivrie crate when run by hand from
+# main with "publish" ticked. Publishing needs the CARGO_REGISTRY_TOKEN repository secret (a crates.io API token).
+name: Rust SDK
+
+on:
+  push:
+    branches: [main]
+    paths: ["sdk/rust/**", "tools/sdk_spec.py", "tools/gen_sdks.py", ".github/workflows/sdk-rust.yml"]
+  pull_request:
+    paths: ["sdk/rust/**"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the version in sdk/rust/Cargo.toml to crates.io
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: sdk/rust
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resource methods match tools/sdk_spec.py
+        working-directory: .
+        run: python3 tools/gen_sdks.py --check
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo build --all-targets
+      - run: cargo test
+      - run: cargo clippy --all-targets -- -D warnings -A clippy::too_many_arguments
+      - run: cargo package --allow-dirty
+
+  publish:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then echo "::error::Add the CARGO_REGISTRY_TOKEN secret to publish."; exit 1; fi
+          cargo publish

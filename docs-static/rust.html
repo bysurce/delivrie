@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rust · Delivrie Docs</title>
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.">
+  <meta name="description" content="Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook…">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Delivrie">
   <link rel="canonical" href="https://delivrie.io/docs/rust">
   <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/rust.md">
   <meta property="og:url" content="https://delivrie.io/docs/rust">
   <meta property="og:title" content="Rust · Delivrie Docs">
-  <meta property="og:description" content="Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.">
+  <meta property="og:description" content="Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook…">
   <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
   <meta property="og:image:width" content="2400">
   <meta property="og:image:height" content="1260">
@@ -30,117 +30,71 @@
   <link rel="stylesheet" href="/app/css/chat.css">
   <link rel="modulepreload" href="/app/vendor/supabase-js.js">
   <script>window.DLV_V = 1;</script>
-  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Rust", "description": "Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.", "url": "https://delivrie.io/docs/rust", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-28"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Rust", "item": "https://delivrie.io/docs/rust"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Rust", "description": "Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook…", "url": "https://delivrie.io/docs/rust", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-28"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Rust", "item": "https://delivrie.io/docs/rust"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
 </head>
 <body>
-  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Rust</h1><p>Send email from Rust with Delivrie using reqwest and serde, handle API errors, send attachments and verify webhooks.</p><p>There&#39;s no Rust crate yet. The API is plain JSON over HTTPS, so <code>reqwest</code> and <code>serde</code> cover it.</p>
-<pre><code class="language-toml">[dependencies]
-reqwest = { version = &quot;0.12&quot;, features = [&quot;json&quot;] }
-serde = { version = &quot;1&quot;, features = [&quot;derive&quot;] }
-serde_json = &quot;1&quot;
-tokio = { version = &quot;1&quot;, features = [&quot;macros&quot;, &quot;rt-multi-thread&quot;] }</code></pre>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Rust</h1><p>Send email from Rust with the official delivrie crate: async requests with reqwest and serde_json, typed errors, idempotent retries and webhook verification.</p><p>The <code>delivrie</code> crate is the official Rust SDK. It&#39;s async, built on <code>reqwest</code> with rustls, and takes anything that implements <code>serde::Serialize</code>. Source: <a href="https://github.com/bysurce/delivrie/tree/main/sdk/rust" target="_blank" rel="noopener" data-native>github.com/bysurce/delivrie</a>.</p>
+<pre><code class="language-bash">cargo add delivrie serde_json
+cargo add tokio --features macros,rt-multi-thread</code></pre>
 <h2 id="send-an-email">Send an email</h2>
-<pre><code class="language-rust">use serde::{Deserialize, Serialize};
-
-#[derive(Serialize)]
-struct Email&lt;&#39;a&gt; {
-    from: &amp;&#39;a str,
-    to: Vec&lt;&amp;&#39;a str&gt;,
-    subject: &amp;&#39;a str,
-    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
-    html: Option&lt;&amp;&#39;a str&gt;,
-    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
-    text: Option&lt;&amp;&#39;a str&gt;,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = &quot;camelCase&quot;)]
-struct ApiError {
-    status_code: u16,
-    name: String,
-    message: String,
-}
-
-#[derive(Deserialize)]
-struct Sent {
-    id: String,
-}
-
-async fn send(client: &amp;reqwest::Client, email: &amp;Email&lt;&#39;_&gt;, idempotency_key: &amp;str) -&gt; Result&lt;String, ApiError&gt; {
-    let key = std::env::var(&quot;DELIVRIE_API_KEY&quot;).expect(&quot;set DELIVRIE_API_KEY&quot;);
-    let res = client
-        .post(&quot;https://delivrie.io/api/emails&quot;)
-        .bearer_auth(key)
-        .header(&quot;Idempotency-Key&quot;, idempotency_key)
-        .json(email)
-        .send()
-        .await
-        .map_err(|e| ApiError { status_code: 0, name: &quot;network_error&quot;.into(), message: e.to_string() })?;
-
-    if res.status().is_success() {
-        let sent: Sent = res.json().await.map_err(|e| ApiError { status_code: 0, name: &quot;decode_error&quot;.into(), message: e.to_string() })?;
-        Ok(sent.id)
-    } else {
-        Err(res.json::&lt;ApiError&gt;().await.unwrap_or(ApiError {
-            status_code: 0,
-            name: &quot;application_error&quot;.into(),
-            message: &quot;unreadable error body&quot;.into(),
-        }))
-    }
-}
+<pre><code class="language-rust">use serde_json::json;
 
 #[tokio::main]
-async fn main() {
-    let client = reqwest::Client::new();
-    let email = Email {
-        from: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
-        to: vec![&quot;ada@example.com&quot;],
-        subject: &quot;Welcome&quot;,
-        html: Some(&quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;),
-        text: None,
-    };
-    match send(&amp;client, &amp;email, &quot;welcome-42&quot;).await {
-        Ok(id) =&gt; println!(&quot;sent {id}&quot;),
-        Err(e) =&gt; eprintln!(&quot;{} {}: {}&quot;, e.status_code, e.name, e.message),
-    }
+async fn main() -&gt; delivrie::Result&lt;()&gt; {
+    let delivrie = delivrie::Client::new(std::env::var(&quot;DELIVRIE_API_KEY&quot;).expect(&quot;DELIVRIE_API_KEY&quot;));
+
+    let email = delivrie
+        .emails()
+        .send(&amp;json!({
+            &quot;from&quot;: &quot;Acme &lt;hello@mail.acme.com&gt;&quot;,
+            &quot;to&quot;: &quot;ada@example.com&quot;,
+            &quot;subject&quot;: &quot;Welcome&quot;,
+            &quot;html&quot;: &quot;&lt;p&gt;Welcome to Acme&lt;/p&gt;&quot;,
+        }))
+        .await?;
+    println!(&quot;{}&quot;, email[&quot;id&quot;]);
+    Ok(())
 }</code></pre>
-<p>Reuse one <code>reqwest::Client</code> for the whole app; it keeps connections open between requests.</p>
+<p>Methods return the API&#39;s JSON as a <code>serde_json::Value</code>. Pass your own structs instead of <code>json!</code> when you prefer types: any <code>#[derive(Serialize)]</code> value works. <code>Client</code> is cheap to clone and safe to share between tasks.</p>
+<h2 id="errors-retries-and-idempotency">Errors, retries and idempotency</h2>
+<pre><code class="language-rust">match delivrie.emails().send_idempotent(&amp;email, &amp;format!(&quot;welcome-{user_id}&quot;)).await {
+    Ok(sent) =&gt; println!(&quot;sent {}&quot;, sent[&quot;id&quot;]),
+    Err(e) =&gt; eprintln!(&quot;{} {}: {e}&quot;, e.status(), e.name()),
+}</code></pre>
+<p><code>delivrie::Error</code> is <code>Api { status, name, message }</code>, <code>Network</code>, <code>Timeout</code> or <code>Invalid</code>; <code>status()</code> and <code>name()</code> work on all of them (see <a href="/docs/errors">Errors</a>). <code>GET</code> and <code>DELETE</code> requests are retried twice on rate limits, <code>5xx</code> responses and network failures. Sends are retried only through the <code>_idempotent</code> methods, so a retry never sends twice.</p>
+<pre><code class="language-rust">let delivrie = delivrie::Client::builder()
+    .api_key(key)
+    .timeout(std::time::Duration::from_secs(10))
+    .max_retries(3)
+    .build()?;</code></pre>
 <h2 id="attachments">Attachments</h2>
-<p>Add the <code>base64</code> crate and send the file as base64 <code>content</code>:</p>
+<p>Send base64 <code>content</code>, or a public <code>https://</code> URL as <code>path</code> for Delivrie to download:</p>
 <pre><code class="language-rust">use base64::{engine::general_purpose::STANDARD, Engine};
 
-let pdf = std::fs::read(&quot;invoice.pdf&quot;)?;
-let body = serde_json::json!({
+let pdf = std::fs::read(&quot;invoice-1042.pdf&quot;)?;
+delivrie.emails().send(&amp;json!({
     &quot;from&quot;: &quot;Billing &lt;billing@mail.acme.com&gt;&quot;,
-    &quot;to&quot;: [&quot;ada@example.com&quot;],
+    &quot;to&quot;: &quot;ada@example.com&quot;,
     &quot;subject&quot;: &quot;Your invoice&quot;,
     &quot;text&quot;: &quot;Attached.&quot;,
-    &quot;attachments&quot;: [{ &quot;filename&quot;: &quot;invoice.pdf&quot;, &quot;content&quot;: STANDARD.encode(pdf) }]
-});</code></pre>
+    &quot;attachments&quot;: [{ &quot;filename&quot;: &quot;invoice-1042.pdf&quot;, &quot;content&quot;: STANDARD.encode(pdf) }],
+})).await?;</code></pre>
+<h2 id="methods">Methods</h2>
+<div class="d-table"><table><thead><tr><th>Resource</th><th>Methods</th></tr></thead><tbody><tr><td><code>emails()</code></td><td><code>send</code>, <code>send_batch</code>, <code>get</code>, <code>list</code>, <code>list_received</code>, <code>update</code>, <code>cancel</code>, <code>forward</code>, <code>attachments</code>, <code>received_attachments</code>, <code>share</code></td></tr><tr><td><code>domains()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>verify</code>, <code>update</code>, <code>delete</code></td></tr><tr><td><code>api_keys()</code></td><td><code>create</code>, <code>list</code>, <code>update</code>, <code>delete</code></td></tr><tr><td><code>webhooks()</code></td><td><code>create</code>, <code>list</code>, <code>deliveries</code>, <code>test</code>, <code>replay</code></td></tr><tr><td><code>contacts()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>update</code>, <code>delete</code>, <code>import_contacts</code>, <code>get_import</code>, <code>list_imports</code></td></tr><tr><td><code>segments()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>update</code>, <code>delete</code>, <code>contacts</code>, <code>add_contacts</code>, <code>remove_contacts</code></td></tr><tr><td><code>broadcasts()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>update</code>, <code>send</code>, <code>cancel</code>, <code>duplicate</code>, <code>recipients</code>, <code>links</code>, <code>delete</code>, <code>get_content</code>, <code>edit_content</code></td></tr><tr><td><code>templates()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>update</code>, <code>publish</code>, <code>duplicate</code>, <code>delete</code>, <code>get_content</code>, <code>edit_content</code></td></tr><tr><td><code>suppressions()</code></td><td><code>list</code>, <code>add</code>, <code>delete</code></td></tr><tr><td><code>events()</code></td><td><code>send</code>, <code>list</code></td></tr><tr><td><code>automations()</code></td><td><code>create</code>, <code>get</code>, <code>list</code>, <code>update</code>, <code>delete</code>, <code>runs</code>, <code>publish</code>, <code>pause</code>, <code>resume</code>, <code>duplicate</code></td></tr><tr><td><code>inboxes()</code></td><td><code>list</code>, <code>create</code>, <code>get</code>, <code>update</code>, <code>delete</code>, <code>agent_runs</code></td></tr><tr><td><code>inbox()</code></td><td><code>threads</code>, <code>thread</code>, <code>update_thread</code>, <code>reply</code>, <code>run_agent</code>, <code>notes</code>, <code>add_note</code>, <code>delete_note</code>, <code>drafts</code>, <code>create_draft</code>, <code>update_draft</code>, <code>send_draft</code>, <code>discard_draft</code>, <code>labels</code></td></tr><tr><td><code>ai()</code></td><td><code>draft</code>, <code>rewrite</code>, <code>subjects</code></td></tr><tr><td><code>logs()</code></td><td><code>list</code>, <code>get</code></td></tr></tbody></table></div>
+<p>Methods with a body take <code>&amp;impl Serialize</code>; list methods take query pairs like <code>&amp;[(&quot;limit&quot;, &quot;10&quot;)]</code>. For anything else, <code>delivrie.request(&quot;GET&quot;, &quot;/emails&quot;, None::&lt;&amp;serde_json::Value&gt;, &amp;[(&quot;limit&quot;, &quot;10&quot;)], None)</code> calls the API with the same auth, retries and errors. Every endpoint is in the <a href="/docs/api">API reference</a>.</p>
 <h2 id="verify-webhooks">Verify webhooks</h2>
-<p><b>Cargo.toml</b></p><pre><code class="language-toml">hmac = &quot;0.12&quot;
-sha2 = &quot;0.10&quot;
-base64 = &quot;0.22&quot;</code></pre><p><b>src/webhook.rs</b></p><pre><code class="language-rust">use base64::{engine::general_purpose::STANDARD, Engine};
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
-
-pub fn verify(payload: &amp;[u8], id: &amp;str, timestamp: &amp;str, signatures: &amp;str, secret: &amp;str) -&gt; bool {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-    match timestamp.parse::&lt;i64&gt;() {
-        Ok(ts) if (now - ts).abs() &lt;= 300 =&gt; {}
-        _ =&gt; return false,
+<pre><code class="language-rust">// axum
+async fn webhook(headers: axum::http::HeaderMap, body: String) -&gt; axum::http::StatusCode {
+    let pairs = headers.iter().map(|(k, v)| (k.as_str(), v.to_str().unwrap_or(&quot;&quot;)));
+    match delivrie::webhook::verify(&amp;body, pairs, &amp;std::env::var(&quot;DELIVRIE_WEBHOOK_SECRET&quot;).unwrap()) {
+        Ok(event) =&gt; {
+            // event[&quot;type&quot;], event[&quot;data&quot;]
+            axum::http::StatusCode::OK
+        }
+        Err(_) =&gt; axum::http::StatusCode::BAD_REQUEST,
     }
-    let Ok(key) = STANDARD.decode(secret.trim_start_matches(&quot;whsec_&quot;)) else { return false };
-    signatures.split(&#39; &#39;).any(|sig| {
-        let Some((&quot;v1&quot;, value)) = sig.split_once(&#39;,&#39;) else { return false };
-        let Ok(given) = STANDARD.decode(value) else { return false };
-        let mut mac = Hmac::&lt;Sha256&gt;::new_from_slice(&amp;key).unwrap();
-        mac.update(format!(&quot;{id}.{timestamp}.&quot;).as_bytes());
-        mac.update(payload);
-        mac.verify_slice(&amp;given).is_ok() // constant-time comparison
-    })
 }</code></pre>
-<p>Pass the raw body bytes and the <code>webhook-id</code>, <code>webhook-timestamp</code> and <code>webhook-signature</code> headers. In Axum, take the body as <code>Bytes</code> and read headers from <code>HeaderMap</code>.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/ai-writing">AI writing</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/dedicated-ips">Dedicated IPs</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+<p>It checks the signature against the raw body and rejects requests older than five minutes. More in <a href="/docs/webhooks">Webhooks</a>.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/java">Java and Spring</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/dotnet">.NET and C#</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/ai-writing">AI writing</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/dedicated-ips">Dedicated IPs</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
   <script type="module" src="/app/js/main.js"></script>
 </body>
 </html>
