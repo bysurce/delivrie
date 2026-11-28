@@ -17,7 +17,7 @@ sealed class StubHandler : HttpMessageHandler
     {
         var headers = request.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value));
         if (request.Content != null) foreach (var h in request.Content.Headers) headers[h.Key] = string.Join(",", h.Value);
-        Calls.Add((request.Method.Method, request.RequestUri!.ToString(), headers, request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken)));
+        Calls.Add((request.Method.Method, request.RequestUri!.AbsoluteUri, headers, request.Content == null ? null : await request.Content.ReadAsStringAsync(cancellationToken)));
         return _responses.Count > 0 ? _responses.Dequeue()() : Json(200, "{}");
     }
 

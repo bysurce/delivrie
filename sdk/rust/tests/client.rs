@@ -82,7 +82,7 @@ fn paths(seen: &Arc<Mutex<Vec<Seen>>>) -> Vec<String> {
     seen.lock()
         .unwrap()
         .iter()
-        .map(|s| format!("{} {}", s.method, s.path.trim_start_matches("/api")))
+        .map(|s| format!("{} {}", s.method, s.path.strip_prefix("/api").unwrap_or(&s.path)))
         .collect()
 }
 
