@@ -1,0 +1,92 @@
+[
+  {
+    "name": "from",
+    "type": "text",
+    "label": "From",
+    "required": true,
+    "help": "A sender on a verified domain, like `Acme <hello@mail.acme.com>`."
+  },
+  {
+    "name": "to",
+    "type": "array",
+    "label": "To",
+    "required": true,
+    "spec": {
+      "type": "email",
+      "label": "Address"
+    }
+  },
+  {
+    "name": "subject",
+    "type": "text",
+    "label": "Subject"
+  },
+  {
+    "name": "template",
+    "type": "text",
+    "label": "Template",
+    "help": "Alias or ID of a published template. Leave empty to write the email here."
+  },
+  {
+    "name": "variables",
+    "type": "array",
+    "label": "Template variables",
+    "spec": [
+      {
+        "name": "name",
+        "type": "text",
+        "label": "Name"
+      },
+      {
+        "name": "value",
+        "type": "text",
+        "label": "Value"
+      }
+    ]
+  },
+  {
+    "name": "html",
+    "type": "text",
+    "label": "HTML"
+  },
+  {
+    "name": "text",
+    "type": "text",
+    "label": "Plain text"
+  },
+  {
+    "name": "reply_to",
+    "type": "email",
+    "label": "Reply-to"
+  },
+  {
+    "name": "scheduled_at",
+    "type": "date",
+    "label": "Send at"
+  },
+  {
+    "name": "attachments",
+    "type": "array",
+    "label": "Attachments (by URL)",
+    "spec": [
+      {
+        "name": "path",
+        "type": "url",
+        "label": "Public file URL",
+        "required": true
+      },
+      {
+        "name": "filename",
+        "type": "text",
+        "label": "File name"
+      }
+    ],
+    "help": "Delivrie downloads each file when the email is sent (up to 40 MB in total)."
+  },
+  {
+    "name": "idempotency_key",
+    "type": "text",
+    "label": "Idempotency key",
+    "help": "Repeating a send with the same key returns the first email instead of sending again."
+  }
+]

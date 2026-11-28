@@ -206,13 +206,37 @@ async function smtp(body) {
 async function integrations(body) {
   const mcpUrl = `${API_BASE}/mcp`;
   body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
-    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("sparkle", 15)}</span><h3>MCP server</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Let AI assistants send email, manage contacts and check delivery through 92 tools. Authenticate with an API key.</p>
+    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("sparkle", 15)}</span><h3>MCP server</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Let AI assistants send email, manage contacts and check delivery through 94 tools. Authenticate with an API key.</p>
       <div class="field"><label>Server URL</label><div class="input-wrap"><input class="input mono" readonly value="${esc(mcpUrl)}" style="padding-right:36px"><span class="trail"><button class="ibtn" data-copy="${esc(mcpUrl)}">${icon("copy")}</button></span></div></div>
       <div style="margin-top:12px">${codeBlock(JSON.stringify({ mcpServers: { delivrie: { url: mcpUrl, headers: { Authorization: "Bearer dlv_xxxxxxxxx" } } } }, null, 2), { lang: "json", lines: false })}</div></div>
     <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px"><img src="/assets/cloudflare.png" width="22" height="10" alt="" style="display:block"></span><h3>Cloudflare DNS</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Add a domain's DNS records to Cloudflare automatically: open the domain and choose Set up with Cloudflare.</p><a class="btn btn-secondary btn-sm" href="/domains">Go to domains</a></div>
     <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("shield", 15)}</span><h3>Supabase Auth</h3>${badge("Via SMTP", "gray")}</div><p class="muted" style="margin:10px 0">Supabase Auth needs SMTP. Use smtp.delivrie.io, port 587 or 465, username delivrie and an API key as the password — see the SMTP tab.</p><a class="btn btn-secondary btn-sm" href="/settings/smtp">SMTP settings</a></div>
-    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("webhook", 15)}</span><h3>Webhooks</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Pipe delivery events into Zapier, Make, n8n or your own backend with signed webhooks.</p><a class="btn btn-secondary btn-sm" href="/webhooks">Manage webhooks</a></div></div>`;
+    <div class="card card-pad"><div class="row-flex"><span class="avatar sq" style="width:30px;height:30px">${icon("webhook", 15)}</span><h3>Webhooks</h3>${badge("Available", "green")}</div><p class="muted" style="margin:10px 0">Pipe delivery events into Zapier, Make, n8n or your own backend with signed webhooks.</p><a class="btn btn-secondary btn-sm" href="/webhooks">Manage webhooks</a></div></div>
+    <h3 class="section-title" style="margin-top:24px">Apps</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">${APPS.map(([name, desc, href, ic]) => `<a class="card card-pad" href="${href}" style="display:block;color:inherit"><div class="row-flex" style="gap:8px"><span class="avatar sq" style="width:26px;height:26px">${icon(ic, 13)}</span><b style="font-weight:500">${name}</b></div><p class="muted" style="margin:8px 0 0;font-size:calc(13px + var(--fs-up, 0px))">${desc}</p></a>`).join("")}</div>
+    <h3 class="section-title" style="margin-top:24px">Vercel</h3><div data-vercel><p class="dim"><span class="spinner"></span></p></div>`;
+  const vbox = body.querySelector("[data-vercel]");
+  const drawVercel = async () => {
+    try {
+      const v = await api("GET", "/dashboard/vercel");
+      vbox.innerHTML = v.data.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Projects</th><th>Connected</th><th></th></tr></thead><tbody>${v.data.map((c) => `<tr><td>${c.projects.map((p) => `<span class="mono">${esc(p.name)}</span>`).join(", ") || `<span class="dim">Not finished</span>`}</td><td class="muted">${fmtDate(c.created_at)}</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" data-vdel="${c.id}">Disconnect</button></td></tr>`).join("")}</tbody></table></div>`
+        : `<p class="muted" style="margin:0">Add the Delivrie integration from Vercel to set <code>DELIVRIE_API_KEY</code> on your projects automatically. <a class="link" href="/docs/vercel">How it works</a></p>`;
+    } catch (e) { vbox.innerHTML = `<p class="dim">${esc((e as Error).message)}</p>`; }
+  };
+  on(body, "click", "[data-vdel]", async (_e, b) => {
+    if (!(await confirmModal({ title: "Disconnect Vercel", desc: "Delivrie deletes the integration’s API key and removes DELIVRIE_API_KEY from those Vercel projects. Their next deploys can’t send email until you add a key again.", confirm: "Disconnect" }))) return;
+    try { await api("DELETE", `/dashboard/vercel/${b.dataset.vdel}`); toast("Vercel disconnected"); drawVercel(); } catch (e) { errToast(e); }
+  });
+  drawVercel();
 }
+const APPS = [
+  ["Claude Code, Cursor, Codex", "A plugin with Delivrie’s MCP server and skills for adding email to your app.", "/docs/agent-plugins", "terminal"],
+  ["Zapier", "Send email and sync contacts from 7,000+ apps; trigger Zaps on deliveries and replies.", "/docs/zapier", "zap"],
+  ["n8n", "Community nodes for sending, contacts, the Inbox, and an event trigger.", "/docs/n8n", "split"],
+  ["Make", "Modules for sending and contacts, and an instant Watch Events trigger.", "/docs/make", "refresh"],
+  ["Auth0", "Send Auth0’s sign-up, reset and MFA emails through Delivrie.", "/docs/auth0", "shield"],
+  ["Vercel", "Sets DELIVRIE_API_KEY on your Vercel projects.", "/docs/vercel", "globe"],
+];
 
 async function documents(body) {
   const docs = [["Data Processing Agreement", "GDPR-ready DPA covering how we process personal data on your behalf."], ["Subprocessors", "Amazon Web Services (email delivery, us/eu regions), Supabase (database and auth), Vercel (dashboard hosting)."], ["Security overview", "Encryption in transit and at rest, access controls, and incident response."], ["SOC 2 report", "Not yet available."]];

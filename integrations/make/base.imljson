@@ -1,0 +1,14 @@
+{
+  "baseUrl": "https://delivrie.io/api",
+  "headers": {
+    "Authorization": "Bearer {{connection.apiKey}}",
+    "User-Agent": "delivrie-make/1.0.0"
+  },
+  "response": {
+    "error": {
+      "message": "[{{statusCode}}] {{ifempty(body.message; 'Delivrie request failed')}}",
+      "type": "{{if(statusCode = 429; 'RateLimitError'; if(statusCode >= 500; 'ConnectionError'; 'DataError'))}}"
+    }
+  },
+  "log": { "sanitize": ["request.headers.authorization"] }
+}

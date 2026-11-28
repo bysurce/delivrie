@@ -1,0 +1,13 @@
+{
+  "url": "/contacts",
+  "method": "POST",
+  "body": {
+    "email": "{{parameters.email}}",
+    "first_name": "{{ifempty(parameters.first_name; omit)}}",
+    "last_name": "{{ifempty(parameters.last_name; omit)}}",
+    "segments": "{{if(parameters.segment_id; [parameters.segment_id]; omit)}}",
+    "properties": "{{if(length(parameters.properties) > 0; toCollection(parameters.properties; 'key'; 'value'); omit)}}",
+    "unsubscribed": "{{if(parameters.unsubscribed = null; omit; parameters.unsubscribed)}}"
+  },
+  "response": { "output": "{{body}}" }
+}

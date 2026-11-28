@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script data-theme-boot>try{var t=localStorage.getItem("dlv_theme")||"light";if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}document.documentElement.dataset.cur="USD";try{var a=JSON.parse(localStorage.getItem("sb-hnjejflinvaoxbduxeiu-auth-token")||"null");if(a&&(a.refresh_token||a.currentSession)){document.documentElement.dataset.auth="in";var f=function(){document.querySelectorAll('a[href^="/signup"]').forEach(function(a){var h=a.getAttribute("href"),m=/[?&]plan=([a-z]+)/.exec(h);if(m){a.href="/billing?upgrade="+m[1]+(/interval=yearly/.test(h)?"&interval=yearly":"");return}var t=a.textContent.trim();a.href=/^(Emails|Broadcasts|Templates)$/.test(t)?"/"+t.toLowerCase():"/emails";if(a.matches(".btn-signup,.mm-btn"))a.textContent="Dashboard";else if(/^(Start|Get started|Sign up)/i.test(t)){a.textContent="Go to dashboard";a.classList.add("go-dash")}})};document.addEventListener("DOMContentLoaded",function(){f();new MutationObserver(f).observe(document.body,{childList:true,subtree:true})})}}catch(e){}</script><style>html[data-auth=in] .nav-link.keep[href="/login"],html[data-auth=in] .mm-btn.sec[href="/login"]{display:none}a.go-dash{background:#fad600!important;color:#1f1d1e!important;border-color:#fad600!important;box-shadow:none!important}a.go-dash:hover{background:#ffe033!important;border-color:#ffe033!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auth0 · Delivrie Docs</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Send Auth0&#x27;s verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Delivrie">
+  <link rel="canonical" href="https://delivrie.io/docs/auth0">
+  <link rel="alternate" type="text/markdown" href="https://delivrie.io/docs/auth0.md">
+  <meta property="og:url" content="https://delivrie.io/docs/auth0">
+  <meta property="og:title" content="Auth0 · Delivrie Docs">
+  <meta property="og:description" content="Send Auth0&#x27;s verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.">
+  <meta property="og:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <meta property="og:image:width" content="2400">
+  <meta property="og:image:height" content="1260">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://delivrie.io/assets/og-image.jpg?v=5">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>img[src="/assets/logo.svg"]{width:122px;height:22px}.auth-card .mark svg{width:40px;height:29px}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/css/app.css">
+  <link rel="stylesheet" href="/app/css/chat.css">
+  <link rel="modulepreload" href="/app/vendor/supabase-js.js">
+  <script>window.DLV_V = 1;</script>
+  <script type="application/ld+json" data-seo>{"@context": "https://schema.org", "@graph": [{"@type": "TechArticle", "headline": "Auth0", "description": "Send Auth0's verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.", "url": "https://delivrie.io/docs/auth0", "publisher": {"@id": "https://delivrie.io/#org"}, "dateModified": "2026-11-28"}, {"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://delivrie.io/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://delivrie.io/docs"}, {"@type": "ListItem", "position": 3, "name": "Auth0", "item": "https://delivrie.io/docs/auth0"}]}, {"@type": "Organization", "@id": "https://delivrie.io/#org", "name": "Delivrie", "legalName": "Surce Inc", "url": "https://delivrie.io", "logo": "https://delivrie.io/assets/delivrie-icon.png", "email": "support@delivrie.io", "address": {"@type": "PostalAddress", "streetAddress": "8 The Green, Suite R", "addressLocality": "Dover", "addressRegion": "DE", "postalCode": "19901", "addressCountry": "US"}, "sameAs": ["https://x.com/delivrie", "https://www.youtube.com/@Delivrie", "https://www.linkedin.com/company/delivrie"]}]}</script>
+</head>
+<body>
+  <div id="app"><div data-prerender style="max-width:760px;margin:0 auto;padding:56px 24px;font:15px/1.65 Inter,system-ui,sans-serif;color:#d0d6e0"><nav aria-label="Breadcrumb"><a href="/docs">Docs</a></nav><h1>Auth0</h1><p>Send Auth0&#x27;s verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.</p><p>Auth0 sends sign-up verification, password resets, welcome messages, MFA codes and organization invitations. Send them through Delivrie so they come from your own domain and show up in your <a href="https://delivrie.io/logs" data-native>logs</a>.</p>
+<h2 id="option-1-custom-email-provider-recommended">Option 1: Custom email provider (recommended)</h2>
+<ol><li>In Auth0, open <b>Branding → Email Provider</b>, turn on <b>Use my own email provider</b> and choose <b>Custom Provider</b>.</li><li>Replace the Action code with this:</li></ol>
+<pre><code class="language-js">exports.onExecuteCustomEmailProvider = async (event, api) =&gt; {
+  const n = event.notification;
+  const res = await fetch(&quot;https://delivrie.io/api/emails&quot;, {
+    method: &quot;POST&quot;,
+    headers: {
+      Authorization: `Bearer ${event.secrets.DELIVRIE_API_KEY}`,
+      &quot;Content-Type&quot;: &quot;application/json&quot;,
+      &quot;Idempotency-Key&quot;: `auth0-${n.message_type}-${n.to}-${event.request?.id || &quot;&quot;}`,
+    },
+    body: JSON.stringify({
+      from: event.secrets.DELIVRIE_FROM || n.from,
+      to: n.to,
+      subject: n.subject,
+      html: n.html,
+      text: n.text,
+      tags: [{ name: &quot;source&quot;, value: &quot;auth0&quot; }],
+    }),
+  });
+  if (res.ok) return;
+  const body = await res.json().catch(() =&gt; ({}));
+  const reason = `Delivrie ${res.status}: ${body.message || &quot;&quot;}`;
+  if (res.status === 429 || res.status &gt;= 500) api.notification.retry(reason);
+  else api.notification.drop(reason);
+};</code></pre>
+<ol><li>Add two secrets to the Action: <code>DELIVRIE_API_KEY</code> (a <a href="https://delivrie.io/api-keys" data-native>sending key</a> is enough) and <code>DELIVRIE_FROM</code>, a sender on your verified domain like <code>Acme &lt;auth@mail.acme.com&gt;</code>.</li><li>Deploy, then use <b>Send test email</b>.</li></ol>
+<p>Rate limits and server errors are retried by Auth0; an invalid address is dropped and logged. The full version, with tests, is in <a href="https://github.com/bysurce/delivrie/tree/main/integrations/auth0" target="_blank" rel="noopener" data-native>integrations/auth0</a>.</p>
+<h2 id="option-2-smtp">Option 2: SMTP</h2>
+<p>Choose <b>SMTP Provider</b> instead and enter:</p>
+<div class="d-table"><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td>From</td><td>An address on your verified domain</td></tr><tr><td>Host</td><td><code>smtp.delivrie.io</code></td></tr><tr><td>Port</td><td><code>587</code></td></tr><tr><td>Username</td><td><code>delivrie</code></td></tr><tr><td>Password</td><td>Your Delivrie API key</td></tr></tbody></table></div>
+<p>See <a href="/docs/smtp">SMTP relay</a> for details.</p><h2>More guides</h2><ul><li><a href="/docs/getting-started">Introduction</a></li><li><a href="/docs/quickstart">Quickstart</a></li><li><a href="/docs/build-with-ai">Build with AI</a></li><li><a href="/docs/migrate-from-resend">Migrate from Resend</a></li><li><a href="/docs/api-keys">API keys</a></li><li><a href="/docs/limits">Plans and limits</a></li><li><a href="/docs/sdks">Node.js SDK</a></li><li><a href="/docs/cli">CLI</a></li><li><a href="/docs/nextjs">Next.js</a></li><li><a href="/docs/express">Node.js and Express</a></li><li><a href="/docs/python">Python</a></li><li><a href="/docs/php">PHP and Laravel</a></li><li><a href="/docs/ruby">Ruby and Rails</a></li><li><a href="/docs/go">Go</a></li><li><a href="/docs/rust">Rust</a></li><li><a href="/docs/java">Java and Spring</a></li><li><a href="/docs/supabase">Supabase</a></li><li><a href="/docs/dotnet">.NET and C#</a></li><li><a href="/docs/cloudflare-workers">Cloudflare Workers</a></li><li><a href="/docs/agent-plugins">Claude Code, Cursor and Codex</a></li><li><a href="/docs/zapier">Zapier</a></li><li><a href="/docs/n8n">n8n</a></li><li><a href="/docs/make">Make</a></li><li><a href="/docs/auth0">Auth0</a></li><li><a href="/docs/vercel">Vercel</a></li><li><a href="/docs/send-email">Send an email</a></li><li><a href="/docs/idempotency">Idempotency and retries</a></li><li><a href="/docs/templates">Templates</a></li><li><a href="/docs/ai-writing">AI writing</a></li><li><a href="/docs/test-mode">Test addresses</a></li><li><a href="/docs/email-status">Statuses and events</a></li><li><a href="/docs/errors">Errors</a></li><li><a href="/docs/cors">CORS and browser apps</a></li><li><a href="/docs/smtp">SMTP</a></li><li><a href="/docs/receiving">Receiving email</a></li><li><a href="/docs/inbox">Inbox</a></li><li><a href="/docs/domains">Domains and DNS</a></li><li><a href="/docs/domain-not-verifying">Why isn&#x27;t my domain verifying?</a></li><li><a href="/docs/dmarc">DMARC</a></li><li><a href="/docs/deliverability">Deliverability guide</a></li><li><a href="/docs/dedicated-ips">Dedicated IPs</a></li><li><a href="/docs/suppressions">Suppression list</a></li><li><a href="/docs/webhooks">Webhooks</a></li><li><a href="/docs/broadcasts">Broadcasts</a></li><li><a href="/docs/contacts">Contacts, segments and topics</a></li><li><a href="/docs/automations">Automations and events</a></li><li><a href="/docs/audit-logs">Audit logs</a></li><li><a href="/docs/troubleshooting">Troubleshooting and FAQ</a></li></ul></div></div>
+  <script type="module" src="/app/js/main.js"></script>
+</body>
+</html>

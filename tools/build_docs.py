@@ -18,7 +18,7 @@ import json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "content", "docs")
-GROUP_ORDER = ["Get started", "SDKs and frameworks", "Sending", "Receiving", "Platform", "Help"]
+GROUP_ORDER = ["Get started", "SDKs and frameworks", "Integrations", "Sending", "Receiving", "Platform", "Help"]
 
 SEARCH = r'''
 export function searchDocs(q, n = 3) {

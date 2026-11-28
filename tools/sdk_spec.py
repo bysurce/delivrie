@@ -42,6 +42,8 @@ RESOURCES = [
     ("webhooks", "Webhooks", "Webhook endpoints.", [
         ("create", "POST", "/webhooks", "body", "Create an endpoint: { endpoint, events }. Returns its signing_secret once."),
         ("list", "GET", "/webhooks", "", "Webhook endpoints."),
+        ("update", "PATCH", "/webhooks/{id}", "id,body", "Change the endpoint, events or status (enabled, disabled)."),
+        ("delete", "DELETE", "/webhooks/{id}", "id", "Delete an endpoint."),
         ("deliveries", "GET", "/webhooks/{id}/events", "id", "Recent deliveries with status codes."),
         ("test", "POST", "/webhooks/{id}/test", "id", "Send a test event and return the response."),
         ("replay", "POST", "/webhook-deliveries/{id}/replay", "id", "Send a past delivery again."),

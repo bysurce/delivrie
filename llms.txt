@@ -29,6 +29,15 @@ Key facts: send with POST https://delivrie.io/api/emails and `Authorization: Bea
 - [.NET and C#](https://delivrie.io/docs/dotnet.md): Send email from C#, ASP.NET Core and any .NET 8 app with the official Delivrie NuGet package: async methods, idempotent retries, errors you can inspect, and webhook verification.
 - [Cloudflare Workers](https://delivrie.io/docs/cloudflare-workers.md): Send email from Cloudflare Workers, Pages Functions, Deno and Bun with the Delivrie SDK, which runs on web-standard APIs with no Node.js dependencies.
 
+## Integrations
+
+- [Claude Code, Cursor and Codex](https://delivrie.io/docs/agent-plugins.md): Install the Delivrie plugin in Claude Code, Cursor or Codex to add email to your app with the right SDK, and to send test emails, check domains and logs, and edit templates from your coding agent.
+- [Zapier](https://delivrie.io/docs/zapier.md): Connect Delivrie to 7,000+ apps with Zapier: send emails and templates, sync contacts and segments, start automations, and trigger Zaps from deliveries, bounces, received mail, the Inbox and broadcasts.
+- [n8n](https://delivrie.io/docs/n8n.md): Use Delivrie in n8n workflows with the n8n-nodes-delivrie community package: send emails and templates, manage contacts and segments, start automations, reply in the Inbox, and trigger workflows on Delivrie events.
+- [Make](https://delivrie.io/docs/make.md): Use Delivrie in Make scenarios: send emails and templates, create contacts, add them to segments, start automations, call any API endpoint, and watch Delivrie events instantly.
+- [Auth0](https://delivrie.io/docs/auth0.md): Send Auth0's verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.
+- [Vercel](https://delivrie.io/docs/vercel.md): Add Delivrie to your Vercel projects: the integration creates an API key and sets DELIVRIE_API_KEY on the projects you choose, for production, preview and development.
+
 ## Sending
 
 - [Send an email](https://delivrie.io/docs/send-email.md): Everything about POST /emails: every field, display names, multiple recipients, cc and bcc, reply-to, HTML and text, attachments and inline images, tags, custom headers, scheduling and batch sending.

@@ -1,0 +1,18 @@
+{
+  "name": "delivrie",
+  "label": "Delivrie",
+  "description": "Send email, sync contacts and start automations with Delivrie, and react to deliveries, bounces, received mail and the Inbox.",
+  "theme": "#FAD600",
+  "language": "en",
+  "connections": [{ "name": "apikey", "label": "Delivrie API key", "type": "basic" }],
+  "webhooks": [{ "name": "events", "label": "Delivrie events", "type": "web", "connection": "apikey" }],
+  "rpcs": [{ "name": "listSegments", "label": "List segments", "connection": "apikey" }],
+  "modules": [
+    { "name": "watchEvents", "label": "Watch Events", "type": "instant_trigger", "webhook": "events", "description": "Triggers on the Delivrie events you choose." },
+    { "name": "sendEmail", "label": "Send an Email", "type": "action", "connection": "apikey", "description": "Sends an email from a verified domain, or a published template." },
+    { "name": "upsertContact", "label": "Create or Update a Contact", "type": "action", "connection": "apikey", "description": "Adds a contact or updates the one with this email." },
+    { "name": "addToSegment", "label": "Add Contacts to a Segment", "type": "action", "connection": "apikey", "description": "Adds contacts to a segment, creating any that don't exist." },
+    { "name": "sendEvent", "label": "Send an Event", "type": "action", "connection": "apikey", "description": "Records an event that starts automations." },
+    { "name": "makeApiCall", "label": "Make an API Call", "type": "universal", "connection": "apikey", "description": "Calls any Delivrie API endpoint with your connection." }
+  ]
+}

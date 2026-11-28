@@ -103,6 +103,12 @@ public sealed class WebhooksResource
     /// <summary>Webhook endpoints.</summary>
     public Task<JsonObject> ListAsync(CancellationToken cancellationToken = default) => _c.RequestAsync("GET", "/webhooks", null, null, null, cancellationToken);
 
+    /// <summary>Change the endpoint, events or status (enabled, disabled).</summary>
+    public Task<JsonObject> UpdateAsync(string id, object body, CancellationToken cancellationToken = default) => _c.RequestAsync("PATCH", $"/webhooks/{DelivrieClient.Enc(id)}", body, null, null, cancellationToken);
+
+    /// <summary>Delete an endpoint.</summary>
+    public Task<JsonObject> DeleteAsync(string id, CancellationToken cancellationToken = default) => _c.RequestAsync("DELETE", $"/webhooks/{DelivrieClient.Enc(id)}", null, null, null, cancellationToken);
+
     /// <summary>Recent deliveries with status codes.</summary>
     public Task<JsonObject> DeliveriesAsync(string id, CancellationToken cancellationToken = default) => _c.RequestAsync("GET", $"/webhooks/{DelivrieClient.Enc(id)}/events", null, null, null, cancellationToken);
 

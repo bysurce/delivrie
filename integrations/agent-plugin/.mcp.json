@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "delivrie": {
+      "type": "http",
+      "url": "https://delivrie.io/api/mcp"
+    }
+  }
+}

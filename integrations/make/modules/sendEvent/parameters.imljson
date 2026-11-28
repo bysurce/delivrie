@@ -1,0 +1,5 @@
+[
+  { "name": "name", "type": "text", "label": "Event name", "required": true, "help": "Like `user.signed_up`. Live automations listening for it start for this contact." },
+  { "name": "email", "type": "email", "label": "Contact email", "required": true },
+  { "name": "data", "type": "array", "label": "Event data", "spec": [{ "name": "key", "type": "text", "label": "Key" }, { "name": "value", "type": "text", "label": "Value" }] }
+]

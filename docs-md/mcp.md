@@ -72,7 +72,7 @@ Remote · OAuth. terminal:
 code --add-mcp '{"name":"delivrie","type":"http","url":"https://delivrie.io/api/mcp"}'
 ```
 
-## Tools (92)
+## Tools (94)
 
 | Tool | What it does | Scope |
 | --- | --- | --- |
@@ -138,6 +138,8 @@ code --add-mcp '{"name":"delivrie","type":"http","url":"https://delivrie.io/api/
 | `list_events` | Without a name: every event your app has sent, with its fields | read |
 | `list_webhooks` | Webhook endpoints and their events | read |
 | `create_webhook` | Create a webhook endpoint | manage |
+| `update_webhook` | Change a webhook endpoint's URL, events, or status (enabled or disabled) | manage |
+| `delete_webhook` | Delete a webhook endpoint | manage |
 | `list_webhook_events` | Recent delivery attempts for a webhook with status codes | read |
 | `test_webhook` | Send a test event to a webhook and return the response | manage |
 | `replay_webhook_delivery` | Send a past webhook delivery again | manage |

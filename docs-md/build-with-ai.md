@@ -77,7 +77,7 @@ Show a success state, and an error state using the API's error message.
 
 ## Let the assistant use your account (MCP)
 
-The [MCP server](/docs/mcp) at `https://delivrie.io/api/mcp` gives assistants 92 tools: send email, check delivery, add domains, manage contacts, broadcasts and templates, read logs and reply to inbox threads. You approve which team and scopes it can use, and you can revoke it under Settings → Connected apps.
+The [MCP server](/docs/mcp) at `https://delivrie.io/api/mcp` gives assistants 94 tools: send email, check delivery, add domains, manage contacts, broadcasts and templates, read logs and reply to inbox threads. You approve which team and scopes it can use, and you can revoke it under Settings → Connected apps.
 
 ```bash Claude Code
 claude mcp add --transport http delivrie https://delivrie.io/api/mcp

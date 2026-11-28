@@ -279,7 +279,7 @@ Show a success state, and an error state using the API's error message.
 
 ## Let the assistant use your account (MCP)
 
-The [MCP server](/docs/mcp) at `https://delivrie.io/api/mcp` gives assistants 92 tools: send email, check delivery, add domains, manage contacts, broadcasts and templates, read logs and reply to inbox threads. You approve which team and scopes it can use, and you can revoke it under Settings → Connected apps.
+The [MCP server](/docs/mcp) at `https://delivrie.io/api/mcp` gives assistants 94 tools: send email, check delivery, add domains, manage contacts, broadcasts and templates, read logs and reply to inbox threads. You approve which team and scopes it can use, and you can revoke it under Settings → Connected apps.
 
 ```bash Claude Code
 claude mcp add --transport http delivrie https://delivrie.io/api/mcp
@@ -2013,6 +2013,256 @@ const delivrie = new Delivrie(); // reads DELIVRIE_API_KEY from the environment
 ## Vercel Edge and Netlify Edge
 
 Vercel's Edge runtime exposes `process.env`, so `new Delivrie()` picks up `DELIVRIE_API_KEY` from your project settings. On Netlify Edge Functions, pass the key yourself: `new Delivrie(Netlify.env.get("DELIVRIE_API_KEY"))`.
+
+
+---
+
+# Claude Code, Cursor and Codex
+
+Install the Delivrie plugin in Claude Code, Cursor or Codex to add email to your app with the right SDK, and to send test emails, check domains and logs, and edit templates from your coding agent.
+
+The Delivrie plugin gives your coding agent two things:
+
+- **Skills** that teach it to add email the safe way: the right SDK for your language, the key in `DELIVRIE_API_KEY`, a verified sender, idempotency keys, test addresses and signed webhooks. Plus skills for webhooks, editing email content and migrating from Resend.
+- **Delivrie's [MCP server](/docs/mcp)**, so it can work with your account: send a test email and confirm delivery, list domains and their DNS status, read logs, create webhooks, and edit templates and broadcasts live in the Delivrie editor.
+
+## Claude Code
+
+```text
+/plugin marketplace add bysurce/delivrie
+/plugin install delivrie@delivrie
+```
+
+Then try `/delivrie-setup`, or ask "add a welcome email to this app with Delivrie".
+
+## Cursor
+
+Open **Settings → Plugins**, add the marketplace `bysurce/delivrie` and install **delivrie**. It also adds a `delivrie` rule that applies to your mail and webhook code.
+
+## Codex
+
+```bash
+codex plugin marketplace add bysurce/delivrie
+```
+
+Then enable **Delivrie** in `/plugins`. In ChatGPT, use the [Delivrie app](/docs/mcp) instead.
+
+## Signing in
+
+The first time the agent calls a Delivrie tool, your browser opens Delivrie's sign-in. Choose the team and what the agent may do: **send**, **read** and **manage**. Leave out **manage** if it should only send test emails and read logs. Revoke access any time in [Settings → Connected apps](https://delivrie.io/settings/connected-apps).
+
+The plugin's source is in [integrations/agent-plugin](https://github.com/bysurce/delivrie/tree/main/integrations/agent-plugin).
+
+
+---
+
+# Zapier
+
+Connect Delivrie to 7,000+ apps with Zapier: send emails and templates, sync contacts and segments, start automations, and trigger Zaps from deliveries, bounces, received mail, the Inbox and broadcasts.
+
+## Connect
+
+Add the **Delivrie** app in Zapier and paste an API key from [API keys](https://delivrie.io/api-keys). A full access key works with everything; a sending key is enough for **Send Email**.
+
+## Triggers
+
+Triggers are instant: when a Zap turns on, Delivrie creates a [webhook](/docs/webhooks) for it, and deletes it when the Zap turns off.
+
+| Trigger | When it fires |
+| --- | --- |
+| Email Event | An email is delivered, bounces, is opened or clicked, is marked as spam, fails or is delayed (choose which) |
+| New Received Email | Mail arrives at one of your [receiving](/docs/receiving) addresses |
+| Contact Created or Updated | A contact is added, changes, unsubscribes or is deleted |
+| New Inbox Message | A customer writes to one of your [inboxes](/docs/inbox) |
+| Broadcast Sent | A broadcast finishes sending, with its stats |
+
+## Actions
+
+| Action | What it does |
+| --- | --- |
+| Send Email | Sends an email you write in the Zap, or a published [template](/docs/templates) with variables. Optional attachment URL, schedule and idempotency key |
+| Create or Update Contact | Adds a contact or updates the one with that email, with properties, and optionally adds it to a segment |
+| Add Contacts to Segment | Adds contacts to a segment, creating any that don't exist |
+| Send Event | Records an [event](/docs/automations) that starts automations |
+| Unsubscribe Contact | Unsubscribes a contact from broadcasts |
+| Find Contact (search) | Looks a contact up by email |
+
+## Ideas
+
+- **New Stripe customer → Create or Update Contact** with their plan as a property, then **Send Event** `customer.created` to start an onboarding automation.
+- **Email Event (bounced) → Update row in Google Sheets or HubSpot** to flag the address.
+- **New Typeform entry → Send Email** using a published `form-receipt` template.
+- **New Inbox Message → Slack** so the team sees new conversations.
+
+The app's source is in [integrations/zapier](https://github.com/bysurce/delivrie/tree/main/integrations/zapier).
+
+
+---
+
+# n8n
+
+Use Delivrie in n8n workflows with the n8n-nodes-delivrie community package: send emails and templates, manage contacts and segments, start automations, reply in the Inbox, and trigger workflows on Delivrie events.
+
+## Install
+
+In n8n, open **Settings → Community nodes → Install**, enter `n8n-nodes-delivrie` and confirm. Then create **Delivrie API** credentials with a key from [API keys](https://delivrie.io/api-keys).
+
+On a self-hosted n8n you can also install it with `npm install n8n-nodes-delivrie` in your n8n custom folder.
+
+## Delivrie node
+
+| Resource | Operations |
+| --- | --- |
+| Email | Send, Send Template, Get, Get Many |
+| Contact | Create or Update, Get, Unsubscribe, Delete |
+| Segment | Add Contacts, Remove Contacts, Get Many |
+| Event | Send (starts [automations](/docs/automations)) |
+| Broadcast | Send or schedule, Get |
+| Inbox | Get Threads (with [search](/docs/inbox)), Reply, Create Draft |
+
+Send Email takes an optional attachment URL and idempotency key. For anything else, use n8n's **HTTP Request** node with the same **Delivrie API** credentials and any endpoint from the [API reference](/docs/api).
+
+## Delivrie Trigger
+
+Choose the events to listen for (deliveries, bounces, opens, clicks, received mail, contacts, broadcasts, Inbox messages and agent runs). Activating the workflow creates a Delivrie [webhook](/docs/webhooks) for it; deactivating it deletes the webhook. Every request's signature is checked with the webhook's secret, and requests that don't match are rejected.
+
+## Ideas
+
+- **Inbox message → AI agent → Create Draft**, so a person reviews each reply before it goes out.
+- **Email bounced → Postgres**: mark the address as invalid in your own database.
+- **Schedule → Get Many contacts from your CRM → Create or Update Contact** to keep segments in sync.
+
+The package's source is in [integrations/n8n](https://github.com/bysurce/delivrie/tree/main/integrations/n8n).
+
+
+---
+
+# Make
+
+Use Delivrie in Make scenarios: send emails and templates, create contacts, add them to segments, start automations, call any API endpoint, and watch Delivrie events instantly.
+
+## Connect
+
+Add a **Delivrie** module to a scenario and create a connection with an API key from [API keys](https://delivrie.io/api-keys).
+
+## Modules
+
+| Module | Type | What it does |
+| --- | --- | --- |
+| Watch Events | Instant trigger | Runs the scenario on the Delivrie events you choose: deliveries, bounces, spam complaints, opens, clicks, received mail, contacts, broadcasts and Inbox messages |
+| Send an Email | Action | Sends an email or a published [template](/docs/templates), with attachments by URL and an idempotency key |
+| Create or Update a Contact | Action | Adds a contact or updates the one with that email, with properties and a segment |
+| Add Contacts to a Segment | Action | Adds contacts, creating any that don't exist |
+| Send an Event | Action | Records an [event](/docs/automations) that starts automations |
+| Make an API Call | Universal | Calls any endpoint in the [API reference](/docs/api) with your connection |
+
+Watch Events creates a Delivrie [webhook](/docs/webhooks) for the scenario and deletes it when you remove the trigger.
+
+## Without the app
+
+Every Delivrie endpoint also works from Make's **HTTP → Make a request** module: `https://delivrie.io/api/emails`, method `POST`, header `Authorization: Bearer <your API key>`, body type JSON.
+
+The app's source is in [integrations/make](https://github.com/bysurce/delivrie/tree/main/integrations/make).
+
+
+---
+
+# Auth0
+
+Send Auth0's verification, password reset, welcome, MFA and invitation emails through Delivrie, with a custom email provider Action or over SMTP.
+
+Auth0 sends sign-up verification, password resets, welcome messages, MFA codes and organization invitations. Send them through Delivrie so they come from your own domain and show up in your [logs](https://delivrie.io/logs).
+
+## Option 1: Custom email provider (recommended)
+
+1. In Auth0, open **Branding → Email Provider**, turn on **Use my own email provider** and choose **Custom Provider**.
+2. Replace the Action code with this:
+
+```js Custom Email Provider Action
+exports.onExecuteCustomEmailProvider = async (event, api) => {
+  const n = event.notification;
+  const res = await fetch("https://delivrie.io/api/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${event.secrets.DELIVRIE_API_KEY}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `auth0-${n.message_type}-${n.to}-${event.request?.id || ""}`,
+    },
+    body: JSON.stringify({
+      from: event.secrets.DELIVRIE_FROM || n.from,
+      to: n.to,
+      subject: n.subject,
+      html: n.html,
+      text: n.text,
+      tags: [{ name: "source", value: "auth0" }],
+    }),
+  });
+  if (res.ok) return;
+  const body = await res.json().catch(() => ({}));
+  const reason = `Delivrie ${res.status}: ${body.message || ""}`;
+  if (res.status === 429 || res.status >= 500) api.notification.retry(reason);
+  else api.notification.drop(reason);
+};
+```
+
+3. Add two secrets to the Action: `DELIVRIE_API_KEY` (a [sending key](https://delivrie.io/api-keys) is enough) and `DELIVRIE_FROM`, a sender on your verified domain like `Acme <auth@mail.acme.com>`.
+4. Deploy, then use **Send test email**.
+
+Rate limits and server errors are retried by Auth0; an invalid address is dropped and logged. The full version, with tests, is in [integrations/auth0](https://github.com/bysurce/delivrie/tree/main/integrations/auth0).
+
+## Option 2: SMTP
+
+Choose **SMTP Provider** instead and enter:
+
+| Field | Value |
+| --- | --- |
+| From | An address on your verified domain |
+| Host | `smtp.delivrie.io` |
+| Port | `587` |
+| Username | `delivrie` |
+| Password | Your Delivrie API key |
+
+See [SMTP relay](/docs/smtp) for details.
+
+
+---
+
+# Vercel
+
+Add Delivrie to your Vercel projects: the integration creates an API key and sets DELIVRIE_API_KEY on the projects you choose, for production, preview and development.
+
+## Connect from Vercel
+
+1. Add the **Delivrie** integration from Vercel's integrations page and choose the Vercel team.
+2. Vercel brings you to Delivrie. Sign in, pick the Delivrie team, then choose the Vercel projects that send email.
+3. Choose **Sending only** (recommended) or **Full access**, and select **Connect**.
+
+Delivrie creates an API key and adds it to each project as `DELIVRIE_API_KEY`, encrypted, for production, preview and development. Redeploy, and your code can read it:
+
+```ts app/api/welcome/route.ts
+import { Delivrie } from "delivrie";
+
+const delivrie = new Delivrie(); // reads DELIVRIE_API_KEY
+
+export async function POST(req: Request) {
+  const { email } = await req.json();
+  const { data, error } = await delivrie.emails.send({
+    from: "Acme <hello@mail.acme.com>",
+    to: email,
+    subject: "Welcome to Acme",
+    html: "<p>Thanks for signing up.</p>",
+  }, { idempotencyKey: `welcome-${email}` });
+  return Response.json(error ?? data, { status: error ? 400 : 200 });
+}
+```
+
+## Disconnect
+
+Remove the integration in Vercel, or in Delivrie under [Settings → Integrations](https://delivrie.io/settings/integrations). Delivrie deletes the API key and removes `DELIVRIE_API_KEY` from the projects.
+
+## Without the integration
+
+Create a key in [API keys](https://delivrie.io/api-keys) and add it yourself: `vercel env add DELIVRIE_API_KEY`. See [Next.js](/docs/nextjs) for complete examples.
 
 
 ---
@@ -9229,7 +9479,7 @@ Remote · OAuth. terminal:
 code --add-mcp '{"name":"delivrie","type":"http","url":"https://delivrie.io/api/mcp"}'
 ```
 
-## Tools (92)
+## Tools (94)
 
 | Tool | What it does | Scope |
 | --- | --- | --- |
@@ -9295,6 +9545,8 @@ code --add-mcp '{"name":"delivrie","type":"http","url":"https://delivrie.io/api/
 | `list_events` | Without a name: every event your app has sent, with its fields | read |
 | `list_webhooks` | Webhook endpoints and their events | read |
 | `create_webhook` | Create a webhook endpoint | manage |
+| `update_webhook` | Change a webhook endpoint's URL, events, or status (enabled or disabled) | manage |
+| `delete_webhook` | Delete a webhook endpoint | manage |
 | `list_webhook_events` | Recent delivery attempts for a webhook with status codes | read |
 | `test_webhook` | Send a test event to a webhook and return the response | manage |
 | `replay_webhook_delivery` | Send a past webhook delivery again | manage |

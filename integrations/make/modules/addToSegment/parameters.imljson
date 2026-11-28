@@ -1,0 +1,4 @@
+[
+  { "name": "segment_id", "type": "select", "label": "Segment", "required": true, "options": "rpc://listSegments" },
+  { "name": "emails", "type": "array", "label": "Emails", "required": true, "spec": { "type": "email", "label": "Email" } }
+]

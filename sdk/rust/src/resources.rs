@@ -157,6 +157,16 @@ impl Webhooks<'_> {
         self.c.request("GET", "/webhooks", None::<&Value>, &[], None).await
     }
 
+    /// Change the endpoint, events or status (enabled, disabled).
+    pub async fn update(&self, id: &str, body: &impl Serialize) -> Result<Value> {
+        self.c.request("PATCH", &format!("/webhooks/{}", enc(id)), Some(body), &[], None).await
+    }
+
+    /// Delete an endpoint.
+    pub async fn delete(&self, id: &str) -> Result<Value> {
+        self.c.request("DELETE", &format!("/webhooks/{}", enc(id)), None::<&Value>, &[], None).await
+    }
+
     /// Recent deliveries with status codes.
     pub async fn deliveries(&self, id: &str) -> Result<Value> {
         self.c.request("GET", &format!("/webhooks/{}/events", enc(id)), None::<&Value>, &[], None).await

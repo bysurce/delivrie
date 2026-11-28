@@ -1,0 +1,9 @@
+[
+  { "name": "type", "type": "text", "label": "Event" },
+  { "name": "created_at", "type": "date", "label": "Time" },
+  { "name": "email_id", "type": "text", "label": "Email ID" },
+  { "name": "from", "type": "text", "label": "From" },
+  { "name": "to", "type": "array", "label": "To" },
+  { "name": "subject", "type": "text", "label": "Subject" },
+  { "name": "thread_id", "type": "text", "label": "Inbox thread ID" }
+]

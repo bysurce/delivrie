@@ -24,7 +24,7 @@ const ROUTES = [
   ["/api-keys", "keys", "apiKeys", "app"], ["/webhooks", "keys", "webhooks", "app"], ["/suppressions", "suppressions", "default", "app"], ["/webhooks/:id", "keys", "webhook", "app"],
   ["/billing", "billing", "default", "app"], ["/billing/:tab", "billing", "default", "app"],
   ["/settings/unsubscribe-page", "settings", "unsubscribeEditor", "full"], ["/settings", "settings", "default", "app"], ["/settings/:tab", "settings", "default", "app"],
-  ["/oauth/authorize", "security", "authorize", "full"], ["/profile", "settings", "profile", "app"], ["/help", "help", "help", "app"],
+  ["/oauth/authorize", "security", "authorize", "full"], ["/integrations/vercel", "integrations", "vercel", "full"], ["/profile", "settings", "profile", "app"], ["/help", "help", "help", "app"],
   ["/admin", "admin", "default", "auth"], ["/admin/:tab", "admin", "default", "auth"],
 ].map(([p, mod, exp, kind]) => {
   const keys = [];

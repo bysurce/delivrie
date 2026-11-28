@@ -1,0 +1,6 @@
+{
+  "url": "/events",
+  "method": "POST",
+  "body": { "name": "{{parameters.name}}", "email": "{{parameters.email}}", "data": "{{toCollection(parameters.data; 'key'; 'value')}}" },
+  "response": { "output": "{{body}}" }
+}

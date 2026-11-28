@@ -1,0 +1,6 @@
+{
+  "url": "/segments/{{parameters.segment_id}}/contacts",
+  "method": "POST",
+  "body": { "contacts": "{{parameters.emails}}" },
+  "response": { "output": "{{body}}" }
+}

@@ -1,0 +1,33 @@
+# Tests the integrations in integrations/ on every change: the Zapier app, the n8n nodes (built against
+# n8n-workflow), the Auth0 action, the Make app definition and the agent plugin manifests.
+name: Integrations
+
+on:
+  push:
+    branches: [main]
+    paths: ["integrations/**", ".claude-plugin/**", ".cursor-plugin/**", ".agents/**", ".github/workflows/integrations.yml"]
+  pull_request:
+    paths: ["integrations/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Zapier app
+        working-directory: integrations/zapier
+        run: npm install --no-audit --no-fund && npm test && node -e "const a=require('./index.js'); if(!a.triggers.email_event||!a.creates.send_email) process.exit(1)"
+      - name: n8n nodes
+        working-directory: integrations/n8n
+        run: npm install --no-audit --no-fund && npm run build && node -e "require('./dist/nodes/Delivrie/Delivrie.node.js'); require('./dist/nodes/Delivrie/DelivrieTrigger.node.js'); require('./dist/credentials/DelivrieApi.credentials.js')"
+      - name: Auth0 action
+        working-directory: integrations/auth0
+        run: node test.mjs
+      - name: JSON files parse (Make app, plugin manifests, marketplaces)
+        run: |
+          for f in $(find integrations .claude-plugin .cursor-plugin .agents -name '*.json' -o -name '*.imljson' | grep -v node_modules); do
+            python3 -m json.tool "$f" > /dev/null || { echo "Invalid JSON: $f"; exit 1; }
+          done

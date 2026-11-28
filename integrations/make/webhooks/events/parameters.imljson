@@ -1,0 +1,8 @@
+[
+  { "name": "events", "type": "select", "label": "Events", "multiple": true, "required": true, "options": [
+    { "label": "Email delivered", "value": "email.delivered" }, { "label": "Email bounced", "value": "email.bounced" }, { "label": "Email marked as spam", "value": "email.complained" },
+    { "label": "Email opened", "value": "email.opened" }, { "label": "Link clicked", "value": "email.clicked" }, { "label": "Email failed", "value": "email.failed" },
+    { "label": "Email received", "value": "email.received" }, { "label": "Contact created", "value": "contact.created" }, { "label": "Contact updated", "value": "contact.updated" },
+    { "label": "Broadcast sent", "value": "broadcast.sent" }, { "label": "Inbox message received", "value": "inbox.email.received" }, { "label": "Inbox agent finished", "value": "inbox.agent.completed" }
+  ] }
+]

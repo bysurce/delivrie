@@ -1,0 +1,14 @@
+{
+  "name": "delivrie",
+  "owner": { "name": "South Circle", "email": "support@delivrie.io" },
+  "metadata": { "description": "Delivrie's plugins: add email to your app and work your Delivrie account from your coding agent." },
+  "plugins": [
+    {
+      "name": "delivrie",
+      "source": "./integrations/agent-plugin",
+      "description": "Add email to your app with Delivrie, and send test emails, verify domains, read logs and edit templates through Delivrie's MCP server.",
+      "category": "development",
+      "homepage": "https://delivrie.io/docs/agent-plugins"
+    }
+  ]
+}

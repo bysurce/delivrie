@@ -113,6 +113,8 @@ const TOOLS: Tool[] = [
   // webhooks
   T("list_webhooks", "List webhooks", "Webhook endpoints and their events.", s({}), RO, (_a, c) => c("GET", "/webhooks", null)),
   T("create_webhook", "Create webhook", "Create a webhook endpoint. Returns the signing secret once.", s({ endpoint: str("https URL"), events: arr("Event types, e.g. email.delivered, email.bounced, email.received") }, ["endpoint", "events"]), WRITE, (a, c) => c("POST", "/webhooks", a)),
+  T("update_webhook", "Update webhook", "Change a webhook endpoint's URL, events, or status (enabled or disabled).", s({ id: str("Webhook id"), endpoint: str("New https:// URL"), events: arr("Events to send"), status: { type: "string", enum: ["enabled", "disabled"] } }, ["id"]), EXTERNAL_EDIT, ({ id, ...a }, c) => c("PATCH", `/webhooks/${enc(id)}`, a)),
+  T("delete_webhook", "Delete webhook", "Delete a webhook endpoint. Events stop going to it straight away.", s({ id: str("Webhook id") }, ["id"]), DESTROY, (a, c) => c("DELETE", `/webhooks/${enc(a.id)}`, {})),
   T("list_webhook_events", "List webhook deliveries", "Recent delivery attempts for a webhook with status codes.", s({ id: str("Webhook id") }, ["id"]), RO, (a, c) => c("GET", `/webhooks/${enc(a.id)}/events`, null)),
   T("test_webhook", "Send test webhook", "Send a test event to a webhook and return the response.", s({ id: str("Webhook id") }, ["id"]), EXTERNAL, (a, c) => c("POST", `/webhooks/${enc(a.id)}/test`, {})),
   T("replay_webhook_delivery", "Replay webhook delivery", "Send a past webhook delivery again.", s({ id: str("Delivery id") }, ["id"]), EXTERNAL, (a, c) => c("POST", `/webhook-deliveries/${enc(a.id)}/replay`, {})),

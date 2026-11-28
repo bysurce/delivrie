@@ -1,0 +1,7 @@
+{
+  "url": "{{if(startsWith(parameters.url; '/'); parameters.url; '/' + parameters.url)}}",
+  "method": "{{parameters.method}}",
+  "qs": "{{toCollection(parameters.qs; 'key'; 'value')}}",
+  "body": "{{if(parameters.body; parseJSON(parameters.body); omit)}}",
+  "response": { "output": { "body": "{{body}}", "statusCode": "{{statusCode}}" } }
+}

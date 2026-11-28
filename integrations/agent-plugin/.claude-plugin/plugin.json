@@ -1,0 +1,22 @@
+{
+  "name": "delivrie",
+  "displayName": "Delivrie",
+  "version": "1.0.0",
+  "description": "Add email to your app with Delivrie, and let your coding agent send test emails, verify domains, read logs and edit templates through Delivrie's MCP server.",
+  "author": {
+    "name": "South Circle",
+    "email": "support@delivrie.io",
+    "url": "https://delivrie.io"
+  },
+  "homepage": "https://delivrie.io/docs/agent-plugins",
+  "repository": "https://github.com/bysurce/delivrie",
+  "license": "MIT",
+  "keywords": [
+    "email",
+    "transactional-email",
+    "mcp",
+    "webhooks",
+    "templates"
+  ],
+  "privacyPolicyUrl": "https://delivrie.io/privacy"
+}

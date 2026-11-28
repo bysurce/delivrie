@@ -1,0 +1,7 @@
+{
+  "url": "https://delivrie.io/api/usage",
+  "method": "GET",
+  "headers": { "Authorization": "Bearer {{parameters.apiKey}}" },
+  "response": { "metadata": { "type": "text", "value": "{{body.plan}} plan" }, "error": { "message": "{{body.message}}" } },
+  "log": { "sanitize": ["request.headers.authorization"] }
+}

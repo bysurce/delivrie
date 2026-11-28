@@ -380,6 +380,27 @@ export function registerMore(route: Route, d: Deps) {
     return { object: "email_share", email_id: p.id, revoked: data?.length || 0 };
   });
 
+  // ------------------------------------------------------------ webhooks (update and delete; Zapier, n8n and Make subscribe and unsubscribe with these)
+  route("PATCH", "/webhooks/:id", async (_r, c, p, _u, b) => {
+    d.needFull(c);
+    if (!isUuid(p.id)) throw notFound("Webhook");
+    const patch: Any = {};
+    if (b?.endpoint !== undefined) { if (!/^https:\/\//.test(String(b.endpoint))) throw bad("endpoint must be an https:// URL"); patch.endpoint = String(b.endpoint); }
+    if (b?.events !== undefined) { if (!Array.isArray(b.events) || !b.events.length) throw bad("Choose at least one event"); patch.events = b.events.map(String); }
+    if (b?.status !== undefined) { if (!["enabled", "disabled"].includes(b.status)) throw bad("status is enabled or disabled"); patch.status = b.status; }
+    if (!Object.keys(patch).length) throw bad("Pass endpoint, events or status");
+    const { data } = await db.from("webhooks").update(patch).eq("team_id", c.teamId).eq("id", p.id).select("id,endpoint,events,status,created_at").maybeSingle();
+    if (!data) throw notFound("Webhook");
+    return { object: "webhook", ...data };
+  });
+  route("DELETE", "/webhooks/:id", async (_r, c, p) => {
+    d.needFull(c);
+    if (!isUuid(p.id)) throw notFound("Webhook");
+    const { data } = await db.from("webhooks").delete().eq("team_id", c.teamId).eq("id", p.id).select("id");
+    if (!data?.length) throw notFound("Webhook");
+    return { object: "webhook", id: p.id, deleted: true };
+  });
+
   // ------------------------------------------------------------ api keys
   route("PATCH", "/api-keys/:id", async (_r, c, p, _u, b) => {
     d.needFull(c);

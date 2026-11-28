@@ -111,6 +111,12 @@ public final class Resources {
     /** Webhook endpoints. */
     public Map<String, Object> list() { return c.request("GET", "/webhooks", null, null, null); }
 
+    /** Change the endpoint, events or status (enabled, disabled). */
+    public Map<String, Object> update(String id, Object body) { return c.request("PATCH", "/webhooks/" + Delivrie.enc(id) + "", body, null, null); }
+
+    /** Delete an endpoint. */
+    public Map<String, Object> delete(String id) { return c.request("DELETE", "/webhooks/" + Delivrie.enc(id) + "", null, null, null); }
+
     /** Recent deliveries with status codes. */
     public Map<String, Object> deliveries(String id) { return c.request("GET", "/webhooks/" + Delivrie.enc(id) + "/events", null, null, null); }
 

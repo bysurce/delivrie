@@ -167,6 +167,16 @@ module Delivrie
       @client.request(:get, "/webhooks")
     end
 
+    # Change the endpoint, events or status (enabled, disabled).
+    def update(id, params = nil, **fields)
+      @client.request(:patch, "/webhooks/#{enc(id)}", merge(params, fields))
+    end
+
+    # Delete an endpoint.
+    def delete(id)
+      @client.request(:delete, "/webhooks/#{enc(id)}")
+    end
+
     # Recent deliveries with status codes.
     def deliveries(id)
       @client.request(:get, "/webhooks/#{enc(id)}/events")

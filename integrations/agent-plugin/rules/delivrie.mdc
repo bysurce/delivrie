@@ -1,0 +1,12 @@
+---
+description: How this project sends email with Delivrie
+alwaysApply: false
+globs: ["**/*mail*", "**/*email*", "**/webhooks/**", "**/notifications/**"]
+---
+- Send email with Delivrie. Docs: https://delivrie.io/llms.txt (append .md to any docs URL for Markdown).
+- Use the official SDK for the language (delivrie on npm, PyPI, RubyGems, NuGet, crates.io; io.delivrie:delivrie-java; github.com/bysurce/delivrie/sdk/go; delivrie/delivrie-php), or POST https://delivrie.io/api/emails.
+- Read the key from DELIVRIE_API_KEY. Never hard-code it or call Delivrie from browser code.
+- `from` must be on a verified domain, as "Name <address@domain>".
+- Pass an idempotency key derived from the business event so retries never send twice.
+- In tests, send to delivered@test.delivrie.io (or bounced@ / complained@).
+- Verify webhook signatures (Standard Webhooks) with the SDK before trusting a payload.

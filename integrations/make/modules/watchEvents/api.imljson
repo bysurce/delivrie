@@ -1,0 +1,1 @@
+{ "output": "{{merge(body.data; {'type': body.type, 'created_at': body.created_at})}}" }

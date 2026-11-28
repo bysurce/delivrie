@@ -1,0 +1,3 @@
+[
+  { "name": "apiKey", "type": "password", "label": "API key", "required": true, "help": "Create one in Delivrie under [API keys](https://delivrie.io/api-keys). Full access is needed for contacts, segments and the Watch Events trigger." }
+]

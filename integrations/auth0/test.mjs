@@ -1,0 +1,25 @@
+// node integrations/auth0/test.mjs
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const action = require("./custom-email-provider.js");
+const calls = [];
+const respond = [];
+globalThis.fetch = async (url, init) => { calls.push({ url, init }); const r = respond.shift() || { status: 200, body: { id: "e1" } }; return { ok: r.status < 300, status: r.status, json: async () => r.body }; };
+const event = { secrets: { DELIVRIE_API_KEY: "dlv_x", DELIVRIE_FROM: "Acme <auth@acme.com>" }, request: { id: "r1" }, notification: { to: "ada@example.com", from: "no-reply@auth0user.net", subject: "Verify your email", html: "<p>Hi</p>", text: "Hi", message_type: "verify_email", locale: "en" } };
+const log = [];
+const api = { notification: { drop: (r) => log.push(["drop", r]), retry: (r) => log.push(["retry", r]) } };
+await action.onExecuteCustomEmailProvider(event, api);
+const b = JSON.parse(calls[0].init.body);
+assert.equal(calls[0].url, "https://delivrie.io/api/emails");
+assert.equal(calls[0].init.headers.Authorization, "Bearer dlv_x");
+assert.equal(b.from, "Acme <auth@acme.com>");
+assert.equal(b.to, "ada@example.com");
+assert.deepEqual(b.tags[1], { name: "auth0_type", value: "verify_email" });
+assert.equal(log.length, 0);
+respond.push({ status: 422, body: { name: "validation_error", message: "bad" } });
+await action.onExecuteCustomEmailProvider(event, api);
+respond.push({ status: 503, body: {} });
+await action.onExecuteCustomEmailProvider(event, api);
+assert.deepEqual(log.map((x) => x[0]), ["drop", "retry"]);
+console.log("auth0 action: ok");

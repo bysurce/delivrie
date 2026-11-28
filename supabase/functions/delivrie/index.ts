@@ -14,6 +14,7 @@ import { initAgent } from "./agent.ts";
 import { registerDedicated } from "./dedicated.ts";
 import { broadcastPayload, registerMore } from "./more.ts";
 import { registerWriter } from "./writer.ts";
+import { registerVercel } from "./vercel.ts";
 import { loadAttachments, purgeAttachments } from "./attachments.ts";
 import { notify, registerSupport, sendBrand, supportCron, supportPublic } from "./support.ts";
 import * as Mail from "../_shared/emails.ts";
@@ -767,6 +768,7 @@ const list = (data: unknown[], extra: Any = {}) => ({ object: "list", data, ...e
 // inboxes and the Inbox, then automations, events, usage, received mail (registered first so /emails/received wins over /emails/:id)
 registerMore(route, { needFull, upsertContacts, recipientsFor });
 registerWriter(route, { needFull });
+registerVercel(route);
 registerInbox(route, { needFull, sendEmails });
 registerDedicated(route, { needFull });
 registerExtra(route, { needFull, sendEmails });

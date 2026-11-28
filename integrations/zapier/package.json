@@ -1,0 +1,17 @@
+{
+  "name": "delivrie-zapier",
+  "version": "1.0.0",
+  "description": "Delivrie on Zapier: send email, sync contacts and start automations from 7,000+ apps, and trigger Zaps from delivery events, received mail and broadcasts.",
+  "main": "index.js",
+  "type": "commonjs",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "zapier-platform-core": "15.19.0"
+  },
+  "homepage": "https://delivrie.io/docs/zapier",
+  "license": "MIT"
+}

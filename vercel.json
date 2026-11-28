@@ -29,7 +29,7 @@
       "destination": "/docs-static/api/:slug.html"
     },
     {
-      "source": "/docs/:slug(ai-writing|api-keys|audit-logs|automations|broadcasts|build-with-ai|cli|cloudflare-workers|contacts|cors|dedicated-ips|deliverability|dmarc|domain-not-verifying|domains|dotnet|email-status|errors|express|getting-started|go|idempotency|inbox|java|limits|mcp|migrate-from-resend|nextjs|php|python|quickstart|receiving|ruby|rust|sdks|send-email|smtp|supabase|suppressions|templates|test-mode|troubleshooting|webhooks)",
+      "source": "/docs/:slug(agent-plugins|ai-writing|api-keys|audit-logs|auth0|automations|broadcasts|build-with-ai|cli|cloudflare-workers|contacts|cors|dedicated-ips|deliverability|dmarc|domain-not-verifying|domains|dotnet|email-status|errors|express|getting-started|go|idempotency|inbox|java|limits|make|mcp|migrate-from-resend|n8n|nextjs|php|python|quickstart|receiving|ruby|rust|sdks|send-email|smtp|supabase|suppressions|templates|test-mode|troubleshooting|vercel|webhooks|zapier)",
       "destination": "/docs-static/:slug.html"
     },
     {
@@ -89,7 +89,7 @@
       "destination": "/app.html"
     },
     {
-      "source": "/(inbox|automations|events|docs|reset|invite|share|emails|broadcasts|templates|contacts|segments|logs|domains|webhooks|billing|settings|admin|oauth)/:rest*",
+      "source": "/(inbox|automations|events|docs|reset|invite|share|emails|broadcasts|templates|contacts|segments|logs|domains|webhooks|billing|settings|admin|oauth|integrations)/:rest*",
       "destination": "/app.html"
     }
   ],

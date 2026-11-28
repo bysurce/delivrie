@@ -93,6 +93,8 @@ const TOOLS = [
   ["list_events","Without a name: every event your app has sent, with its fields","read"],
   ["list_webhooks","Webhook endpoints and their events","read"],
   ["create_webhook","Create a webhook endpoint","manage"],
+  ["update_webhook","Change a webhook endpoint's URL, events, or status (enabled or disabled)","manage"],
+  ["delete_webhook","Delete a webhook endpoint","manage"],
   ["list_webhook_events","Recent delivery attempts for a webhook with status codes","read"],
   ["test_webhook","Send a test event to a webhook and return the response","manage"],
   ["replay_webhook_delivery","Send a past webhook delivery again","manage"],
@@ -125,6 +127,10 @@ const TOOLS = [
   ["create_api_key","Create an API key","manage"],
 ];
 const CHANGELOG = [
+  { date: "Nov 28, 2026", title: "AI writing and live agent edits in the email editor", items: ["Write an email from a web page or a brief in your brand voice, rewrite one block or several, and get subject line ideas: choose AI in the broadcast and template editors.", "Settings → Brand voice describes how your company writes, or suggests it from your website.", "Agents connected to the MCP server can edit an email while you have it open, with get_email_content and edit_email_content; their changes appear in the editor and can be undone."] },
+  { date: "Nov 28, 2026", title: "Ruby, Java, .NET and Rust SDKs", items: ["Official SDKs for Ruby (gem delivrie), Java (io.delivrie:delivrie-java), .NET (NuGet Delivrie) and Rust (crate delivrie), covering every endpoint, with retries, idempotency keys and webhook verification."] },
+  { date: "Nov 28, 2026", title: "Zapier, n8n, Make, Auth0, Vercel and agent plugins", items: ["A Delivrie app for Zapier, community nodes for n8n and a Make app, each with instant triggers on Delivrie events.", "Send Auth0's emails through Delivrie with a custom email provider Action, and set DELIVRIE_API_KEY on Vercel projects from the Vercel integration.", "A plugin for Claude Code, Cursor and Codex with Delivrie's MCP server and skills for adding email to an app."] },
+  { date: "Nov 28, 2026", title: "More API, and webhooks for broadcasts and the Inbox", items: ["Duplicate and update broadcasts, automations and templates; rename and list segment members; list a broadcast's recipients and clicked links; import contacts from CSV; download attachments of sent and received email; share links; rename API keys; update and delete webhooks.", "Attachments can be sent by URL with path.", "New webhook events: broadcast.created, updated, scheduled, canceled, sending, sent and deleted; inbox.email.sent, inbox.draft.sent and discarded, inbox.note.created, inbox.agent.failed; contact.import.completed."] },
   { date: "Nov 27, 2026", title: "Prices in US dollars for everyone", items: ["Every plan, top-up and overage is now priced and paid in US dollars by card through Stripe, wherever you are."] },
   { date: "Nov 23, 2026", title: "Audit logs", items: ["Enterprise teams can see who changed what in Settings -> Audit log: sign-ins, members and roles, invites, API keys, domains, webhooks, single sign-on, connected apps, billing and published content.", "Entries can't be edited or deleted and can be exported as CSV. Also available as GET /audit-logs.", "Activity is recorded for every team, so the full history is there on upgrade."] },
   { date: "Nov 23, 2026", title: "Starter daily limit", items: ["The Starter plan now has a daily limit of 1,500 emails (20,000 a month is unchanged). Sends past it return 429 daily_quota_exceeded until midnight UTC.", "Pro and Scale keep no daily limit."] },
